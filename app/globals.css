@@ -92,14 +92,17 @@ h1, h2, h3, h4, h5, h6, .font-serif {
     margin: 8mm;
   }
 
-  body {
-    background: #ffffff !important;
-    color: #000000 !important;
+  * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Hide all app chrome and screen elements during print */
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Hide all app chrome, screens, and modals overlay during print */
   header,
   nav,
   aside,
