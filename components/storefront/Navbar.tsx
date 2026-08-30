@@ -7,6 +7,7 @@ import { Search, User, Heart, ShoppingBag, Menu, X, ShieldAlert, LogOut, Package
 import BrandLogo from '@/components/common/BrandLogo';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { useIsMounted } from '@/hooks/useIsMounted';
 import CartDrawer from './CartDrawer';
 import AuthModal from './AuthModal';
 
@@ -15,6 +16,7 @@ export default function Navbar() {
   const router = useRouter();
   const { itemCount, setIsCartOpen, wishlist } = useCart();
   const { user, isAdmin, logout } = useAuth();
+  const mounted = useIsMounted();
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -129,44 +131,46 @@ export default function Navbar() {
               {/* Wishlist Link */}
               <Link
                 href="/wishlist"
-                className="p-2 text-[#1F1F1F] hover:text-[#B67355] transition-colors relative"
+                className="p-2 text-[#1F1F1F] hover:text-[#B67355] transition-colors relative hidden sm:flex items-center"
                 aria-label="Wishlist"
               >
                 <Heart className="w-5 h-5" />
-                {wishlist.length > 0 && (
-                  <span className="absolute top-1 right-1 bg-[#B67355] text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold font-sans">
+                {mounted && wishlist.length > 0 && (
+                  <span className="absolute top-1 right-1 bg-[#B67355] text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold font-sans">
                     {wishlist.length}
                   </span>
                 )}
               </Link>
 
-              {/* Account Dropdown */}
+              {/* User Account Menu / Auth Trigger */}
               <div className="relative">
-                <button
-                  onClick={() => {
-                    if (!user) {
-                      setAuthModalOpen(true);
-                    } else {
-                      setUserDropdownOpen(!userDropdownOpen);
-                    }
-                  }}
-                  className="p-2 text-[#1F1F1F] hover:text-[#B67355] transition-colors flex items-center gap-1.5"
-                  aria-label="Account"
-                >
-                  <User className="w-5 h-5" />
-                  {user && (
-                    <span className="hidden md:inline text-xs font-medium tracking-wider text-[#1F1F1F] truncate max-w-[80px]">
-                      {user.displayName?.split(' ')[0] || 'Account'}
-                    </span>
-                  )}
-                </button>
-
-                {/* Dropdown Menu */}
-                {user && userDropdownOpen && (
-                  <div
-                    className="absolute right-0 mt-2 w-56 bg-white border border-[#E8E2D8] shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2"
-                    onMouseLeave={() => setUserDropdownOpen(false)}
+                {mounted && user ? (
+                  <button
+                    onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                    className="p-2 text-[#1F1F1F] hover:text-[#B67355] transition-colors flex items-center gap-1.5"
+                    aria-label="Account Menu"
                   >
+                    <User className="w-5 h-5" />
+                    <span className="text-xs font-sans max-w-[80px] truncate hidden md:inline">
+                      {user.displayName?.split(' ')[0] || 'Client'}
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setAuthModalOpen(true)}
+                    className="p-2 text-[#1F1F1F] hover:text-[#B67355] transition-colors flex items-center gap-1"
+                    aria-label="Sign In"
+                  >
+                    <User className="w-5 h-5" />
+                    <span className="text-xs font-sans uppercase tracking-wider hidden md:inline">
+                      Sign In
+                    </span>
+                  </button>
+                )}
+
+                {/* Authenticated Dropdown Menu */}
+                {mounted && user && userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-[#E8E2D8] shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                     <div className="px-4 py-2.5 border-b border-[#E8E2D8]/60 bg-[#F6F3EE]/50">
                       <p className="text-xs font-semibold text-[#1F1F1F] truncate">
                         {user.displayName || 'Boutique Client'}
@@ -215,7 +219,7 @@ export default function Navbar() {
                 aria-label="Shopping Bag"
               >
                 <ShoppingBag className="w-5 h-5" />
-                {itemCount > 0 && (
+                {mounted && itemCount > 0 && (
                   <span className="absolute top-1 right-1 bg-[#1F1F1F] text-[#DCC9A6] text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold font-sans">
                     {itemCount}
                   </span>

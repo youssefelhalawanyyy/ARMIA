@@ -26,12 +26,14 @@ import {
   DEFAULT_SHIPPING_SETTINGS,
 } from '@/lib/shippingService';
 import { CustomerDetails, Order, ShippingSettings } from '@/types';
+import { useIsMounted } from '@/hooks/useIsMounted';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, subtotal, clearCart } = useCart();
   const { user, loginWithGoogle, loginWithEmail, signupWithEmail } = useAuth();
   const { success, error } = useToast();
+  const mounted = useIsMounted();
 
   const [shippingSettings, setShippingSettings] = useState<ShippingSettings>(DEFAULT_SHIPPING_SETTINGS);
 
@@ -190,6 +192,21 @@ export default function CheckoutPage() {
       setPlacingOrder(false);
     }
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#F6F3EE]">
+        <Navbar />
+        <div className="max-w-md mx-auto my-28 p-8 text-center flex-grow">
+          <div className="w-10 h-10 border-2 border-[#B67355] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-xs font-sans tracking-widest text-[#8E8A85] uppercase">
+            Loading Checkout...
+          </p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
