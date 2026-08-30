@@ -1,8 +1,13 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { CartItem } from '@/types';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { CartItem, ShippingSettings } from '@/types';
 import { useToast } from './ToastContext';
+import {
+  getShippingSettings,
+  calculateDeliveryFee,
+  DEFAULT_SHIPPING_SETTINGS,
+} from '@/lib/shippingService';
 
 interface CartContextType {
   items: CartItem[];
@@ -10,6 +15,10 @@ interface CartContextType {
   subtotal: number;
   shippingFee: number;
   totalAmount: number;
+  selectedGovernorate: string;
+  setSelectedGovernorate: (gov: string) => void;
+  shippingSettings: ShippingSettings;
+  refreshShippingSettings: () => Promise<void>;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
   addToCart: (item: CartItem, openDrawer?: boolean) => void;
@@ -25,8 +34,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const CART_STORAGE_KEY = 'armia_cart_v1';
 const WISHLIST_STORAGE_KEY = 'armia_wishlist_v1';
-const SHIPPING_RATE = 50; // 50 EGP standard delivery in Egypt
-const FREE_SHIPPING_THRESHOLD = 1500; // Free delivery above 1500 EGP
+const GOV_STORAGE_KEY = 'armia_selected_gov_v1';
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => {
@@ -55,8 +63,58 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return [];
   });
 
+  const [selectedGovernorate, setSelectedGovernorateState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(GOV_STORAGE_KEY) || 'Cairo (القاهرة)';
+    }
+    return 'Cairo (القاهرة)';
+  });
+
+  const [shippingSettings, setShippingSettings] = useState<ShippingSettings>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('armia_shipping_settings_cache_v1');
+        return cached ? JSON.parse(cached) : DEFAULT_SHIPPING_SETTINGS;
+      } catch {
+        return DEFAULT_SHIPPING_SETTINGS;
+      }
+    }
+    return DEFAULT_SHIPPING_SETTINGS;
+  });
+
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { success, info } = useToast();
+
+  const refreshShippingSettings = useCallback(async () => {
+    try {
+      const data = await getShippingSettings();
+      setShippingSettings(data);
+    } catch (err) {
+      console.warn('Shipping settings fetch notice:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    getShippingSettings()
+      .then((data) => {
+        if (isMounted) {
+          setShippingSettings(data);
+        }
+      })
+      .catch((err) => console.warn('Shipping fetch notice:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const setSelectedGovernorate = (gov: string) => {
+    setSelectedGovernorateState(gov);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(GOV_STORAGE_KEY, gov);
+    }
+  };
 
   // Save to localStorage when state changes
   useEffect(() => {
@@ -136,12 +194,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = () => {
     setItems([]);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(CART_STORAGE_KEY);
+    }
   };
 
   const toggleWishlist = (productId: string) => {
     setWishlist((prev) => {
-      const exists = prev.includes(productId);
-      if (exists) {
+      if (prev.includes(productId)) {
         info('Removed from saved wishlist');
         return prev.filter((id) => id !== productId);
       } else {
@@ -155,7 +215,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shippingFee = subtotal === 0 || subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_RATE;
+  
+  // Dynamic calculation based on live admin settings and selected city
+  const shippingFee = items.length === 0 ? 0 : calculateDeliveryFee(selectedGovernorate, subtotal, shippingSettings);
   const totalAmount = subtotal + shippingFee;
 
   return (
@@ -166,6 +228,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         subtotal,
         shippingFee,
         totalAmount,
+        selectedGovernorate,
+        setSelectedGovernorate,
+        shippingSettings,
+        refreshShippingSettings,
         isCartOpen,
         setIsCartOpen,
         addToCart,

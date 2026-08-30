@@ -110,14 +110,25 @@ export function calculateDeliveryFee(
     return 0; // Free delivery above threshold
   }
 
-  const cleanName = governorateName.toLowerCase();
-  const matchedZone = settings.zones.find(
-    (z) =>
-      z.isActive &&
-      (cleanName.includes(z.governorate.toLowerCase()) ||
-        cleanName.includes(z.governorateArabic) ||
-        cleanName.includes(z.id))
-  );
+  if (!governorateName) return settings.defaultRate;
+
+  const cleanName = governorateName.toLowerCase().trim();
+
+  // 1. Direct or bidirectional match across English, Arabic, and ID
+  const matchedZone = settings.zones.find((z) => {
+    if (!z.isActive) return false;
+    const govEng = z.governorate.toLowerCase().trim();
+    const govAr = z.governorateArabic.toLowerCase().trim();
+    const zoneId = z.id.toLowerCase().trim();
+
+    return (
+      cleanName.includes(govEng) ||
+      govEng.includes(cleanName) ||
+      cleanName.includes(govAr) ||
+      govAr.includes(cleanName) ||
+      cleanName.includes(zoneId)
+    );
+  });
 
   if (matchedZone) {
     return matchedZone.rate;
