@@ -5,6 +5,8 @@ import { ToastProvider } from "@/context/ToastContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { PWAProvider } from "@/context/PWAContext";
+import StorefrontMobileTabBar from "@/components/storefront/StorefrontMobileTabBar";
+import StorefrontPWAInstallModal from "@/components/storefront/StorefrontPWAInstallModal";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -43,7 +45,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1F1F1F",
+  themeColor: "#141414",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -63,7 +65,13 @@ export default function RootLayout({
         <PWAProvider>
           <ToastProvider>
             <AuthProvider>
-              <CartProvider>{children}</CartProvider>
+              <CartProvider>
+                {children}
+                {/* Client Storefront Mobile Bottom Tab Bar */}
+                <StorefrontMobileTabBar />
+                {/* Client Storefront PWA Install Modal & Floating Banner */}
+                <StorefrontPWAInstallModal />
+              </CartProvider>
             </AuthProvider>
           </ToastProvider>
         </PWAProvider>

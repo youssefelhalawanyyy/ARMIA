@@ -2,12 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Mail, Phone, MapPin, ShieldCheck } from 'lucide-react';
+import { Mail, Phone, MapPin, ShieldCheck, Smartphone } from 'lucide-react';
 import BrandLogo from '@/components/common/BrandLogo';
+import { usePWA } from '@/context/PWAContext';
 
 export default function Footer() {
+  const { promptInstall, isInstalled } = usePWA();
+
   return (
-    <footer className="bg-[#1F1F1F] text-[#F6F3EE] border-t border-[#333333] pt-16 pb-10">
+    <footer className="bg-[#1F1F1F] text-[#F6F3EE] border-t border-[#333333] pt-16 pb-24 lg:pb-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 mb-14">
           {/* Brand Column */}
@@ -17,6 +20,20 @@ export default function Footer() {
               ARMIA Boutique is dedicated to creating timeless, elegant, and versatile feminine
               fashion. Carefully selected fabrics and tailored silhouettes designed to elevate your everyday style.
             </p>
+            
+            {/* Install PWA Button */}
+            {!isInstalled && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={promptInstall}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-[#141414] border border-[#DCC9A6]/50 text-[#DCC9A6] text-xs font-sans font-bold uppercase tracking-wider rounded hover:bg-[#DCC9A6] hover:text-[#1F1F1F] transition-all"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Install Mobile App (PWA)</span>
+                </button>
+              </div>
+            )}
             <div className="flex items-center gap-3 pt-2">
               <a
                 href="https://instagram.com"

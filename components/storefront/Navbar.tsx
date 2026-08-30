@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, User, Heart, ShoppingBag, Menu, X, ShieldAlert, LogOut, Package } from 'lucide-react';
+import { Search, User, Heart, ShoppingBag, Menu, X, ShieldAlert, LogOut, Package, Smartphone } from 'lucide-react';
 import BrandLogo from '@/components/common/BrandLogo';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { usePWA } from '@/context/PWAContext';
 import { useIsMounted } from '@/hooks/useIsMounted';
 import CartDrawer from './CartDrawer';
 import AuthModal from './AuthModal';
@@ -16,6 +17,7 @@ export default function Navbar() {
   const router = useRouter();
   const { itemCount, setIsCartOpen, wishlist } = useCart();
   const { user, isAdmin, logout } = useAuth();
+  const { promptInstall, isInstalled } = usePWA();
   const mounted = useIsMounted();
 
   const [isScrolled, setIsScrolled] = useState(false);
@@ -308,6 +310,25 @@ export default function Navbar() {
                 >
                   <User className="w-4 h-4 text-[#B67355]" />
                   Sign In / Register
+                </button>
+              )}
+
+              {!isInstalled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    promptInstall();
+                  }}
+                  className="w-full text-left text-sm tracking-[0.18em] uppercase py-2 font-semibold text-[#DCC9A6] bg-[#141414] px-3 my-1 border border-[#333333] flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-[#DCC9A6]" />
+                    <span>Install Mobile App</span>
+                  </span>
+                  <span className="text-[10px] bg-[#B67355] text-white px-1.5 py-0.5 rounded font-mono">
+                    PWA
+                  </span>
                 </button>
               )}
 

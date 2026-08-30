@@ -1,40 +1,62 @@
 {
-  "name": "ARMIA Boutique & Admin",
+  "name": "ARMIA BOUTIQUE | Luxury Fashion",
   "short_name": "ARMIA",
-  "description": "ARMIA Boutique - Luxury Women's Fashion & Management Portal",
-  "start_url": "/",
+  "description": "Curated Luxury Egyptian Women's Fashion, Dresses, Linen Sets & Accessories.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#F6F3EE",
-  "theme_color": "#1F1F1F",
+  "theme_color": "#141414",
   "orientation": "portrait-primary",
+  "categories": ["shopping", "lifestyle", "fashion"],
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512x512.png",
+      "src": "/icons/icon-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
   "shortcuts": [
     {
-      "name": "Admin Dashboard",
-      "short_name": "Admin",
-      "description": "Open ARMIA Boutique Admin Portal",
-      "url": "/admin",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
-    },
-    {
       "name": "New Arrivals",
       "short_name": "New In",
-      "description": "Browse newest collection",
+      "description": "Browse the latest seasonal boutique collection",
       "url": "/collections/new-in",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192x192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Luxury Dresses",
+      "short_name": "Dresses",
+      "description": "Explore pleated, evening, and maxi dresses",
+      "url": "/collections/dresses",
+      "icons": [{ "src": "/icons/icon-192x192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Wishlist",
+      "short_name": "Wishlist",
+      "description": "View your saved favorite pieces",
+      "url": "/wishlist",
+      "icons": [{ "src": "/icons/icon-192x192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Orders & Profile",
+      "short_name": "Account",
+      "description": "Track your Egyptian Cash on Delivery orders",
+      "url": "/account",
+      "icons": [{ "src": "/icons/icon-192x192.svg", "sizes": "192x192" }]
     }
   ]
 }

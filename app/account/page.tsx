@@ -10,17 +10,20 @@ import {
   User,
   ShieldAlert,
   ExternalLink,
+  Smartphone,
 } from 'lucide-react';
 import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import AuthModal from '@/components/storefront/AuthModal';
 import { useAuth } from '@/context/AuthContext';
+import { usePWA } from '@/context/PWAContext';
 import { getCustomerOrders } from '@/lib/productService';
 import { Order, OrderStatus } from '@/types';
 
 export default function AccountPage() {
   const router = useRouter();
   const { user, loading: authLoading, isAdmin, logout } = useAuth();
+  const { promptInstall, isInstalled } = usePWA();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
@@ -149,6 +152,17 @@ export default function AccountPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {!isInstalled && (
+                <button
+                  type="button"
+                  onClick={promptInstall}
+                  className="inline-flex items-center gap-2 bg-[#141414] border border-[#DCC9A6] text-[#DCC9A6] px-4 py-2.5 text-xs uppercase tracking-wider font-sans font-bold hover:bg-[#DCC9A6] hover:text-[#1F1F1F] transition-all"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span>Install App</span>
+                </button>
+              )}
+
               {isAdmin && (
                 <Link
                   href="/admin"
