@@ -121,6 +121,13 @@ export async function deleteProduct(productId: string): Promise<void> {
 }
 
 /**
+ * Helper to generate unique order number
+ */
+export function generateOrderId(): string {
+  return `ARM-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+/**
  * Create a new Customer Order (Cash on Delivery)
  */
 export async function createOrderInFirestore(orderData: Omit<Order, 'id'>): Promise<string> {

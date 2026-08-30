@@ -1,24 +1,37 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { CartItem, ShippingSettings } from '@/types';
+import { CartItem, ShippingSettings, Discount } from '@/types';
 import { useToast } from './ToastContext';
 import {
   getShippingSettings,
   calculateDeliveryFee,
   DEFAULT_SHIPPING_SETTINGS,
 } from '@/lib/shippingService';
+import {
+  getDiscounts,
+  evaluateDiscounts,
+  DEFAULT_DISCOUNTS,
+} from '@/lib/discountService';
 
 interface CartContextType {
   items: CartItem[];
   itemCount: number;
   subtotal: number;
+  discountAmount: number;
+  appliedDiscount: Discount | null;
+  discountMessage: string;
+  couponCode: string;
+  applyCoupon: (code: string) => { success: boolean; message: string };
+  removeCoupon: () => void;
   shippingFee: number;
   totalAmount: number;
   selectedGovernorate: string;
   setSelectedGovernorate: (gov: string) => void;
   shippingSettings: ShippingSettings;
   refreshShippingSettings: () => Promise<void>;
+  discounts: Discount[];
+  refreshDiscounts: () => Promise<void>;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
   addToCart: (item: CartItem, openDrawer?: boolean) => void;
@@ -35,6 +48,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 const CART_STORAGE_KEY = 'armia_cart_v1';
 const WISHLIST_STORAGE_KEY = 'armia_wishlist_v1';
 const GOV_STORAGE_KEY = 'armia_selected_gov_v1';
+const COUPON_STORAGE_KEY = 'armia_coupon_v1';
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => {
@@ -70,6 +84,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return 'Cairo (القاهرة)';
   });
 
+  const [couponCode, setCouponCodeState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(COUPON_STORAGE_KEY) || '';
+    }
+    return '';
+  });
+
   const [shippingSettings, setShippingSettings] = useState<ShippingSettings>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -82,8 +103,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return DEFAULT_SHIPPING_SETTINGS;
   });
 
+  const [discounts, setDiscounts] = useState<Discount[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('armia_discounts_cache_v1');
+        return cached ? JSON.parse(cached) : DEFAULT_DISCOUNTS;
+      } catch {
+        return DEFAULT_DISCOUNTS;
+      }
+    }
+    return DEFAULT_DISCOUNTS;
+  });
+
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const { success, info } = useToast();
+  const { success, info, error } = useToast();
 
   const refreshShippingSettings = useCallback(async () => {
     try {
@@ -94,15 +127,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const refreshDiscounts = useCallback(async () => {
+    try {
+      const data = await getDiscounts();
+      setDiscounts(data);
+    } catch (err) {
+      console.warn('Discounts fetch notice:', err);
+    }
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
-    getShippingSettings()
-      .then((data) => {
+    Promise.all([getShippingSettings(), getDiscounts()])
+      .then(([shipData, discData]) => {
         if (isMounted) {
-          setShippingSettings(data);
+          if (shipData) setShippingSettings(shipData);
+          if (discData) setDiscounts(discData);
         }
       })
-      .catch((err) => console.warn('Shipping fetch notice:', err));
+      .catch((err) => console.warn('Sync load notice:', err));
 
     return () => {
       isMounted = false;
@@ -114,6 +157,39 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       localStorage.setItem(GOV_STORAGE_KEY, gov);
     }
+  };
+
+  const applyCoupon = (code: string): { success: boolean; message: string } => {
+    const clean = code.trim().toUpperCase();
+    if (!clean) {
+      removeCoupon();
+      return { success: false, message: 'Please enter a coupon code' };
+    }
+
+    const matched = discounts.find(
+      (d) => d.isActive && d.trigger === 'coupon' && d.code?.toUpperCase() === clean
+    );
+
+    if (!matched) {
+      error(`Coupon code '${clean}' is invalid or expired.`, 'Invalid Code');
+      return { success: false, message: 'Invalid or expired coupon code' };
+    }
+
+    setCouponCodeState(clean);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(COUPON_STORAGE_KEY, clean);
+    }
+
+    success(`Promo code '${clean}' applied successfully!`, 'Voucher Activated');
+    return { success: true, message: `Promo code '${clean}' applied` };
+  };
+
+  const removeCoupon = () => {
+    setCouponCodeState('');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(COUPON_STORAGE_KEY);
+    }
+    info('Coupon code removed');
   };
 
   // Save to localStorage when state changes
@@ -215,10 +291,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  // AUTOMATIC & COUPON DISCOUNT EVALUATION
+  const discountEval = evaluateDiscounts({
+    subtotal,
+    items,
+    couponCode,
+    discounts,
+  });
+
+  const discountAmount = discountEval.discountAmount;
+  const appliedDiscount = discountEval.appliedDiscount;
+  const discountMessage = discountEval.message;
+
+  // Dynamic shipping calculation based on live admin settings, free shipping coupon, and threshold
+  const isFreeShipping = discountEval.freeShipping || (subtotal >= shippingSettings.freeShippingThreshold && shippingSettings.freeShippingThreshold > 0);
+  const shippingFee = items.length === 0 ? 0 : isFreeShipping ? 0 : calculateDeliveryFee(selectedGovernorate, subtotal, shippingSettings);
   
-  // Dynamic calculation based on live admin settings and selected city
-  const shippingFee = items.length === 0 ? 0 : calculateDeliveryFee(selectedGovernorate, subtotal, shippingSettings);
-  const totalAmount = subtotal + shippingFee;
+  const totalAmount = Math.max(0, subtotal - discountAmount) + shippingFee;
 
   return (
     <CartContext.Provider
@@ -226,12 +316,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         items,
         itemCount,
         subtotal,
+        discountAmount,
+        appliedDiscount,
+        discountMessage,
+        couponCode,
+        applyCoupon,
+        removeCoupon,
         shippingFee,
         totalAmount,
         selectedGovernorate,
         setSelectedGovernorate,
         shippingSettings,
         refreshShippingSettings,
+        discounts,
+        refreshDiscounts,
         isCartOpen,
         setIsCartOpen,
         addToCart,

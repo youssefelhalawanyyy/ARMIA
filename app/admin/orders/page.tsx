@@ -235,6 +235,11 @@ export default function AdminOrdersPage() {
                       <span className="font-serif text-sm font-bold text-[#DCC9A6]">
                         EGP {ord.totalAmount?.toFixed(2)}
                       </span>
+                      {ord.discountAmount && ord.discountAmount > 0 && (
+                        <span className="block text-[10px] text-emerald-400 font-mono">
+                          -EGP {ord.discountAmount.toFixed(2)} discount
+                        </span>
+                      )}
                       <span className="block text-[9px] uppercase tracking-wider text-[#8E8A85]">
                         Cash on Delivery
                       </span>

@@ -13,13 +13,16 @@ import {
   UserCheck,
   ShoppingBag,
   ArrowLeft,
+  Sparkles,
+  Ticket,
+  X,
 } from 'lucide-react';
 import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { createOrderInFirestore } from '@/lib/productService';
+import { createOrderInFirestore, generateOrderId } from '@/lib/productService';
 import {
   getShippingSettings,
   calculateDeliveryFee,
@@ -30,12 +33,24 @@ import { useIsMounted } from '@/hooks/useIsMounted';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, subtotal, clearCart } = useCart();
+  const {
+    items,
+    subtotal,
+    discountAmount,
+    appliedDiscount,
+    couponCode,
+    applyCoupon,
+    removeCoupon,
+    clearCart,
+  } = useCart();
+
   const { user, loginWithGoogle, loginWithEmail, signupWithEmail } = useAuth();
   const { success, error } = useToast();
   const mounted = useIsMounted();
 
   const [shippingSettings, setShippingSettings] = useState<ShippingSettings>(DEFAULT_SHIPPING_SETTINGS);
+  const [couponInput, setCouponInput] = useState('');
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   // Load live dynamic shipping rates configured by admin
   useEffect(() => {
@@ -76,9 +91,23 @@ export default function CheckoutPage() {
   const effectiveFullName = formData.fullName || user?.displayName || '';
   const effectiveEmail = formData.email || user?.email || '';
 
-  // Dynamic shipping calculation based on selected governorate and admin rates
-  const dynamicShippingFee = calculateDeliveryFee(formData.governorate, subtotal, shippingSettings);
-  const dynamicTotalAmount = subtotal + dynamicShippingFee;
+  // Dynamic shipping calculation with free shipping threshold & coupons
+  const isFreeDelivery = subtotal >= shippingSettings.freeShippingThreshold && shippingSettings.freeShippingThreshold > 0;
+  const dynamicShippingFee = isFreeDelivery ? 0 : calculateDeliveryFee(formData.governorate, subtotal, shippingSettings);
+  
+  // Total Due calculation (Subtotal - Discount + Shipping)
+  const dynamicTotalAmount = Math.max(0, subtotal - discountAmount) + dynamicShippingFee;
+
+  const handleCouponSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!couponInput.trim()) return;
+    setApplyingCoupon(true);
+    const res = applyCoupon(couponInput);
+    if (res.success) {
+      setCouponInput('');
+    }
+    setApplyingCoupon(false);
+  };
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +181,7 @@ export default function CheckoutPage() {
     setPlacingOrder(true);
 
     try {
-      const generatedOrderId = `ARM-${Math.floor(100000 + Math.random() * 900000)}`;
+      const generatedOrderId = generateOrderId();
 
       const orderPayload: Omit<Order, 'id'> = {
         orderId: generatedOrderId,
@@ -165,6 +194,9 @@ export default function CheckoutPage() {
         },
         items,
         subtotal,
+        discountAmount: discountAmount > 0 ? discountAmount : undefined,
+        discountCode: appliedDiscount?.code || (discountAmount > 0 ? 'AUTO_PROMO' : undefined),
+        discountTitle: appliedDiscount?.title,
         shippingFee: dynamicShippingFee,
         totalAmount: dynamicTotalAmount,
         paymentMethod: 'COD',
@@ -176,8 +208,8 @@ export default function CheckoutPage() {
 
       // Trigger Confetti Celebration
       confetti({
-        particleCount: 90,
-        spread: 70,
+        particleCount: 100,
+        spread: 75,
         origin: { y: 0.6 },
         colors: ['#DCC9A6', '#B67355', '#1F1F1F'],
       });
@@ -484,7 +516,7 @@ export default function CheckoutPage() {
                         Governorate / City *
                       </label>
                       <span className="text-[11px] text-[#B67355] font-semibold">
-                        Delivery Rate: {dynamicShippingFee === 0 ? 'FREE' : `EGP ${dynamicShippingFee}`}
+                        Delivery Rate: {dynamicShippingFee === 0 ? 'FREE' : `EGP ${dynamicShippingFee.toFixed(2)}`}
                       </span>
                     </div>
                     <select
@@ -571,13 +603,13 @@ export default function CheckoutPage() {
 
             {/* Right Column: Order Summary & Place Order (5 Cols) */}
             <div className="lg:col-span-5 space-y-6">
-              <div className="bg-white border border-[#E8E2D8] p-6 shadow-sm sticky top-28">
-                <h3 className="font-serif text-lg font-bold text-[#1F1F1F] border-b border-[#E8E2D8] pb-3 mb-4">
+              <div className="bg-white border border-[#E8E2D8] p-6 shadow-sm sticky top-28 space-y-4">
+                <h3 className="font-serif text-lg font-bold text-[#1F1F1F] border-b border-[#E8E2D8] pb-3">
                   Order Summary ({items.length} {items.length === 1 ? 'item' : 'items'})
                 </h3>
 
                 {/* Items preview list */}
-                <div className="max-h-60 overflow-y-auto space-y-3 pr-1 mb-4">
+                <div className="max-h-56 overflow-y-auto space-y-3 pr-1">
                   {items.map((item, i) => (
                     <div
                       key={i}
@@ -606,7 +638,51 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
-                {/* Cost calculation */}
+                {/* PROMO CODE VOUCHER INPUT BOX */}
+                <div className="pt-3 border-t border-[#E8E2D8]/80">
+                  {couponCode ? (
+                    <div className="bg-emerald-50 border border-emerald-300 p-2.5 rounded flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <Ticket className="w-4 h-4 text-emerald-700" />
+                        <div>
+                          <span className="font-mono font-bold text-emerald-800 tracking-wider">
+                            {couponCode}
+                          </span>
+                          <span className="text-[10px] text-emerald-600 block">
+                            Promo code applied
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removeCoupon}
+                        className="text-neutral-400 hover:text-red-600 p-1"
+                        title="Remove coupon"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleCouponSubmit} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                        placeholder="Promo Code (e.g. WELCOME10)"
+                        className="flex-1 bg-[#F6F3EE] border border-[#E8E2D8] px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:border-[#B67355]"
+                      />
+                      <button
+                        type="submit"
+                        disabled={applyingCoupon || !couponInput.trim()}
+                        className="bg-[#1F1F1F] text-[#DCC9A6] px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-[#B67355] hover:text-white transition-colors disabled:opacity-40"
+                      >
+                        Apply
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                {/* Cost calculation Breakdown */}
                 <div className="space-y-2 border-t border-[#E8E2D8] pt-4 text-xs font-sans text-[#8E8A85]">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
@@ -614,6 +690,18 @@ export default function CheckoutPage() {
                       EGP {subtotal.toFixed(2)}
                     </span>
                   </div>
+
+                  {/* Applied Discount Line */}
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1.5 border border-emerald-200 rounded">
+                      <span className="flex items-center gap-1.5 text-[11px]">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>{appliedDiscount?.title || 'Discount Promotion'}</span>
+                      </span>
+                      <span className="font-serif">-EGP {discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between">
                     <span>
                       Shipping ({formData.governorate.split('(')[0].trim()})
@@ -626,6 +714,7 @@ export default function CheckoutPage() {
                       )}
                     </span>
                   </div>
+
                   <div className="border-t border-[#E8E2D8] pt-3 flex justify-between text-base font-bold text-[#1F1F1F]">
                     <span className="font-serif">Total Due (COD)</span>
                     <span className="font-serif text-lg text-[#B67355]">
@@ -635,7 +724,7 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* Place Order CTA */}
-                <div className="mt-6">
+                <div className="pt-2">
                   <button
                     type="submit"
                     form="checkout-form"

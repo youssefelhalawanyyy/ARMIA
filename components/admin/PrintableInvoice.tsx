@@ -186,6 +186,32 @@ export default function PrintableInvoice({ order }: PrintableInvoiceProps) {
                   {order.shippingFee === 0 ? 'Free' : `EGP ${order.shippingFee?.toFixed(2)}`}
                 </td>
               </tr>
+
+              {/* Discount / Voucher Promotion Row (if applicable) */}
+              {order.discountAmount && order.discountAmount > 0 && (
+                <tr className="border-b border-[#999999] bg-emerald-50/50">
+                  <td className="py-2.5 px-4 text-center font-mono font-bold text-neutral-800 border-r border-[#999999]">
+                    {(order.items?.length || 0) + 2}
+                  </td>
+                  <td className="py-2.5 px-4 text-left border-r border-[#999999]">
+                    <span className="font-bold text-emerald-900 block">
+                      {order.discountTitle || 'Special Promotion / Voucher Discount'}
+                    </span>
+                    <span className="text-[11px] text-emerald-700">
+                      Voucher Code: {order.discountCode || 'AUTO_PROMO'}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-4 text-center font-mono text-neutral-900 border-r border-[#999999]">
+                    1
+                  </td>
+                  <td className="py-2.5 px-4 text-center font-mono text-emerald-700 font-bold border-r border-[#999999]">
+                    -EGP {order.discountAmount?.toFixed(2)}
+                  </td>
+                  <td className="py-2.5 px-4 text-center font-mono font-bold text-emerald-800 border-r border-[#999999]">
+                    -EGP {order.discountAmount?.toFixed(2)}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
 

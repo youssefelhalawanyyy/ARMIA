@@ -66,6 +66,28 @@ export interface CustomerDetails {
   notes?: string;
 }
 
+export type DiscountType = 'percentage' | 'fixed_amount' | 'free_shipping';
+export type DiscountTrigger = 'auto' | 'coupon';
+
+export interface Discount {
+  id: string;
+  title: string; // e.g. "VIP 15% OFF"
+  titleArabic?: string; // e.g. "خصم حصري 15%"
+  code?: string; // e.g. "ARMIA15"
+  type: DiscountType; // 'percentage' | 'fixed_amount' | 'free_shipping'
+  value: number; // e.g. 15 (%) or 150 (EGP)
+  trigger: DiscountTrigger; // 'auto' (applies automatically) | 'coupon' (requires code)
+  minSubtotal?: number; // Minimum cart subtotal in EGP
+  maxDiscountAmount?: number; // Optional cap for percentage discounts
+  applicableCategory?: string; // 'all' or specific category id/slug
+  startDate?: string;
+  endDate?: string;
+  isActive: boolean;
+  usageCount?: number;
+  usageLimit?: number;
+  createdAt?: unknown;
+}
+
 export interface Order {
   id?: string;
   orderId: string;
@@ -73,6 +95,9 @@ export interface Order {
   customerDetails: CustomerDetails;
   items: CartItem[];
   subtotal: number;
+  discountAmount?: number;
+  discountCode?: string;
+  discountTitle?: string;
   shippingFee: number;
   totalAmount: number;
   paymentMethod: 'COD'; // Strictly COD
