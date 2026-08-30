@@ -17,14 +17,16 @@ import {
 import BrandLogo from '@/components/common/BrandLogo';
 import { useAuth } from '@/context/AuthContext';
 import { usePWA } from '@/context/PWAContext';
+import AdminPWAInstallModal from './AdminPWAInstallModal';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAdmin, loading, logout } = useAuth();
-  const { isInstallable, isInstalled, promptInstall } = usePWA();
+  const { isInstalled } = usePWA();
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
   const [time, setTime] = useState<string>('');
 
   // Clock in Cairo timezone
@@ -43,6 +45,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Automatic PWA Prompt on Login (if not installed and not permanently dismissed)
+  useEffect(() => {
+    if (user && isAdmin && pathname !== '/admin/login' && !isInstalled) {
+      const dismissed = typeof window !== 'undefined' && localStorage.getItem('armia_admin_pwa_dismissed_v2');
+      if (!dismissed) {
+        const timer = setTimeout(() => {
+          setShowInstallModal(true);
+        }, 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user, isAdmin, pathname, isInstalled]);
 
   // Route guard: if not admin, redirect to admin login
   useEffect(() => {
@@ -84,7 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ];
 
   return (
-    <div className="min-h-screen bg-[#141414] text-[#F6F3EE] flex flex-col lg:flex-row font-sans">
+    <div className="min-h-screen bg-[#141414] text-[#F6F3EE] flex flex-col lg:flex-row font-sans selection:bg-[#DCC9A6] selection:text-[#1F1F1F]">
       
       {/* Desktop Left Sidebar */}
       <aside className="hidden lg:flex flex-col w-64 bg-[#1F1F1F] border-r border-[#333333] shrink-0 justify-between">
@@ -106,9 +121,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 text-xs uppercase tracking-wider font-semibold transition-all ${
+                  className={`flex items-center gap-3 px-3.5 py-3 text-xs uppercase tracking-wider font-medium transition-all ${
                     isActive
-                      ? 'bg-[#B67355] text-white shadow-md'
+                      ? 'bg-[#B67355] text-white shadow-md font-bold'
                       : 'text-[#8E8A85] hover:bg-[#2A2A2A] hover:text-[#DCC9A6]'
                   }`}
                 >
@@ -122,14 +137,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Bottom Actions */}
         <div className="p-4 border-t border-[#333333] space-y-3">
-          {/* PWA Install Trigger */}
-          {isInstallable && !isInstalled && (
+          {/* PWA Install Trigger Button */}
+          {!isInstalled && (
             <button
-              onClick={promptInstall}
-              className="w-full flex items-center justify-center gap-2 bg-[#DCC9A6] text-[#1F1F1F] py-2.5 px-3 text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors shadow"
+              onClick={() => setShowInstallModal(true)}
+              className="w-full flex items-center justify-center gap-2 bg-[#DCC9A6] text-[#1F1F1F] py-2.5 px-3 text-xs font-bold uppercase tracking-wider hover:bg-white transition-all shadow-md active:scale-95"
             >
-              <Smartphone className="w-4 h-4" />
-              <span>Install App (PWA)</span>
+              <Smartphone className="w-4 h-4 text-[#1F1F1F]" />
+              <span>Install Admin App</span>
             </button>
           )}
 
@@ -182,61 +197,81 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="flex items-center gap-3">
-            {isInstallable && !isInstalled && (
+            {/* Quick PWA App Button in Header */}
+            {!isInstalled && (
               <button
-                onClick={promptInstall}
-                className="hidden sm:inline-flex items-center gap-1.5 bg-[#DCC9A6] text-[#1F1F1F] px-3 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors"
+                onClick={() => setShowInstallModal(true)}
+                className="flex items-center gap-1.5 bg-[#000000] border border-[#DCC9A6]/50 text-[#DCC9A6] px-3 py-1.5 text-xs font-semibold hover:border-[#DCC9A6] hover:bg-[#2A2A2A] transition-all"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Install Admin App</span>
+                <span className="hidden md:inline">Download App</span>
               </button>
             )}
 
-            <Link
-              href="/"
-              target="_blank"
-              className="inline-flex items-center gap-1.5 border border-[#333333] text-[#DCC9A6] px-3 py-1.5 text-xs uppercase tracking-wider hover:bg-[#2A2A2A] transition-colors"
+            <span className="text-[11px] text-[#8E8A85] hidden md:block">
+              Welcome, <span className="text-[#DCC9A6] font-semibold">{user.displayName || user.email}</span>
+            </span>
+
+            <button
+              onClick={() => logout()}
+              className="bg-[#2A2A2A] text-xs text-[#8E8A85] hover:text-white px-3 py-1.5 border border-[#333333] transition-colors"
             >
-              <Store className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Storefront</span>
-            </Link>
+              Sign Out
+            </button>
           </div>
         </header>
 
-        {/* Mobile Sidebar overlay */}
+        {/* Mobile Navigation Drawer */}
         {mobileSidebarOpen && (
-          <div className="lg:hidden bg-[#1F1F1F] border-b border-[#333333] p-4 space-y-2">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setMobileSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-2.5 text-xs uppercase tracking-wider font-semibold ${
-                    pathname === item.href ? 'bg-[#B67355] text-white' : 'text-[#8E8A85]'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
-            <button
-              onClick={() => logout()}
-              className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-xs text-[#B67355] uppercase tracking-wider"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Sign Out</span>
-            </button>
+          <div className="lg:hidden bg-[#1F1F1F] border-b border-[#333333] p-4 space-y-3">
+            <nav className="space-y-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setMobileSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 text-xs uppercase tracking-wider ${
+                      isActive
+                        ? 'bg-[#B67355] text-white font-bold'
+                        : 'text-[#8E8A85] hover:bg-[#2A2A2A] hover:text-white'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {!isInstalled && (
+              <button
+                onClick={() => {
+                  setMobileSidebarOpen(false);
+                  setShowInstallModal(true);
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-[#DCC9A6] text-[#1F1F1F] py-2 text-xs uppercase font-bold tracking-wider mt-2"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Install Mobile App (PWA)</span>
+              </button>
+            )}
           </div>
         )}
 
-        {/* Page Content Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-[#141414] overflow-y-auto">
+        {/* Page Body */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-[#141414]">
           {children}
         </main>
       </div>
+
+      {/* Luxury PWA Install Pop-Up Modal */}
+      <AdminPWAInstallModal
+        isOpen={showInstallModal}
+        onClose={() => setShowInstallModal(false)}
+      />
     </div>
   );
 }

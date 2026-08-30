@@ -1,0 +1,25 @@
+{
+  "name": "ARMIA Boutique Admin Portal",
+  "short_name": "ARMIA Admin",
+  "description": "ARMIA Boutique Management, Live Inventory & Order Processing App",
+  "start_url": "/admin",
+  "scope": "/admin",
+  "display": "standalone",
+  "background_color": "#141414",
+  "theme_color": "#141414",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/admin-favicon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/admin-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
