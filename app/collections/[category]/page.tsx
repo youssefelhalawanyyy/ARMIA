@@ -3,6 +3,7 @@ import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import ProductCard from '@/components/storefront/ProductCard';
 import { getProducts } from '@/lib/productService';
+import { getCategories } from '@/lib/categoryService';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
@@ -15,19 +16,19 @@ interface CategoryPageProps {
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const resolvedParams = await params;
   const categoryParam = resolvedParams.category.toLowerCase();
-  const products = await getProducts(categoryParam);
+  
+  const [products, allCategories] = await Promise.all([
+    getProducts(categoryParam),
+    getCategories(),
+  ]);
 
-  const categoryTitles: Record<string, string> = {
-    dresses: 'DRESSES',
-    sets: 'SETS & CO-ORDS',
-    tops: 'TOPS & BLOUSES',
-    bottoms: 'BOTTOMS & PANTS',
-    outerwear: 'OUTERWEAR & BLAZERS',
-    'new-in': 'NEW ARRIVALS',
-    'best-sellers': 'BEST SELLERS',
-  };
+  const matchedCat = allCategories.find(
+    (c) => c.slug.toLowerCase() === categoryParam || c.id.toLowerCase() === categoryParam
+  );
 
-  const title = categoryTitles[categoryParam] || categoryParam.toUpperCase();
+  const title = matchedCat ? matchedCat.name.toUpperCase() : categoryParam.toUpperCase().replace(/-/g, ' ');
+  const titleArabic = matchedCat?.nameArabic;
+  const description = matchedCat?.description || 'Handpicked pieces designed with meticulous attention to detail and modern elegance.';
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F3EE]">
@@ -54,9 +55,14 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-[#1F1F1F]">
               {title}
             </h1>
+            {titleArabic && (
+              <p className="text-sm font-sans text-[#B67355] mt-1" dir="rtl">
+                {titleArabic}
+              </p>
+            )}
             <div className="w-12 h-[1px] bg-[#DCC9A6] mx-auto mt-3 mb-2" />
             <p className="text-xs sm:text-sm text-[#8E8A85] font-sans">
-              Handpicked pieces designed with meticulous attention to detail and modern elegance.
+              {description}
             </p>
           </div>
 

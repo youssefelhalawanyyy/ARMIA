@@ -1,4 +1,15 @@
-export type CategoryType = 'dresses' | 'sets' | 'tops' | 'bottoms' | 'outerwear' | 'new-in';
+export type CategoryType = 'dresses' | 'sets' | 'tops' | 'bottoms' | 'outerwear' | 'new-in' | string;
+
+export interface Category {
+  id: string;
+  slug: string;
+  name: string;
+  nameArabic: string;
+  description?: string;
+  imageUrl?: string;
+  featured?: boolean;
+  orderIndex?: number;
+}
 
 export interface ProductColor {
   name: string;
@@ -16,7 +27,7 @@ export interface ProductSpecs {
 export interface Product {
   id: string;
   name: string;
-  category: CategoryType;
+  category: string;
   price: number; // In EGP
   discountPrice?: number; // In EGP
   stockQuantity: number;

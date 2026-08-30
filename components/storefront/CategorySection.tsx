@@ -1,56 +1,30 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-
-const CATEGORIES = [
-  {
-    id: 'dresses',
-    name: 'DRESSES',
-    description: 'Effortless maxi, pleated & evening silhouettes',
-    href: '/collections/dresses',
-    imageUrl: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=85',
-  },
-  {
-    id: 'sets',
-    name: 'SETS',
-    description: 'Two-piece linen, satin & tailored co-ords',
-    href: '/collections/sets',
-    imageUrl: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&auto=format&fit=crop&q=85',
-  },
-  {
-    id: 'tops',
-    name: 'TOPS',
-    description: 'Crisp cotton shirts & feminine blouses',
-    href: '/collections/tops',
-    imageUrl: 'https://images.unsplash.com/photo-1598554747436-c9293d6a588f?w=800&auto=format&fit=crop&q=85',
-  },
-  {
-    id: 'bottoms',
-    name: 'BOTTOMS',
-    description: 'High-waisted trousers & flowing skirts',
-    href: '/collections/bottoms',
-    imageUrl: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800&auto=format&fit=crop&q=85',
-  },
-  {
-    id: 'outerwear',
-    name: 'OUTERWEAR',
-    description: 'Structured wool blazers & lightweight trench',
-    href: '/collections/outerwear',
-    imageUrl: 'https://images.unsplash.com/photo-1584273143981-41c073dfe8f8?w=800&auto=format&fit=crop&q=85',
-  },
-  {
-    id: 'new-in',
-    name: 'NEW IN',
-    description: 'Fresh boutique drops for the season',
-    href: '/collections/new-in',
-    imageUrl: 'https://images.unsplash.com/photo-1568252542512-9fe8fe9c87bb?w=800&auto=format&fit=crop&q=85',
-  },
-];
+import { getCategories, DEFAULT_CATEGORIES } from '@/lib/categoryService';
+import { Category } from '@/types';
 
 export default function CategorySection() {
+  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+
+  useEffect(() => {
+    let isMounted = true;
+    getCategories()
+      .then((data) => {
+        if (isMounted && data.length > 0) {
+          setCategories(data.filter((c) => c.featured !== false));
+        }
+      })
+      .catch((err) => console.warn('Categories load notice:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <section className="py-16 bg-[#F6F3EE] border-b border-[#E8E2D8]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -65,9 +39,9 @@ export default function CategorySection() {
           <div className="w-12 h-[1px] bg-[#DCC9A6] mx-auto mt-3" />
         </div>
 
-        {/* 6 Category Tiles Grid (matching mockup) */}
+        {/* Dynamic Category Tiles Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
-          {CATEGORIES.map((cat, idx) => (
+          {categories.map((cat, idx) => (
             <motion.div
               key={cat.id}
               initial={{ opacity: 0, y: 20 }}
@@ -76,13 +50,16 @@ export default function CategorySection() {
               transition={{ duration: 0.5, delay: idx * 0.08 }}
             >
               <Link
-                href={cat.href}
+                href={`/collections/${cat.slug}`}
                 className="group block relative overflow-hidden bg-white border border-[#E8E2D8] hover:border-[#B67355] transition-all duration-300 shadow-sm hover:shadow-md"
               >
                 {/* Image Container with 3:4 aspect ratio */}
                 <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#EBE5DA]">
                   <Image
-                    src={cat.imageUrl}
+                    src={
+                      cat.imageUrl ||
+                      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&auto=format&fit=crop&q=85'
+                    }
                     alt={cat.name}
                     fill
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
@@ -93,9 +70,14 @@ export default function CategorySection() {
 
                 {/* Category Name Label */}
                 <div className="p-3 text-center bg-white border-t border-[#E8E2D8]">
-                  <h3 className="font-serif text-xs sm:text-sm font-semibold tracking-[0.15em] text-[#1F1F1F] group-hover:text-[#B67355] transition-colors">
+                  <h3 className="font-serif text-xs sm:text-sm font-semibold tracking-[0.15em] text-[#1F1F1F] group-hover:text-[#B67355] transition-colors uppercase truncate">
                     {cat.name}
                   </h3>
+                  {cat.nameArabic && (
+                    <span className="text-[10px] text-[#8E8A85] block font-sans truncate" dir="rtl">
+                      {cat.nameArabic}
+                    </span>
+                  )}
                 </div>
               </Link>
             </motion.div>

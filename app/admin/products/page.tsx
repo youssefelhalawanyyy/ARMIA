@@ -16,7 +16,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { getProducts, saveProduct, deleteProduct } from '@/lib/productService';
 import { compressImage } from '@/lib/imageUtils';
-import { Product, ProductColor, CategoryType } from '@/types';
+import { getCategories, DEFAULT_CATEGORIES } from '@/lib/categoryService';
+import { Product, ProductColor, CategoryType, Category } from '@/types';
 import { useToast } from '@/context/ToastContext';
 
 const PRESET_COLORS: ProductColor[] = [
@@ -37,6 +38,7 @@ const PRESET_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'Free Size'];
 export default function AdminProductsPage() {
   const { success, error, info } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,15 +80,16 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     let isMounted = true;
-    getProducts('all')
-      .then((data) => {
+    Promise.all([getProducts('all'), getCategories()])
+      .then(([prods, cats]) => {
         if (isMounted) {
-          setProducts(data);
+          setProducts(prods);
+          if (cats && cats.length > 0) setAvailableCategories(cats);
           setLoading(false);
         }
       })
       .catch((err) => {
-        console.error('Error fetching admin products:', err);
+        console.error('Error fetching admin products or categories:', err);
         if (isMounted) setLoading(false);
       });
 
@@ -314,25 +317,27 @@ export default function AdminProductsPage() {
       {/* Filter & Search Bar */}
       <div className="bg-[#1F1F1F] border border-[#333333] p-4 space-y-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
-          {[
-            { id: 'all', label: 'All Categories' },
-            { id: 'dresses', label: 'Dresses' },
-            { id: 'sets', label: 'Sets' },
-            { id: 'tops', label: 'Tops' },
-            { id: 'bottoms', label: 'Bottoms' },
-            { id: 'outerwear', label: 'Outerwear' },
-            { id: 'new-in', label: 'New In' },
-          ].map((cat) => (
+          <button
+            onClick={() => setSelectedCategory('all')}
+            className={`px-3 py-1.5 text-xs font-sans uppercase tracking-wider font-semibold transition-all ${
+              selectedCategory === 'all'
+                ? 'bg-[#B67355] text-white shadow-md'
+                : 'bg-[#141414] text-[#8E8A85] border border-[#333333] hover:text-[#DCC9A6]'
+            }`}
+          >
+            All Categories
+          </button>
+          {availableCategories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
+              onClick={() => setSelectedCategory(cat.slug)}
               className={`px-3 py-1.5 text-xs font-sans uppercase tracking-wider font-semibold transition-all ${
-                selectedCategory === cat.id
+                selectedCategory === cat.slug
                   ? 'bg-[#B67355] text-white shadow-md'
                   : 'bg-[#141414] text-[#8E8A85] border border-[#333333] hover:text-[#DCC9A6]'
               }`}
             >
-              {cat.label}
+              {cat.name}
             </button>
           ))}
         </div>
@@ -525,15 +530,14 @@ export default function AdminProductsPage() {
                   </label>
                   <select
                     value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value as CategoryType)}
+                    onChange={(e) => setFormCategory(e.target.value)}
                     className="w-full bg-[#141414] border border-[#333333] text-white px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#DCC9A6]"
                   >
-                    <option value="dresses">Dresses</option>
-                    <option value="sets">Sets & Co-ords</option>
-                    <option value="tops">Tops & Blouses</option>
-                    <option value="bottoms">Bottoms & Pants</option>
-                    <option value="outerwear">Outerwear & Blazers</option>
-                    <option value="new-in">New In</option>
+                    {availableCategories.map((cat) => (
+                      <option key={cat.id} value={cat.slug}>
+                        {cat.name} ({cat.nameArabic})
+                      </option>
+                    ))}
                   </select>
                 </div>
 
