@@ -84,3 +84,41 @@ h1, h2, h3, h4, h5, h6, .font-serif {
   background-size: 200% 100%;
   animation: shimmer 1.8s infinite;
 }
+
+/* Print Media Styles for Luxury A4 Official Invoices */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide all app chrome and screen elements during print */
+  header,
+  nav,
+  aside,
+  footer,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  #printable-invoice {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+}
+

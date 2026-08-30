@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import {
   ShoppingBag,
   Search,
@@ -14,6 +13,7 @@ import {
 import { getAllOrders, updateOrderStatusInFirestore } from '@/lib/productService';
 import { Order, OrderStatus } from '@/types';
 import { useToast } from '@/context/ToastContext';
+import PrintableInvoice from '@/components/admin/PrintableInvoice';
 
 export default function AdminOrdersPage() {
   const { success, error } = useToast();
@@ -276,112 +276,26 @@ export default function AdminOrdersPage() {
         )}
       </div>
 
-      {/* ORDER DETAILS MODAL & PRINTABLE INVOICE */}
+      {/* ADVANCED BILINGUAL ORDER INVOICE MODAL & A4 PRINTABLE VIEW */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-2xl bg-[#1F1F1F] border border-[#333333] p-6 sm:p-8 shadow-2xl text-white space-y-6">
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md">
+          <div className="relative w-full max-w-4xl bg-[#1F1F1F] border border-[#333333] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
             
-            {/* Header */}
-            <div className="flex items-start justify-between border-b border-[#333333] pb-4">
-              <div>
-                <span className="text-[10px] font-sans uppercase tracking-[0.25em] text-[#B67355] font-bold">
-                  ARMIA Boutique Invoice
+            {/* Modal Controls Bar (Screen Only - Hidden in Print) */}
+            <div className="no-print bg-[#141414] border-b border-[#333333] px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <span className="text-xs uppercase tracking-widest text-[#DCC9A6] font-bold">
+                  Official Invoice Preview • معاينة الفاتورة
                 </span>
-                <h3 className="font-serif text-2xl font-bold text-white mt-1">
-                  Order #{selectedOrder.orderId}
-                </h3>
-              </div>
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="p-1 text-[#8E8A85] hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Customer Details Box */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#141414] p-4 border border-[#333333] text-xs">
-              <div className="space-y-1">
-                <p className="text-[10px] text-[#8E8A85] uppercase tracking-wider font-semibold">
-                  Customer & Contact
-                </p>
-                <p className="font-bold text-white text-sm">{selectedOrder.customerDetails?.fullName}</p>
-                <p className="text-[#DCC9A6]">{selectedOrder.customerDetails?.email}</p>
-                <p className="text-white font-mono">{selectedOrder.customerDetails?.phone}</p>
-                {selectedOrder.customerDetails?.alternatePhone && (
-                  <p className="text-[#8E8A85]">Alt: {selectedOrder.customerDetails?.alternatePhone}</p>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-[10px] text-[#8E8A85] uppercase tracking-wider font-semibold">
-                  Shipping Destination
-                </p>
-                <p className="text-white">{selectedOrder.customerDetails?.address}</p>
-                <p className="text-[#8E8A85]">
-                  {selectedOrder.customerDetails?.city}, {selectedOrder.customerDetails?.governorate}
-                </p>
-                {selectedOrder.customerDetails?.notes && (
-                  <p className="text-amber-400 italic text-[11px] pt-1">
-                    Note: {selectedOrder.customerDetails?.notes}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Items Table */}
-            <div className="space-y-2">
-              <h4 className="font-serif text-sm font-semibold uppercase tracking-wider text-[#DCC9A6]">
-                Ordered Pieces ({selectedOrder.items?.length})
-              </h4>
-              <div className="divide-y divide-[#333333] border border-[#333333] bg-[#141414]">
-                {selectedOrder.items?.map((item, i) => (
-                  <div key={i} className="p-3 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-10 h-12 bg-[#1F1F1F] shrink-0 overflow-hidden">
-                        <Image src={item.imageUrl || ''} alt={item.name} fill className="object-cover" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-white">{item.name}</p>
-                        <p className="text-[10px] text-[#8E8A85]">
-                          {item.selectedColor?.name} • Size {item.selectedSize} • Qty {item.quantity}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="font-serif font-bold text-white">
-                      EGP {(item.price * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Total Due */}
-            <div className="flex justify-between items-center bg-[#141414] p-4 border border-[#333333]">
-              <div>
-                <span className="text-[10px] uppercase tracking-widest text-[#8E8A85]">
-                  Payment Method
+                <span className="text-xs bg-black px-2 py-0.5 border border-[#333333] text-white font-mono">
+                  #{selectedOrder.orderId || selectedOrder.id}
                 </span>
-                <p className="font-serif font-bold text-sm text-[#DCC9A6]">
-                  Cash on Delivery (COD)
-                </p>
               </div>
-              <div className="text-right">
-                <span className="text-[10px] uppercase tracking-widest text-[#8E8A85]">
-                  Total Amount Due
-                </span>
-                <p className="font-serif text-xl font-bold text-[#DCC9A6]">
-                  EGP {selectedOrder.totalAmount?.toFixed(2)}
-                </p>
-              </div>
-            </div>
 
-            {/* Modal Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <a
                   href={`tel:${selectedOrder.customerDetails?.phone}`}
-                  className="inline-flex items-center gap-1.5 bg-[#141414] border border-[#333333] px-3.5 py-2 text-xs font-semibold hover:border-[#DCC9A6] transition-colors"
+                  className="inline-flex items-center gap-1.5 bg-[#1F1F1F] border border-[#333333] text-white px-3 py-1.5 text-xs font-semibold hover:border-[#DCC9A6] transition-colors"
                 >
                   <Phone className="w-3.5 h-3.5 text-[#B67355]" />
                   <span>Call Customer</span>
@@ -391,22 +305,36 @@ export default function AdminOrdersPage() {
                   href={`https://wa.me/2${selectedOrder.customerDetails?.phone?.replace(/^0/, '')}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 bg-[#25D366] text-white px-3.5 py-2 text-xs font-semibold hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-1.5 bg-[#25D366] text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-opacity"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   <span>WhatsApp</span>
                 </a>
-              </div>
 
-              <button
-                onClick={() => {
-                  if (typeof window !== 'undefined') window.print();
-                }}
-                className="inline-flex items-center gap-1.5 bg-[#DCC9A6] text-[#1F1F1F] px-4 py-2 text-xs uppercase font-bold tracking-wider hover:bg-white transition-colors"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Print Invoice</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') window.print();
+                  }}
+                  className="inline-flex items-center gap-2 bg-[#DCC9A6] text-[#1F1F1F] px-4 py-1.5 text-xs uppercase font-bold tracking-wider hover:bg-white transition-all shadow-md active:scale-95"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print A4 Invoice</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrder(null)}
+                  className="p-1.5 text-[#8E8A85] hover:text-white transition-colors ml-2"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Container with Printable Invoice */}
+            <div className="overflow-y-auto p-4 sm:p-8 bg-[#2A2A2A]">
+              <PrintableInvoice order={selectedOrder} />
             </div>
           </div>
         </div>

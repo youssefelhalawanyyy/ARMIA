@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
+import PrintableInvoice from '@/components/admin/PrintableInvoice';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Order, OrderStatus } from '@/types';
@@ -306,6 +307,11 @@ function OrderTrackingContent() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Printable Invoice Container (Activates upon Print) */}
+          <div className="hidden print:block">
+            <PrintableInvoice order={order} />
           </div>
         </div>
       )}
