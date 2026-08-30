@@ -2,41 +2,53 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Mail, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Lock, Mail, ArrowRight, ShieldCheck, AlertCircle, User, UserPlus } from 'lucide-react';
 import BrandLogo from '@/components/common/BrandLogo';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { loginAdmin } = useAuth();
+  const { loginAdmin, registerAdmin } = useAuth();
   const { success, error } = useToast();
 
-  const [email, setEmail] = useState('');
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('admin@armia.com');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('ARMIA Administrator');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setLoading(true);
 
     try {
-      await loginAdmin(email.trim(), password);
-      success('Authenticated to ARMIA Boutique Administration', 'Admin Access Granted');
+      if (mode === 'login') {
+        await loginAdmin(email.trim(), password);
+        success('Authenticated to ARMIA Boutique Administration', 'Admin Access Granted');
+      } else {
+        if (!name.trim()) throw new Error('Please enter administrator name');
+        await registerAdmin(email.trim(), password, name.trim());
+        success('Initial Admin Account Created & Authenticated', 'Setup Complete');
+      }
       router.replace('/admin');
     } catch (err: unknown) {
-      console.error('Admin login error:', err);
+      console.error('Admin auth error:', err);
       const authErr = err as { code?: string; message?: string };
       let msg = authErr.message || 'Unauthorized access.';
-      if (authErr.code === 'auth/invalid-credential') {
-        msg = 'Invalid administrator email or password.';
+      if (authErr.code === 'auth/invalid-credential' || authErr.code === 'auth/wrong-password') {
+        msg = 'Invalid administrator email or password. If this is your first time, click "Create Initial Admin Account" below.';
       } else if (authErr.code === 'auth/user-not-found') {
-        msg = 'No administrator account found with this email.';
+        msg = 'No admin account found with this email. Click "Create Initial Admin Account" below to initialize it.';
+      } else if (authErr.code === 'auth/email-already-in-use') {
+        msg = 'An account with this email already exists. Please sign in instead.';
+      } else if (authErr.code === 'auth/weak-password') {
+        msg = 'Password should be at least 6 characters long.';
       }
       setErrorMessage(msg);
-      error(msg, 'Admin Access Denied');
+      error(msg, 'Admin Auth Error');
     } finally {
       setLoading(false);
     }
@@ -56,10 +68,12 @@ export default function AdminLoginPage() {
             </span>
           </div>
           <h1 className="font-serif text-2xl font-bold text-white mt-3">
-            Secure Administrator Login
+            {mode === 'login' ? 'Secure Administrator Login' : 'Setup Initial Admin'}
           </h1>
           <p className="text-xs text-[#8E8A85] font-sans">
-            Strict Email & Password authentication for boutique managers and staff.
+            {mode === 'login'
+              ? 'Strict Email & Password authentication for boutique managers and staff.'
+              : 'Create your administrator account for your Firebase project.'}
           </p>
         </div>
 
@@ -72,7 +86,26 @@ export default function AdminLoginPage() {
         )}
 
         {/* Form */}
-        <form onSubmit={handleAdminLogin} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === 'register' && (
+            <div>
+              <label className="block text-[11px] font-sans uppercase tracking-wider text-[#DCC9A6] mb-1.5 font-medium">
+                Admin Name
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. ARMIA Store Director"
+                  className="w-full bg-[#141414] border border-[#333333] text-white px-3.5 py-3 pl-10 text-xs font-sans focus:outline-none focus:border-[#DCC9A6]"
+                />
+                <User className="w-4 h-4 text-[#8E8A85] absolute left-3.5 top-3.5" />
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-[11px] font-sans uppercase tracking-wider text-[#DCC9A6] mb-1.5 font-medium">
               Admin Email Address
@@ -92,7 +125,7 @@ export default function AdminLoginPage() {
 
           <div>
             <label className="block text-[11px] font-sans uppercase tracking-wider text-[#DCC9A6] mb-1.5 font-medium">
-              Password
+              {mode === 'login' ? 'Password' : 'Create Password (min 6 characters)'}
             </label>
             <div className="relative">
               <input
@@ -101,6 +134,7 @@ export default function AdminLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
+                minLength={6}
                 className="w-full bg-[#141414] border border-[#333333] text-white px-3.5 py-3 pl-10 text-xs font-sans focus:outline-none focus:border-[#DCC9A6]"
               />
               <Lock className="w-4 h-4 text-[#8E8A85] absolute left-3.5 top-3.5" />
@@ -112,18 +146,48 @@ export default function AdminLoginPage() {
             disabled={loading}
             className="w-full bg-[#DCC9A6] text-[#1F1F1F] py-3.5 text-xs uppercase tracking-[0.25em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-white transition-all shadow-lg active:scale-[0.99] disabled:opacity-50 mt-2"
           >
-            <span>{loading ? 'Authenticating...' : 'Sign In to Dashboard'}</span>
-            {!loading && <ArrowRight className="w-4 h-4" />}
+            <span>
+              {loading
+                ? 'Processing...'
+                : mode === 'login'
+                ? 'Sign In to Dashboard'
+                : 'Create & Sign In'}
+            </span>
+            {!loading && (mode === 'login' ? <ArrowRight className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />)}
           </button>
         </form>
 
-        {/* Security Note & Quick Access Info */}
+        {/* Toggle Mode */}
+        <div className="text-center pt-2">
+          {mode === 'login' ? (
+            <button
+              type="button"
+              onClick={() => {
+                setErrorMessage('');
+                setMode('register');
+              }}
+              className="text-xs text-[#DCC9A6] hover:underline font-sans"
+            >
+              First time setup? Create initial admin account
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setErrorMessage('');
+                setMode('login');
+              }}
+              className="text-xs text-[#DCC9A6] hover:underline font-sans"
+            >
+              Already configured? Back to Sign In
+            </button>
+          )}
+        </div>
+
+        {/* Security Note */}
         <div className="pt-4 border-t border-[#333333] text-center space-y-2">
           <p className="text-[10px] text-[#8E8A85]">
-            Note: Admin credentials require Firebase Auth email & password credentials.
-          </p>
-          <p className="text-[10px] text-[#DCC9A6]">
-            (e.g., <code className="bg-[#000000] px-1 py-0.5 text-white">admin@armia.com</code>)
+            Default recognized admin emails: <code className="bg-[#000000] px-1 py-0.5 text-[#DCC9A6]">admin@armia.com</code>, <code className="bg-[#000000] px-1 py-0.5 text-[#DCC9A6]">admin@armiaboutique.com</code>
           </p>
         </div>
       </div>

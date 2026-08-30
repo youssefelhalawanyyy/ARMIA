@@ -23,6 +23,7 @@ interface AuthContextType {
   loginWithEmail: (email: string, pass: string) => Promise<FirebaseUser>;
   signupWithEmail: (email: string, pass: string, name: string) => Promise<FirebaseUser>;
   loginAdmin: (email: string, pass: string) => Promise<FirebaseUser>;
+  registerAdmin: (email: string, pass: string, name: string) => Promise<FirebaseUser>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -143,6 +144,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res.user;
   };
 
+  const registerAdmin = async (email: string, pass: string, name: string): Promise<FirebaseUser> => {
+    const res = await createUserWithEmailAndPassword(auth, email, pass);
+    if (res.user) {
+      await updateProfile(res.user, { displayName: name });
+    }
+    const userRef = doc(db, 'users', res.user.uid);
+    const adminProfile: AppUser = {
+      uid: res.user.uid,
+      email: res.user.email,
+      displayName: name || 'ARMIA Administrator',
+      role: 'admin',
+      createdAt: serverTimestamp(),
+    };
+    await setDoc(userRef, adminProfile);
+    setUserProfile(adminProfile);
+    return res.user;
+  };
+
   const logout = async () => {
     await signOut(auth);
     setUser(null);
@@ -171,6 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginWithEmail,
         signupWithEmail,
         loginAdmin,
+        registerAdmin,
         logout,
         refreshProfile,
       }}
