@@ -1,0 +1,40 @@
+{
+  "name": "ARMIA Boutique & Admin",
+  "short_name": "ARMIA",
+  "description": "ARMIA Boutique - Luxury Women's Fashion & Management Portal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6F3EE",
+  "theme_color": "#1F1F1F",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Admin Dashboard",
+      "short_name": "Admin",
+      "description": "Open ARMIA Boutique Admin Portal",
+      "url": "/admin",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "New Arrivals",
+      "short_name": "New In",
+      "description": "Browse newest collection",
+      "url": "/collections/new-in",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}
