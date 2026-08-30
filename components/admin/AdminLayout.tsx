@@ -18,6 +18,7 @@ import BrandLogo from '@/components/common/BrandLogo';
 import { useAuth } from '@/context/AuthContext';
 import { usePWA } from '@/context/PWAContext';
 import AdminPWAInstallModal from './AdminPWAInstallModal';
+import AdminMobileTabBar from './AdminMobileTabBar';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -261,11 +262,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         )}
 
-        {/* Page Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-[#141414]">
+        {/* Page Body with safe bottom padding for mobile app tab bar */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-[#141414] pb-28 lg:pb-8">
           {children}
         </main>
       </div>
+
+      {/* Native Mobile App Bottom Navigation Tab Bar */}
+      <AdminMobileTabBar onOpenInstallModal={() => setShowInstallModal(true)} />
 
       {/* Luxury PWA Install Pop-Up Modal */}
       <AdminPWAInstallModal
