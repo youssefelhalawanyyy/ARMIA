@@ -12,6 +12,7 @@ import {
   LogOut,
   X,
   Plus,
+  Truck,
 } from 'lucide-react';
 import { usePWA } from '@/context/PWAContext';
 import { useAuth } from '@/context/AuthContext';
@@ -109,6 +110,18 @@ export default function AdminMobileTabBar({ onOpenInstallModal }: AdminMobileTab
                 <div className="flex items-center gap-3">
                   <Plus className="w-4 h-4 text-[#B67355]" />
                   <span className="font-semibold">Add New Product to Catalog</span>
+                </div>
+                <span className="text-neutral-500 text-[11px]">→</span>
+              </Link>
+
+              <Link
+                href="/admin/shipping"
+                onClick={() => setQuickMenuOpen(false)}
+                className="w-full flex items-center justify-between p-3 bg-[#141414] border border-[#333333] text-white rounded-xl active:scale-[0.98] transition-transform"
+              >
+                <div className="flex items-center gap-3">
+                  <Truck className="w-4 h-4 text-[#DCC9A6]" />
+                  <span className="font-semibold">City Delivery Rates & Zones</span>
                 </div>
                 <span className="text-neutral-500 text-[11px]">→</span>
               </Link>

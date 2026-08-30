@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -20,43 +20,34 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { createOrderInFirestore } from '@/lib/productService';
-import { CustomerDetails, Order } from '@/types';
-
-const EGYPT_GOVERNORATES = [
-  'Cairo (القاهرة)',
-  'Giza (الجيزة)',
-  'Alexandria (الإسكندرية)',
-  'Qalyubia (القليوبية)',
-  'Sharqia (الشرقية)',
-  'Dakahlia (الدقهلية)',
-  'Gharbia (الغربية)',
-  'Monufia (المنوفية)',
-  'Beheira (البحيرة)',
-  'Kafr El Sheikh (كفر الشيخ)',
-  'Damietta (دمياط)',
-  'Port Said (بورسعيد)',
-  'Ismailia (الإسماعيلية)',
-  'Suez (السويس)',
-  'Beni Suef (بني سويف)',
-  'Faiyum (الفيوم)',
-  'Minya (المنيا)',
-  'Asyut (أسيوط)',
-  'Sohag (سوهاج)',
-  'Qena (قنا)',
-  'Luxor (الأقصر)',
-  'Aswan (أسوان)',
-  'Red Sea (البحر الأحمر)',
-  'South Sinai (جنوب سيناء)',
-  'North Sinai (شمال سيناء)',
-  'Matrouh (مطروح)',
-  'New Valley (الوادي الجديد)',
-];
+import {
+  getShippingSettings,
+  calculateDeliveryFee,
+  DEFAULT_SHIPPING_SETTINGS,
+} from '@/lib/shippingService';
+import { CustomerDetails, Order, ShippingSettings } from '@/types';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, subtotal, shippingFee, totalAmount, clearCart } = useCart();
+  const { items, subtotal, clearCart } = useCart();
   const { user, loginWithGoogle, loginWithEmail, signupWithEmail } = useAuth();
   const { success, error } = useToast();
+
+  const [shippingSettings, setShippingSettings] = useState<ShippingSettings>(DEFAULT_SHIPPING_SETTINGS);
+
+  // Load live dynamic shipping rates configured by admin
+  useEffect(() => {
+    let isMounted = true;
+    getShippingSettings()
+      .then((data) => {
+        if (isMounted) setShippingSettings(data);
+      })
+      .catch((err) => console.warn('Shipping load notice:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Auth Guard States if user is unauthenticated
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -82,6 +73,10 @@ export default function CheckoutPage() {
 
   const effectiveFullName = formData.fullName || user?.displayName || '';
   const effectiveEmail = formData.email || user?.email || '';
+
+  // Dynamic shipping calculation based on selected governorate and admin rates
+  const dynamicShippingFee = calculateDeliveryFee(formData.governorate, subtotal, shippingSettings);
+  const dynamicTotalAmount = subtotal + dynamicShippingFee;
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,8 +163,8 @@ export default function CheckoutPage() {
         },
         items,
         subtotal,
-        shippingFee,
-        totalAmount,
+        shippingFee: dynamicShippingFee,
+        totalAmount: dynamicTotalAmount,
         paymentMethod: 'COD',
         status: 'pending',
         createdAt: null,
@@ -219,6 +214,8 @@ export default function CheckoutPage() {
       </div>
     );
   }
+
+  const activeZones = shippingSettings.zones.filter((z) => z.isActive);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F3EE]">
@@ -465,17 +462,22 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
-                      Governorate *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] font-semibold">
+                        Governorate / City *
+                      </label>
+                      <span className="text-[11px] text-[#B67355] font-semibold">
+                        Delivery Rate: {dynamicShippingFee === 0 ? 'FREE' : `EGP ${dynamicShippingFee}`}
+                      </span>
+                    </div>
                     <select
                       value={formData.governorate}
                       onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
                       className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans text-[#1F1F1F] focus:outline-none focus:border-[#B67355]"
                     >
-                      {EGYPT_GOVERNORATES.map((gov) => (
-                        <option key={gov} value={gov}>
-                          {gov}
+                      {activeZones.map((zone) => (
+                        <option key={zone.id} value={`${zone.governorate} (${zone.governorateArabic})`}>
+                          {zone.governorate} ({zone.governorateArabic}) — EGP {zone.rate} ({zone.estimatedDays})
                         </option>
                       ))}
                     </select>
@@ -596,19 +598,21 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Shipping Across Egypt</span>
+                    <span>
+                      Shipping ({formData.governorate.split('(')[0].trim()})
+                    </span>
                     <span className="text-[#1F1F1F] font-semibold">
-                      {shippingFee === 0 ? (
+                      {dynamicShippingFee === 0 ? (
                         <span className="text-emerald-700 uppercase font-bold">Free</span>
                       ) : (
-                        `EGP ${shippingFee.toFixed(2)}`
+                        `EGP ${dynamicShippingFee.toFixed(2)}`
                       )}
                     </span>
                   </div>
                   <div className="border-t border-[#E8E2D8] pt-3 flex justify-between text-base font-bold text-[#1F1F1F]">
                     <span className="font-serif">Total Due (COD)</span>
                     <span className="font-serif text-lg text-[#B67355]">
-                      EGP {totalAmount.toFixed(2)}
+                      EGP {dynamicTotalAmount.toFixed(2)}
                     </span>
                   </div>
                 </div>

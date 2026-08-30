@@ -79,3 +79,18 @@ export interface AppUser {
   phone?: string;
   createdAt?: unknown;
 }
+
+export interface ShippingZone {
+  id: string;
+  governorate: string;
+  governorateArabic: string;
+  rate: number; // In EGP
+  estimatedDays: string;
+  isActive: boolean;
+}
+
+export interface ShippingSettings {
+  defaultRate: number;
+  freeShippingThreshold: number;
+  zones: ShippingZone[];
+}

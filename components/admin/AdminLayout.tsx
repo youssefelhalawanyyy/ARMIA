@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   ShoppingBag,
   Package,
+  Truck,
   LogOut,
   Download,
   Store,
@@ -97,6 +98,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Overview', href: '/admin', icon: LayoutDashboard },
     { name: 'Live Orders', href: '/admin/orders', icon: ShoppingBag },
     { name: 'Products (CRUD)', href: '/admin/products', icon: Package },
+    { name: 'Shipping Rates', href: '/admin/shipping', icon: Truck },
   ];
 
   return (
