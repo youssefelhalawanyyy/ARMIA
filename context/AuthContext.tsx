@@ -116,50 +116,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginAdmin = async (email: string, pass: string): Promise<FirebaseUser> => {
     const res = await signInWithEmailAndPassword(auth, email, pass);
-    // Explicitly check role
-    const userRef = doc(db, 'users', res.user.uid);
-    const snap = await getDoc(userRef);
     const isKnownAdmin = ADMIN_EMAILS.includes(email.toLowerCase());
 
-    if (snap.exists()) {
-      const data = snap.data() as AppUser;
-      if (data.role !== 'admin' && !isKnownAdmin) {
-        throw new Error('Access denied. This account does not possess boutique administrator privileges.');
+    try {
+      const userRef = doc(db, 'users', res.user.uid);
+      const snap = await getDoc(userRef);
+
+      if (snap.exists()) {
+        const data = snap.data() as AppUser;
+        if (data.role !== 'admin' && !isKnownAdmin) {
+          throw new Error('Access denied. This account does not possess boutique administrator privileges.');
+        }
+        setUserProfile(data);
+      } else {
+        if (!isKnownAdmin) {
+          throw new Error('Access denied. Unauthorized administrator account.');
+        }
+        const adminProfile: AppUser = {
+          uid: res.user.uid,
+          email: res.user.email,
+          displayName: res.user.displayName || 'ARMIA Admin',
+          role: 'admin',
+          createdAt: serverTimestamp(),
+        };
+        await setDoc(userRef, adminProfile);
+        setUserProfile(adminProfile);
       }
-      setUserProfile(data);
-    } else {
+    } catch (err: unknown) {
+      console.warn('Firestore admin check notice (falling back to email check):', err);
       if (!isKnownAdmin) {
-        throw new Error('Access denied. Unauthorized administrator account.');
+        throw new Error('Access denied. This account does not possess administrator privileges.');
       }
-      const adminProfile: AppUser = {
+      setUserProfile({
         uid: res.user.uid,
         email: res.user.email,
         displayName: res.user.displayName || 'ARMIA Admin',
         role: 'admin',
-        createdAt: serverTimestamp(),
-      };
-      await setDoc(userRef, adminProfile);
-      setUserProfile(adminProfile);
+      });
     }
     return res.user;
   };
 
   const registerAdmin = async (email: string, pass: string, name: string): Promise<FirebaseUser> => {
-    const res = await createUserWithEmailAndPassword(auth, email, pass);
-    if (res.user) {
-      await updateProfile(res.user, { displayName: name });
+    let resUser: FirebaseUser;
+    try {
+      const res = await createUserWithEmailAndPassword(auth, email, pass);
+      resUser = res.user;
+    } catch (authErr: unknown) {
+      const e = authErr as { code?: string };
+      // If already registered in Auth, sign in directly with the credentials
+      if (e.code === 'auth/email-already-in-use') {
+        const signinRes = await signInWithEmailAndPassword(auth, email, pass);
+        resUser = signinRes.user;
+      } else {
+        throw authErr;
+      }
     }
-    const userRef = doc(db, 'users', res.user.uid);
+
+    if (resUser) {
+      try {
+        await updateProfile(resUser, { displayName: name });
+      } catch (err) {
+        console.warn('Profile update notice:', err);
+      }
+    }
+
     const adminProfile: AppUser = {
-      uid: res.user.uid,
-      email: res.user.email,
+      uid: resUser.uid,
+      email: resUser.email,
       displayName: name || 'ARMIA Administrator',
       role: 'admin',
       createdAt: serverTimestamp(),
     };
-    await setDoc(userRef, adminProfile);
+
+    try {
+      const userRef = doc(db, 'users', resUser.uid);
+      await setDoc(userRef, adminProfile);
+    } catch (err) {
+      console.warn('Firestore setDoc notice (using memory admin session):', err);
+    }
+
     setUserProfile(adminProfile);
-    return res.user;
+    return resUser;
   };
 
   const logout = async () => {

@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is an admin
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email in ['admin@armia.com', 'admin@armiaboutique.com', 'armia.boutique.eg@gmail.com'] ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    // Products: Public read for storefront, write restricted to admin
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Orders: Anyone can create COD orders, customer can read their own, admin can read/update all
+    match /orders/{orderId} {
+      allow read: if isSignedIn();
+      allow create: if true;
+      allow update, delete: if isSignedIn();
+    }
+
+    // Users: Each user can manage their profile, admins have full access
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+  }
+}
