@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { BroadcastNotification, PushSubscriber } from '@/types';
+import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from './pushConfig';
 
 const SUBSCRIBERS_COLLECTION = 'push_subscribers';
 const BROADCASTS_COLLECTION = 'broadcast_notifications';
@@ -38,7 +39,6 @@ export function markBroadcastAsSeen(id: string): void {
     const seenList: string[] = raw ? JSON.parse(raw) : [];
     if (!seenList.includes(id)) {
       seenList.push(id);
-      // Keep only last 50 IDs
       const trimmed = seenList.slice(-50);
       localStorage.setItem(SEEN_BROADCASTS_KEY, JSON.stringify(trimmed));
     }
@@ -48,12 +48,14 @@ export function markBroadcastAsSeen(id: string): void {
 }
 
 /**
- * Play a subtle luxury bell chime using Web Audio API (zero external asset dependencies)
+ * Play a subtle luxury bell chime using Web Audio API
  */
 export function playNotificationChime() {
   if (typeof window === 'undefined') return;
   try {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
 
@@ -62,11 +64,11 @@ export function playNotificationChime() {
     const gain = ctx.createGain();
 
     osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+    osc1.frequency.setValueAtTime(880, ctx.currentTime);
     osc1.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.15);
 
     osc2.type = 'triangle';
-    osc2.frequency.setValueAtTime(587.33, ctx.currentTime); // D5 note
+    osc2.frequency.setValueAtTime(587.33, ctx.currentTime);
 
     gain.gain.setValueAtTime(0.15, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
@@ -81,7 +83,7 @@ export function playNotificationChime() {
     osc1.stop(ctx.currentTime + 0.6);
     osc2.stop(ctx.currentTime + 0.6);
   } catch {
-    // Web audio might be suspended until first user interaction
+    // ignore
   }
 }
 
@@ -119,7 +121,7 @@ export async function registerPushSubscriber(
 }
 
 /**
- * Request Web Notification permission from the browser and register subscriber
+ * Request Web Notification permission from the browser and subscribe to real VAPID Push Manager
  */
 export async function requestNotificationPermission(
   customerUid?: string,
@@ -132,13 +134,43 @@ export async function requestNotificationPermission(
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      const deviceId =
-        localStorage.getItem('armia_device_sub_id') ||
-        `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      localStorage.setItem('armia_device_sub_id', deviceId);
+      let endpoint = '';
+      let keys: { p256dh: string; auth: string } | undefined;
 
-      const endpoint = `https://fcm.googleapis.com/fcm/send/${deviceId}`;
-      await registerPushSubscriber(endpoint, undefined, customerUid, customerName);
+      // Subscribe to Native Push Manager via Service Worker
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          let sub = await reg.pushManager.getSubscription();
+
+          if (!sub) {
+            const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: applicationServerKey as BufferSource,
+            });
+          }
+
+          if (sub) {
+            const jsonSub = sub.toJSON();
+            endpoint = jsonSub.endpoint || '';
+            keys = jsonSub.keys as { p256dh: string; auth: string } | undefined;
+          }
+        } catch (subErr) {
+          console.warn('VAPID PushManager subscription fallback:', subErr);
+        }
+      }
+
+      // Fallback pseudo endpoint if PushManager is restricted
+      if (!endpoint) {
+        const deviceId =
+          localStorage.getItem('armia_device_sub_id') ||
+          `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        localStorage.setItem('armia_device_sub_id', deviceId);
+        endpoint = `https://fcm.googleapis.com/fcm/send/${deviceId}`;
+      }
+
+      await registerPushSubscriber(endpoint, keys, customerUid, customerName);
 
       // Trigger a welcoming confirmation notification
       displaySystemNotification(
@@ -216,10 +248,23 @@ export async function getPushSubscribersCount(): Promise<number> {
 
 /**
  * Dispatch a broadcast notification from Admin
+ * Calls the server-side Web Push API route to wake up closed devices, and records the event in Firestore
  */
 export async function dispatchBroadcastNotification(
   notification: Omit<BroadcastNotification, 'id' | 'sentAt' | 'recipientCount'>
 ): Promise<BroadcastNotification> {
+  // 1. Dispatch background Web Push through server route
+  try {
+    await fetch('/api/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(notification),
+    });
+  } catch (apiErr) {
+    console.warn('API push dispatch warning:', apiErr);
+  }
+
+  // 2. Record in Firestore for active listeners
   const subscribersCount = await getPushSubscribersCount();
   const broadcastId = `bcast_${Date.now()}`;
   const docRef = doc(db, BROADCASTS_COLLECTION, broadcastId);
@@ -239,9 +284,6 @@ export async function dispatchBroadcastNotification(
   };
 
   await setDoc(docRef, payload);
-
-  // Trigger immediate local notification on current sender machine as well
-  displaySystemNotification(notification.title, notification.body, notification.targetUrl);
 
   return {
     ...payload,
@@ -285,7 +327,6 @@ export async function getBroadcastHistory(): Promise<BroadcastNotification[]> {
 
 /**
  * Real-time Broadcast Listener for all active client and mobile devices
- * Guarantees that any broadcast dispatched in the last 48 hours is delivered to the client device
  */
 export function listenToLiveBroadcasts(
   onBroadcastReceived: (broadcast: BroadcastNotification) => void
@@ -301,9 +342,9 @@ export function listenToLiveBroadcasts(
         if (change.type === 'added') {
           const data = change.doc.data();
           const broadcastId = change.doc.id;
-          const timestampMs = data.timestampMs || (data.sentAt ? new Date(data.sentAt).getTime() : Date.now());
+          const timestampMs =
+            data.timestampMs || (data.sentAt ? new Date(data.sentAt).getTime() : Date.now());
 
-          // Only consider broadcasts from the last 48 hours
           const isRecent = Date.now() - timestampMs < 48 * 60 * 60 * 1000;
 
           if (isRecent && !hasSeenBroadcast(broadcastId)) {
