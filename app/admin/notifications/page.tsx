@@ -22,6 +22,12 @@ import {
   Trash2,
   Camera,
   Layers,
+  ShoppingBag,
+  FolderTree,
+  Globe,
+  Search,
+  Check,
+  ChevronDown,
 } from 'lucide-react';
 import {
   getPushSubscribersCount,
@@ -30,10 +36,12 @@ import {
   displaySystemNotification,
   requestNotificationPermission,
 } from '@/lib/pushNotificationService';
+import { getProducts } from '@/lib/productService';
+import { getCategories } from '@/lib/categoryService';
 import { compressImage } from '@/lib/imageUtils';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { BroadcastNotification } from '@/types';
+import { BroadcastNotification, Product, Category } from '@/types';
 import { useToast } from '@/context/ToastContext';
 
 export default function AdminNotificationsPage() {
@@ -44,6 +52,14 @@ export default function AdminNotificationsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [sending, setSending] = useState<boolean>(false);
   const [uploadingImage, setUploadingImage] = useState<boolean>(false);
+
+  // Products & Categories for Auto-Fill
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [targetMode, setTargetMode] = useState<'product' | 'category' | 'page' | 'preset'>('product');
+  const [productSearch, setProductSearch] = useState<string>('');
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>('');
 
   // Form State
   const [title, setTitle] = useState<string>('✨ ARMIA New Haute Couture Drop');
@@ -57,22 +73,108 @@ export default function AdminNotificationsPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [count, hist] = await Promise.all([
+      const [count, hist, prods, cats] = await Promise.all([
         getPushSubscribersCount(),
         getBroadcastHistory(),
+        getProducts(),
+        getCategories(),
       ]);
       setSubscribersCount(count);
       setHistory(hist);
+      setProducts(prods);
+      setCategories(cats);
+
+      // Auto-select first product if available
+      if (prods.length > 0 && !selectedProductId) {
+        const firstProd = prods[0];
+        setSelectedProductId(firstProd.id);
+        setTitle(`✨ Spotlight: ${firstProd.name}`);
+        setBody(
+          `${firstProd.description || `Handcrafted luxury piece in premium fabric.`} | EGP ${firstProd.price.toLocaleString()}`
+        );
+        setTargetUrl(`/product/${firstProd.id}`);
+        if (firstProd.imageUrls && firstProd.imageUrls.length > 0) {
+          setImageUrl(firstProd.imageUrls[0]);
+        }
+      }
     } catch {
-      error('Failed to load push stats and history');
+      error('Failed to load push stats and catalog data');
     } finally {
       setLoading(false);
     }
-  }, [error]);
+  }, [error, selectedProductId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Handle Product Auto-Fill Selection
+  const handleSelectProduct = (prod: Product) => {
+    setSelectedProductId(prod.id);
+    setTitle(`✨ Spotlight: ${prod.name}`);
+    setBody(
+      `${prod.description || `Explore our signature ${prod.name} with bespoke tailoring.`} | EGP ${prod.price.toLocaleString()}`
+    );
+    setTargetUrl(`/product/${prod.id}`);
+    if (prod.imageUrls && prod.imageUrls.length > 0) {
+      setImageUrl(prod.imageUrls[0]);
+    }
+    setBadgeTag('PRODUCT_SPOTLIGHT');
+    success(`Auto-filled details & photo for "${prod.name}"`, 'Smart Auto-Fill');
+  };
+
+  // Handle Category / Collection Auto-Fill Selection
+  const handleSelectCategory = (cat: Category) => {
+    setSelectedCategorySlug(cat.slug);
+    setSelectedProductId('');
+    setTitle(`✨ Discover The New ${cat.name} Collection`);
+    setBody(
+      `${cat.description || `Shop our curated luxury ${cat.name} collection. Available online now.`}`
+    );
+    setTargetUrl(`/collections/${cat.slug}`);
+    if (cat.imageUrl) {
+      setImageUrl(cat.imageUrl);
+    }
+    setBadgeTag('COLLECTION_DROP');
+    success(`Auto-filled collection: "${cat.name}"`, 'Smart Auto-Fill');
+  };
+
+  // Handle Special Store Page Auto-Fill Selection
+  const handleSelectPage = (pageKey: string) => {
+    setSelectedProductId('');
+    setSelectedCategorySlug('');
+
+    if (pageKey === 'home') {
+      setTitle('✨ Welcome to ARMIA Haute Couture');
+      setBody('Discover our latest season arrivals, bespoke dresses, and luxury linen sets.');
+      setTargetUrl('/');
+      setImageUrl('https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=80');
+      setBadgeTag('NEW_SEASON');
+    } else if (pageKey === 'collections') {
+      setTitle('🛍️ Explore All ARMIA Collections');
+      setBody('Browse our entire catalog of dresses, sets, tops, and outerwear. Wholesale & Retail.');
+      setTargetUrl('/collections');
+      setImageUrl('https://images.unsplash.com/photo-1550614000-4895a10e1bfd?w=900&auto=format&fit=crop&q=80');
+      setBadgeTag('ALL_COLLECTIONS');
+    } else if (pageKey === 'sets') {
+      setTitle('🔥 Exclusive Co-Ord Sets & Outfit Deals');
+      setBody('Complete your look with matching tops, bottoms, and sets with special privileges.');
+      setTargetUrl('/collections/sets');
+      setImageUrl('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=900&auto=format&fit=crop&q=80');
+      setBadgeTag('FLASH_SALE');
+    } else if (pageKey === 'shipping') {
+      setTitle('🚚 Express Door-to-Door Delivery Available');
+      setBody('Fast 2-4 day shipping across all Egyptian Governorates with cash on delivery & Instapay.');
+      setTargetUrl('/shipping');
+      setBadgeTag('FREE_SHIPPING');
+    } else if (pageKey === 'contact') {
+      setTitle('💬 Atelier VIP Concierge & Personal Stylist');
+      setBody('Have questions or need custom sizing? Reach out directly via WhatsApp concierge.');
+      setTargetUrl('/contact');
+      setBadgeTag('VIP_CONCIERGE');
+    }
+    success('Auto-filled page broadcast content!', 'Page Selected');
+  };
 
   // Handle Photo File Upload
   const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,10 +183,8 @@ export default function AdminNotificationsPage() {
 
     setUploadingImage(true);
     try {
-      // 1. Client-side luxury compression to WebP/JPEG (1200x800, max 250KB)
       const { blob, dataUrl } = await compressImage(file, 1200, 800, 0.85);
 
-      // 2. Upload to Firebase Storage with timeout race
       const uploadWithTimeout = async (): Promise<string> => {
         const storageRef = ref(
           storage,
@@ -148,26 +248,13 @@ export default function AdminNotificationsPage() {
     }
   };
 
-  // Quick Preset Handlers
-  const applyPreset = (presetType: 'drop' | 'flash' | 'shipping') => {
-    if (presetType === 'drop') {
-      setTitle('✨ ARMIA New Haute Couture Drop');
-      setBody('The Private Atelier Autumn/Winter Collection is now live. Reserve your piece online.');
-      setTargetUrl('/collections/new-in');
-      setBadgeTag('HAUTE_COUTURE');
-    } else if (presetType === 'flash') {
-      setTitle('🔥 Flash VIP Privilege: 15% Off All Linen Sets');
-      setBody('Exclusive 3-hour privilege on all Egyptian linen sets. Use code VIP15 at checkout.');
-      setTargetUrl('/collections/sets');
-      setBadgeTag('FLASH_SALE');
-    } else if (presetType === 'shipping') {
-      setTitle('🚚 Complimentary Express Delivery Weekend');
-      setBody('Enjoy 100% free door-to-door delivery on all orders across Cairo, Giza & Alexandria.');
-      setTargetUrl('/collections');
-      setBadgeTag('FREE_SHIPPING');
-    }
-    info('Preset template applied');
-  };
+  // Filtered products for search
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.category.toLowerCase().includes(productSearch.toLowerCase()) ||
+      (p.nameArabic && p.nameArabic.includes(productSearch))
+  );
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-16 font-sans">
@@ -182,7 +269,7 @@ export default function AdminNotificationsPage() {
             Mobile Push Notifications & Broadcast Center
           </h1>
           <p className="text-xs text-[#8E8A85]">
-            Broadcast real-time mobile push notifications to subscribed client devices for private collection drops, flash sales, and special offers.
+            Broadcast real-time mobile push notifications to subscribed client devices for private collection drops, specific product spotlights, and flash sales.
           </p>
         </div>
 
@@ -248,48 +335,262 @@ export default function AdminNotificationsPage() {
             <h3 className="font-serif text-xl font-bold text-white mt-0.5">
               Draft Broadcast Alert
             </h3>
+            <p className="text-xs text-[#8E8A85] mt-1">
+              Select any product, category, or page to <strong>automatically write all titles, descriptions, links, and photos</strong> in 1 click!
+            </p>
           </div>
 
-          {/* Quick Preset Buttons */}
-          <div className="space-y-2">
-            <span className="text-xs text-[#8E8A85] uppercase tracking-wider font-semibold block">
-              1-Click Luxury Presets:
+          {/* Smart Auto-Fill Picker Navigation Tabs */}
+          <div className="space-y-3 bg-[#141414] p-4 rounded-xl border border-[#333333]">
+            <span className="text-[11px] text-[#DCC9A6] uppercase tracking-wider font-bold block">
+              ⚡ 1-Click Smart Auto-Fill Selection:
             </span>
-            <div className="flex flex-wrap gap-2">
+
+            {/* Mode Switcher Buttons */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
-                onClick={() => applyPreset('drop')}
-                className="bg-[#141414] hover:bg-[#2A2A2A] text-xs text-[#DCC9A6] border border-[#333333] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                onClick={() => setTargetMode('product')}
+                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  targetMode === 'product'
+                    ? 'bg-[#B67355] text-white shadow-md'
+                    : 'bg-[#1F1F1F] text-[#8E8A85] hover:text-white border border-[#333333]'
+                }`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#B67355]" />
-                <span>Collection Drop</span>
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Product</span>
               </button>
+
               <button
                 type="button"
-                onClick={() => applyPreset('flash')}
-                className="bg-[#141414] hover:bg-[#2A2A2A] text-xs text-amber-300 border border-[#333333] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                onClick={() => setTargetMode('category')}
+                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  targetMode === 'category'
+                    ? 'bg-[#B67355] text-white shadow-md'
+                    : 'bg-[#1F1F1F] text-[#8E8A85] hover:text-white border border-[#333333]'
+                }`}
               >
-                <Flame className="w-3.5 h-3.5 text-amber-500" />
-                <span>Flash Deal (3-Hr)</span>
+                <FolderTree className="w-3.5 h-3.5" />
+                <span>Collection</span>
               </button>
+
               <button
                 type="button"
-                onClick={() => applyPreset('shipping')}
-                className="bg-[#141414] hover:bg-[#2A2A2A] text-xs text-emerald-400 border border-[#333333] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                onClick={() => setTargetMode('page')}
+                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  targetMode === 'page'
+                    ? 'bg-[#B67355] text-white shadow-md'
+                    : 'bg-[#1F1F1F] text-[#8E8A85] hover:text-white border border-[#333333]'
+                }`}
               >
-                <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Free Shipping Day</span>
+                <Globe className="w-3.5 h-3.5" />
+                <span>Store Page</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTargetMode('preset')}
+                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  targetMode === 'preset'
+                    ? 'bg-[#B67355] text-white shadow-md'
+                    : 'bg-[#1F1F1F] text-[#8E8A85] hover:text-white border border-[#333333]'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>VIP Deals</span>
               </button>
             </div>
+
+            {/* TAB 1: PRODUCT PICKER */}
+            {targetMode === 'product' && (
+              <div className="space-y-3 pt-2">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-[#8E8A85] absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Search product name or category..."
+                    className="w-full bg-[#1F1F1F] border border-[#333333] text-white pl-9 pr-3.5 py-2 rounded-lg text-xs focus:outline-none focus:border-[#DCC9A6]"
+                  />
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+                  {filteredProducts.map((prod) => {
+                    const isSelected = selectedProductId === prod.id;
+                    const thumb = prod.imageUrls && prod.imageUrls.length > 0 ? prod.imageUrls[0] : '';
+                    return (
+                      <div
+                        key={prod.id}
+                        onClick={() => handleSelectProduct(prod)}
+                        className={`p-2 rounded-lg flex items-center justify-between gap-3 cursor-pointer transition-all border ${
+                          isSelected
+                            ? 'bg-[#B67355]/20 border-[#DCC9A6] text-white'
+                            : 'bg-[#1F1F1F] border-[#2A2A2A] text-[#D5D5D5] hover:border-[#444444]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="relative w-10 h-10 rounded bg-black shrink-0 overflow-hidden border border-[#333333]">
+                            {thumb ? (
+                              <Image src={thumb} alt={prod.name} fill className="object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-[10px] text-[#8E8A85]">
+                                No img
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold block truncate text-white">
+                              {prod.name}
+                            </span>
+                            <span className="text-[10px] text-[#8E8A85] block truncate">
+                              {prod.category} • EGP {prod.price.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          {isSelected ? (
+                            <span className="bg-[#DCC9A6] text-[#1F1F1F] text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Selected
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-[#8E8A85] hover:text-[#DCC9A6]">
+                              Pick & Auto-fill →
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: COLLECTION PICKER */}
+            {targetMode === 'category' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                {categories.map((cat) => {
+                  const isSelected = selectedCategorySlug === cat.slug;
+                  return (
+                    <div
+                      key={cat.id}
+                      onClick={() => handleSelectCategory(cat)}
+                      className={`p-3 rounded-lg flex items-center justify-between gap-3 cursor-pointer transition-all border ${
+                        isSelected
+                          ? 'bg-[#B67355]/20 border-[#DCC9A6] text-white'
+                          : 'bg-[#1F1F1F] border-[#2A2A2A] text-[#D5D5D5] hover:border-[#444444]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {cat.imageUrl && (
+                          <div className="relative w-8 h-8 rounded bg-black shrink-0 overflow-hidden border border-[#333333]">
+                            <Image src={cat.imageUrl} alt={cat.name} fill className="object-cover" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold block text-white truncate">
+                            {cat.name}
+                          </span>
+                          {cat.nameArabic && (
+                            <span className="text-[10px] text-[#8E8A85] block truncate">
+                              {cat.nameArabic}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <span className="text-[10px] text-[#DCC9A6] shrink-0 font-semibold">
+                        {isSelected ? '✓ Active' : 'Auto-fill'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* TAB 3: STORE PAGE PICKER */}
+            {targetMode === 'page' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleSelectPage('home')}
+                  className="p-3 bg-[#1F1F1F] hover:bg-[#2A2A2A] border border-[#333333] hover:border-[#DCC9A6] rounded-lg text-left transition-all space-y-1"
+                >
+                  <span className="text-xs font-bold text-white block">🏠 Home / New Season</span>
+                  <span className="text-[10px] text-[#8E8A85] block truncate">Destination: /</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectPage('collections')}
+                  className="p-3 bg-[#1F1F1F] hover:bg-[#2A2A2A] border border-[#333333] hover:border-[#DCC9A6] rounded-lg text-left transition-all space-y-1"
+                >
+                  <span className="text-xs font-bold text-white block">👗 All Collections</span>
+                  <span className="text-[10px] text-[#8E8A85] block truncate">Destination: /collections</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectPage('sets')}
+                  className="p-3 bg-[#1F1F1F] hover:bg-[#2A2A2A] border border-[#333333] hover:border-[#DCC9A6] rounded-lg text-left transition-all space-y-1"
+                >
+                  <span className="text-xs font-bold text-white block">🔥 Deals & Sets Outlet</span>
+                  <span className="text-[10px] text-[#8E8A85] block truncate">Destination: /collections/sets</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectPage('shipping')}
+                  className="p-3 bg-[#1F1F1F] hover:bg-[#2A2A2A] border border-[#333333] hover:border-[#DCC9A6] rounded-lg text-left transition-all space-y-1"
+                >
+                  <span className="text-xs font-bold text-white block">🚚 Express Shipping Promo</span>
+                  <span className="text-[10px] text-[#8E8A85] block truncate">Destination: /shipping</span>
+                </button>
+              </div>
+            )}
+
+            {/* TAB 4: VIP PRESETS */}
+            {targetMode === 'preset' && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleSelectPage('home')}
+                  className="bg-[#1F1F1F] hover:bg-[#2A2A2A] text-xs text-[#DCC9A6] border border-[#333333] px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#B67355]" />
+                  <span>Haute Couture Drop</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPage('sets')}
+                  className="bg-[#1F1F1F] hover:bg-[#2A2A2A] text-xs text-amber-300 border border-[#333333] px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <Flame className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Flash Deal (15% Off)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectPage('shipping')}
+                  className="bg-[#1F1F1F] hover:bg-[#2A2A2A] text-xs text-emerald-400 border border-[#333333] px-3.5 py-2 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Free Express Shipping</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSendBroadcast} className="space-y-4 text-xs">
             
             {/* Title */}
             <div>
-              <label className="block text-[#8E8A85] uppercase tracking-wider font-bold mb-1.5">
-                Notification Headline / Title *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[#8E8A85] uppercase tracking-wider font-bold">
+                  Notification Headline / Title *
+                </label>
+                <span className="text-[10px] text-[#DCC9A6]">Auto-filled / Editable</span>
+              </div>
               <input
                 type="text"
                 required
@@ -302,9 +603,12 @@ export default function AdminNotificationsPage() {
 
             {/* Body */}
             <div>
-              <label className="block text-[#8E8A85] uppercase tracking-wider font-bold mb-1.5">
-                Notification Message Body *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[#8E8A85] uppercase tracking-wider font-bold">
+                  Notification Message Body *
+                </label>
+                <span className="text-[10px] text-[#DCC9A6]">Auto-filled / Editable</span>
+              </div>
               <textarea
                 required
                 rows={3}
@@ -317,9 +621,12 @@ export default function AdminNotificationsPage() {
 
             {/* Target URL */}
             <div>
-              <label className="block text-[#8E8A85] uppercase tracking-wider font-bold mb-1.5">
-                Click Target Destination URL *
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[#8E8A85] uppercase tracking-wider font-bold">
+                  Click Target Destination URL *
+                </label>
+                <span className="text-[10px] text-emerald-400 font-mono">Linked Target</span>
+              </div>
               <input
                 type="text"
                 required
@@ -332,9 +639,12 @@ export default function AdminNotificationsPage() {
 
             {/* Photo Upload & Image Banner Section */}
             <div className="space-y-2 pt-1">
-              <label className="block text-[#8E8A85] uppercase tracking-wider font-bold">
-                Notification Banner Photo (Upload Image File)
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-[#8E8A85] uppercase tracking-wider font-bold">
+                  Notification Banner Photo
+                </label>
+                <span className="text-[10px] text-[#DCC9A6]">Auto-synced from Product</span>
+              </div>
 
               {/* Hidden File Input */}
               <input
@@ -359,7 +669,7 @@ export default function AdminNotificationsPage() {
                       {uploadingImage ? 'Compressing & Uploading...' : 'Click to Upload Image from Phone / Computer'}
                     </span>
                     <span className="text-[10px] text-[#8E8A85] block mt-0.5">
-                      Supports JPG, PNG, WEBP — automatically optimized for fast delivery
+                      Supports JPG, PNG, WEBP — or auto-filled from product selection above
                     </span>
                   </div>
                 </div>
@@ -428,7 +738,7 @@ export default function AdminNotificationsPage() {
                     if (Notification.permission !== 'granted') {
                       await requestNotificationPermission();
                     }
-                    displaySystemNotification(title, body, targetUrl);
+                    displaySystemNotification(title, body, targetUrl, imageUrl);
                     success('Test push notification sent directly to your screen!', 'Test Notification Sent');
                   } else {
                     info('Notifications are not supported in this browser environment.');
