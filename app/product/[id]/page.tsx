@@ -38,6 +38,7 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'specs' | 'wholesale' | 'shipping'>('specs');
+  const [fallbackEndTime] = useState(() => new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString());
 
   const { addToCart, toggleWishlist, isWishlisted, discounts } = useCart();
 
@@ -102,6 +103,19 @@ export default function ProductDetailPage() {
 
   // Check if there is an active single-item Flash Deal with countdown
   const flashDeal = getActiveFlashDealForProduct(product.id, discounts);
+
+  // If product has a discountPrice or flashDeal, ensure we have an active countdown
+  const countdownEndTime =
+    flashDeal?.endTime || (product.discountPrice ? fallbackEndTime : null);
+  const countdownTitle =
+    flashDeal?.title || `⚡ Special Offer: Limited Time Price on ${product.name}`;
+  const discountBadge = flashDeal
+    ? flashDeal.type === 'percentage'
+      ? `${flashDeal.value}% OFF`
+      : `EGP ${flashDeal.value} OFF`
+    : product.discountPrice
+    ? `${Math.round(((product.price - product.discountPrice) / product.price) * 100)}% OFF`
+    : undefined;
 
   let effectivePrice = product.discountPrice || product.price;
   let savingsAmount = 0;
@@ -184,7 +198,7 @@ export default function ProductDetailPage() {
                 {/* Floating Tags */}
                 <div className="absolute top-4 left-4 flex flex-col gap-1.5">
                   {flashDeal ? (
-                    <span className="bg-[#141414] text-[#E5A84B] border border-[#E5A84B] text-[10px] font-sans font-bold uppercase tracking-widest px-3 py-1 shadow-lg flex items-center gap-1.5">
+                    <span className="bg-[#B67355] text-white text-[10px] font-sans font-bold uppercase tracking-widest px-3 py-1 shadow-md flex items-center gap-1.5">
                       <Zap className="w-3.5 h-3.5 fill-current animate-pulse" />
                       <span>{flashDeal.type === 'percentage' ? `${flashDeal.value}% FLASH DEAL` : `EGP ${flashDeal.value} OFF`}</span>
                     </span>
@@ -279,17 +293,15 @@ export default function ProductDetailPage() {
                   )}
                 </div>
 
-                {/* FLASH DEAL COUNTDOWN TIMER (If active for this specific item) */}
-                {flashDeal && flashDeal.endTime && (
-                  <FlashDealCountdown
-                    endTime={flashDeal.endTime}
-                    title={flashDeal.title}
-                    discountBadge={
-                      flashDeal.type === 'percentage'
-                        ? `${flashDeal.value}% OFF`
-                        : `EGP ${flashDeal.value} OFF`
-                    }
-                  />
+                {/* FLASH DEAL COUNTDOWN TIMER - Positioned directly beneath the price */}
+                {countdownEndTime && (
+                  <div className="my-3.5">
+                    <FlashDealCountdown
+                      endTime={countdownEndTime}
+                      title={countdownTitle}
+                      discountBadge={discountBadge}
+                    />
+                  </div>
                 )}
 
                 {/* Description */}

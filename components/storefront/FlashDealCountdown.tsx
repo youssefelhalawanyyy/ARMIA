@@ -13,7 +13,7 @@ interface FlashDealCountdownProps {
 
 export default function FlashDealCountdown({
   endTime,
-  title = 'LIMITED TIME FLASH DEAL',
+  title = 'LIMITED TIME SPECIAL OFFER',
   discountBadge,
   compact = false,
 }: FlashDealCountdownProps) {
@@ -74,12 +74,12 @@ export default function FlashDealCountdown({
     return null;
   }
 
-  // COMPACT VERSION (for product cards or headers)
+  // COMPACT VERSION (for product cards, lists, or headers)
   if (compact) {
     return (
-      <div className="inline-flex items-center gap-1.5 bg-[#1F1F1F] text-[#DCC9A6] px-2.5 py-1 text-[11px] font-mono border border-[#DCC9A6]/40 shadow-sm rounded">
-        <Zap className="w-3 h-3 text-[#E5A84B] animate-pulse" />
-        <span className="font-bold text-[#E5A84B]">
+      <div className="inline-flex items-center gap-1.5 bg-[#FAF7F2] text-[#B67355] px-2.5 py-1 text-[11px] font-mono border border-[#DCC9A6] shadow-sm rounded">
+        <Zap className="w-3 h-3 text-[#B67355] fill-current animate-pulse" />
+        <span className="font-bold text-[#1F1F1F]">
           {timeLeft.days > 0 ? `${timeLeft.days}d ` : ''}
           {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s
         </span>
@@ -87,79 +87,79 @@ export default function FlashDealCountdown({
     );
   }
 
-  // FULL LUXURY FLASH SALE CARD (for Product Details Page)
+  // FULL LUXURY CASHMERE & GOLD FLASH SALE CARD (for Product Details Page)
   return (
-    <div className="bg-gradient-to-r from-[#141414] via-[#1F1F1F] to-[#141414] border-2 border-[#DCC9A6] p-4 text-white shadow-xl relative overflow-hidden rounded-xl my-4">
-      {/* Background ambient glow */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-[#B67355]/10 rounded-full blur-2xl pointer-events-none" />
+    <div className="bg-[#FAF7F2] border border-[#DCC9A6] p-4 sm:p-5 text-[#1F1F1F] shadow-sm relative overflow-hidden rounded-xl">
+      {/* Background ambient luxury light */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-[#DCC9A6]/20 rounded-full blur-2xl pointer-events-none" />
 
       {/* Header bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#333333] pb-3 mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#B67355] flex items-center justify-center text-white shadow-md animate-pulse">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8E2D8] pb-3 mb-3.5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-[#B67355] flex items-center justify-center text-white shadow-sm animate-pulse">
             <Flame className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-sans font-bold uppercase tracking-[0.25em] text-[#DCC9A6]">
+              <span className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-[#B67355]">
                 ⚡ FLASH DEAL
               </span>
               {discountBadge && (
-                <span className="bg-[#B67355] text-white text-[10px] font-bold px-2 py-0.5 rounded font-sans uppercase">
+                <span className="bg-[#B67355] text-white text-[10px] font-bold px-2 py-0.5 rounded font-sans uppercase shadow-sm">
                   {discountBadge}
                 </span>
               )}
             </div>
-            <h4 className="font-serif text-sm font-bold text-white tracking-wide">
+            <h4 className="font-serif text-sm sm:text-base font-bold text-[#1F1F1F] tracking-wide truncate max-w-[240px] sm:max-w-xs mt-0.5">
               {title}
             </h4>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs text-[#DCC9A6] font-sans">
-          <Clock className="w-3.5 h-3.5" />
-          <span className="text-[11px] font-medium uppercase tracking-wider">Ends In:</span>
+        <div className="flex items-center gap-1.5 text-xs text-[#8E8A85] font-sans">
+          <Clock className="w-3.5 h-3.5 text-[#B67355]" />
+          <span className="font-semibold uppercase tracking-wider text-[11px]">Ends In:</span>
         </div>
       </div>
 
-      {/* Digital Countdown Timer Boxes */}
-      <div className="grid grid-cols-4 gap-2 text-center">
+      {/* Digital Countdown Timer Boxes - Warm Ivory & Crisp White */}
+      <div className="grid grid-cols-4 gap-2.5 text-center">
         {/* Days */}
-        <div className="bg-[#000000] border border-[#333333] p-2 rounded-lg shadow-inner">
-          <span className="block font-mono text-xl sm:text-2xl font-black text-[#DCC9A6] tracking-tight">
+        <div className="bg-white border border-[#E8E2D8] py-2.5 px-1.5 rounded-lg shadow-sm">
+          <span className="block font-mono text-xl sm:text-2xl font-bold text-[#1F1F1F] tracking-tight">
             {String(timeLeft.days).padStart(2, '0')}
           </span>
-          <span className="block text-[9px] uppercase font-sans tracking-widest text-[#8E8A85] mt-0.5">
+          <span className="block text-[9px] uppercase font-sans font-bold tracking-widest text-[#8E8A85] mt-0.5">
             Days
           </span>
         </div>
 
         {/* Hours */}
-        <div className="bg-[#000000] border border-[#333333] p-2 rounded-lg shadow-inner">
-          <span className="block font-mono text-xl sm:text-2xl font-black text-[#DCC9A6] tracking-tight">
+        <div className="bg-white border border-[#E8E2D8] py-2.5 px-1.5 rounded-lg shadow-sm">
+          <span className="block font-mono text-xl sm:text-2xl font-bold text-[#1F1F1F] tracking-tight">
             {String(timeLeft.hours).padStart(2, '0')}
           </span>
-          <span className="block text-[9px] uppercase font-sans tracking-widest text-[#8E8A85] mt-0.5">
+          <span className="block text-[9px] uppercase font-sans font-bold tracking-widest text-[#8E8A85] mt-0.5">
             Hours
           </span>
         </div>
 
         {/* Minutes */}
-        <div className="bg-[#000000] border border-[#333333] p-2 rounded-lg shadow-inner">
-          <span className="block font-mono text-xl sm:text-2xl font-black text-[#DCC9A6] tracking-tight">
+        <div className="bg-white border border-[#E8E2D8] py-2.5 px-1.5 rounded-lg shadow-sm">
+          <span className="block font-mono text-xl sm:text-2xl font-bold text-[#1F1F1F] tracking-tight">
             {String(timeLeft.minutes).padStart(2, '0')}
           </span>
-          <span className="block text-[9px] uppercase font-sans tracking-widest text-[#8E8A85] mt-0.5">
+          <span className="block text-[9px] uppercase font-sans font-bold tracking-widest text-[#8E8A85] mt-0.5">
             Mins
           </span>
         </div>
 
         {/* Seconds */}
-        <div className="bg-[#000000] border border-[#B67355]/60 p-2 rounded-lg shadow-inner relative overflow-hidden">
-          <span className="block font-mono text-xl sm:text-2xl font-black text-[#E5A84B] tracking-tight animate-pulse">
+        <div className="bg-white border border-[#B67355]/40 py-2.5 px-1.5 rounded-lg shadow-sm relative overflow-hidden">
+          <span className="block font-mono text-xl sm:text-2xl font-black text-[#B67355] tracking-tight animate-pulse">
             {String(timeLeft.seconds).padStart(2, '0')}
           </span>
-          <span className="block text-[9px] uppercase font-sans tracking-widest text-[#B67355] mt-0.5 font-bold">
+          <span className="block text-[9px] uppercase font-sans font-bold tracking-widest text-[#B67355] mt-0.5">
             Secs
           </span>
         </div>

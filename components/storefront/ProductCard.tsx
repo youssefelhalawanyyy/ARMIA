@@ -97,7 +97,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Discount, Flash Deal, or New Tag */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10 pointer-events-none">
           {hasFlashDeal && flashDeal ? (
-            <span className="bg-[#141414] text-[#E5A84B] border border-[#E5A84B] text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-md flex items-center gap-1">
+            <span className="bg-[#B67355] text-white text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1">
               <Zap className="w-3 h-3 fill-current animate-pulse" />
               <span>
                 {flashDeal.type === 'percentage' ? `${flashDeal.value}% FLASH DEAL` : `EGP ${flashDeal.value} OFF`}

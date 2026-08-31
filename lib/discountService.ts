@@ -14,8 +14,8 @@ export const DEFAULT_DISCOUNTS: Discount[] = [
     value: 25,
     trigger: 'auto',
     targetType: 'product',
-    applicableProductId: 'prod_1',
-    applicableProductName: 'TWO-PIECE TAILORED LINEN SET',
+    applicableProductId: 'prod-linen-set-1',
+    applicableProductName: 'LINEN SET',
     applicableProductImage: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&auto=format&fit=crop&q=85',
     minSubtotal: 0,
     startTime: new Date().toISOString(),
@@ -67,7 +67,7 @@ export const DEFAULT_DISCOUNTS: Discount[] = [
   },
 ];
 
-const DISCOUNTS_STORAGE_KEY = 'armia_discounts_cache_v1';
+const DISCOUNTS_STORAGE_KEY = 'armia_discounts_cache_v2';
 
 /**
  * Fetch all discounts from Firestore with local storage caching
@@ -171,11 +171,23 @@ export function getActiveFlashDealForProduct(
   discounts: Discount[] = DEFAULT_DISCOUNTS
 ): Discount | null {
   const now = Date.now();
+  const pId = productId.toLowerCase();
 
   const match = discounts.find((d) => {
     if (!d.isActive) return false;
     if (d.targetType !== 'product' && !d.applicableProductId) return false;
-    if (d.applicableProductId !== productId) return false;
+
+    const dProdId = (d.applicableProductId || '').toLowerCase();
+    const dProdName = (d.applicableProductName || '').toLowerCase();
+
+    // Check exact or partial match
+    const isIdMatch =
+      dProdId === pId ||
+      pId.includes(dProdId) ||
+      dProdId.includes(pId) ||
+      (dProdName && (pId.includes(dProdName) || dProdName.includes(pId)));
+
+    if (!isIdMatch) return false;
 
     // Check time bounds
     if (d.startTime && new Date(d.startTime).getTime() > now) {
