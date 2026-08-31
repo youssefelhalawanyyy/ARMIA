@@ -13,7 +13,7 @@ import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from './pushConfig';
 
 const SUBSCRIBERS_COLLECTION = 'push_subscribers';
 const BROADCASTS_COLLECTION = 'broadcast_notifications';
-const SEEN_BROADCASTS_KEY = 'armia_seen_broadcast_ids_v2';
+const SEEN_BROADCASTS_KEY = 'armia_seen_broadcast_ids_v3';
 
 /**
  * Generate a safe unique Firestore document ID from push endpoint URL
@@ -271,21 +271,28 @@ export async function requestNotificationPermission(
 
 /**
  * Safely display a Native OS Notification using ServiceWorker if available, falling back to Notification API
+ * Automatically uses unique tag so multiple triggers for the same broadcast collapse into 1 single notification
  */
 export async function displaySystemNotification(
   title: string,
   body: string,
-  targetUrl: string = '/'
+  targetUrl: string = '/',
+  imageUrl?: string,
+  id?: string
 ) {
   playNotificationChime();
 
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
 
+  const tag = id ? `armia_${id}` : `armia_${Date.now()}`;
+
   const options = {
     body,
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-192x192.png',
+    image: imageUrl || undefined,
+    tag,
     data: { url: targetUrl },
     vibrate: [200, 100, 200],
   };
@@ -301,12 +308,14 @@ export async function displaySystemNotification(
     new Notification(title, {
       body,
       icon: '/icons/icon-192x192.png',
+      tag,
     });
   } catch {
     try {
       new Notification(title, {
         body,
         icon: '/icons/icon-192x192.png',
+        tag,
       });
     } catch {
       // ignore
@@ -328,7 +337,6 @@ export async function getPushSubscribersCount(): Promise<number> {
 
 /**
  * Dispatch a broadcast notification from Admin
- * Calls the server-side Web Push API route to wake up closed devices, and records the event in Firestore
  */
 export async function dispatchBroadcastNotification(
   notification: Omit<BroadcastNotification, 'id' | 'sentAt' | 'recipientCount'>
@@ -344,7 +352,7 @@ export async function dispatchBroadcastNotification(
     console.warn('API push dispatch warning:', apiErr);
   }
 
-  // 2. Record in Firestore for active in-app banner listeners
+  // 2. Record in Firestore for active listeners
   const subscribersCount = await getPushSubscribersCount();
   const broadcastId = `bcast_${Date.now()}`;
   const docRef = doc(db, BROADCASTS_COLLECTION, broadcastId);
@@ -406,8 +414,7 @@ export async function getBroadcastHistory(): Promise<BroadcastNotification[]> {
 }
 
 /**
- * Real-time Broadcast Listener for active in-app luxury banners
- * NOTE: Does NOT trigger redundant native OS notification to prevent duplicates with Service Worker
+ * Real-time Broadcast Listener for all active client and mobile devices
  */
 export function listenToLiveBroadcasts(
   onBroadcastReceived: (broadcast: BroadcastNotification) => void
@@ -444,8 +451,16 @@ export function listenToLiveBroadcasts(
               recipientCount: data.recipientCount || 1,
             };
 
-            // Trigger In-App Luxury VIP Banner with Audio Chime (no duplicate OS popup)
-            playNotificationChime();
+            // 1. Native System / Mobile Lock Screen Notification (deduplicated by OS tag)
+            displaySystemNotification(
+              broadcast.title,
+              broadcast.body,
+              broadcast.targetUrl,
+              broadcast.imageUrl,
+              broadcast.id
+            );
+
+            // 2. In-App Luxury Banner with Audio Chime
             onBroadcastReceived(broadcast);
           }
         }

@@ -56,6 +56,7 @@ export async function POST(req: Request) {
     });
 
     const pushPayload = JSON.stringify({
+      id: broadcastId,
       title,
       body,
       targetUrl: targetUrl || '/',
