@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { SizeChartGuide } from '@/types';
+import { cleanUndefinedFields } from './productService';
 
 const SIZE_CHARTS_COLLECTION = 'size_charts';
 
@@ -176,14 +177,12 @@ export async function getSizeChartByCategory(categorySlug: string): Promise<Size
 export async function saveSizeChart(guide: SizeChartGuide): Promise<boolean> {
   try {
     const docRef = doc(db, SIZE_CHARTS_COLLECTION, guide.id);
-    await setDoc(
-      docRef,
-      {
-        ...guide,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+    const rawPayload = {
+      ...guide,
+      updatedAt: serverTimestamp(),
+    };
+    const payload = cleanUndefinedFields(rawPayload);
+    await setDoc(docRef, payload, { merge: true });
     return true;
   } catch (err) {
     console.error('Error saving size chart:', err);

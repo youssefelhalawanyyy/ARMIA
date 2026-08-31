@@ -19,6 +19,26 @@ const PRODUCTS_COLLECTION = 'products';
 const ORDERS_COLLECTION = 'orders';
 
 /**
+ * Recursively removes all undefined fields to ensure valid Firestore document payloads
+ */
+export function cleanUndefinedFields<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefinedFields) as unknown as T;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanUndefinedFields(value);
+      }
+    }
+    return cleaned as unknown as T;
+  }
+  return obj;
+}
+
+/**
  * Safely converts Firestore document data into a pure plain object serializable across React Server Component boundaries.
  */
 function sanitizeFirestoreDoc<T>(id: string, rawData: Record<string, unknown> | null | undefined): T {
@@ -148,11 +168,12 @@ export async function seedProductsToFirestore(): Promise<number> {
   let count = 0;
   for (const product of INITIAL_PRODUCTS) {
     const docRef = doc(db, PRODUCTS_COLLECTION, product.id);
-    await setDoc(docRef, {
+    const payload = cleanUndefinedFields({
       ...product,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    await setDoc(docRef, payload);
     count++;
   }
   return count;
@@ -165,11 +186,13 @@ export async function saveProduct(product: Partial<Product> & { id?: string }): 
   const prodId = product.id || `prod-${Date.now()}`;
   const docRef = doc(db, PRODUCTS_COLLECTION, prodId);
 
-  const payload = {
+  const rawPayload = {
     ...product,
     id: prodId,
     updatedAt: serverTimestamp(),
   };
+
+  const payload = cleanUndefinedFields(rawPayload);
 
   await setDoc(docRef, payload, { merge: true });
   return prodId;
@@ -195,11 +218,13 @@ export function generateOrderId(): string {
  */
 export async function createOrderInFirestore(orderData: Omit<Order, 'id'>): Promise<string> {
   const ordersRef = collection(db, ORDERS_COLLECTION);
-  const docRef = await addDoc(ordersRef, {
+  const rawPayload = {
     ...orderData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  };
+  const payload = cleanUndefinedFields(rawPayload);
+  const docRef = await addDoc(ordersRef, payload);
   return docRef.id;
 }
 
