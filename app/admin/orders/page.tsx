@@ -19,12 +19,21 @@ import {
   Smartphone,
   Banknote,
   Check,
+  RotateCcw,
+  AlertTriangle,
+  FileText,
+  Truck,
+  MapPin,
+  Clock,
+  User,
+  Package,
 } from 'lucide-react';
 import {
   getAllOrders,
   updateOrderStatusInFirestore,
   updatePaymentStatusInFirestore,
 } from '@/lib/productService';
+import { checkCustomerReturnHistory } from '@/lib/clientService';
 import { Order, OrderStatus, PaymentStatus } from '@/types';
 import { useToast } from '@/context/ToastContext';
 import PrintableInvoice from '@/components/admin/PrintableInvoice';
@@ -36,9 +45,12 @@ export default function AdminOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  
+  // Modals state
+  const [selectedInvoiceOrder, setSelectedInvoiceOrder] = useState<Order | null>(null);
+  const [selectedDetailsOrder, setSelectedDetailsOrder] = useState<Order | null>(null);
   const [inspectReceiptOrder, setInspectReceiptOrder] = useState<Order | null>(null);
-  const [verifyingPayment, setVerifyingPayment] = useState(false);
+  const [updatingAction, setUpdatingAction] = useState(false);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -74,12 +86,20 @@ export default function AdminOrdersPage() {
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     try {
       await updateOrderStatusInFirestore(orderId, newStatus);
-      success(`Order #${orderId} status changed to ${newStatus.toUpperCase()}`, 'Status Updated');
+      success(
+        newStatus === 'returned'
+          ? `Order #${orderId} marked as RETURNED (تم تسجيل كمرتجع)`
+          : `Order #${orderId} status changed to ${newStatus.toUpperCase()}`,
+        'Status Updated'
+      );
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId || o.orderId === orderId ? { ...o, status: newStatus } : o))
       );
-      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderId === orderId)) {
-        setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+      if (selectedDetailsOrder && (selectedDetailsOrder.id === orderId || selectedDetailsOrder.orderId === orderId)) {
+        setSelectedDetailsOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+      }
+      if (selectedInvoiceOrder && (selectedInvoiceOrder.id === orderId || selectedInvoiceOrder.orderId === orderId)) {
+        setSelectedInvoiceOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
       }
     } catch (err: unknown) {
       console.error('Failed to update status:', err);
@@ -89,7 +109,7 @@ export default function AdminOrdersPage() {
   };
 
   const handleVerifyPayment = async (orderId: string, newPaymentStatus: PaymentStatus) => {
-    setVerifyingPayment(true);
+    setUpdatingAction(true);
     try {
       const autoConfirm = newPaymentStatus === 'verified';
       await updatePaymentStatusInFirestore(orderId, newPaymentStatus, autoConfirm);
@@ -113,8 +133,8 @@ export default function AdminOrdersPage() {
         )
       );
 
-      if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderId === orderId)) {
-        setSelectedOrder((prev) =>
+      if (selectedDetailsOrder && (selectedDetailsOrder.id === orderId || selectedDetailsOrder.orderId === orderId)) {
+        setSelectedDetailsOrder((prev) =>
           prev
             ? {
                 ...prev,
@@ -141,7 +161,7 @@ export default function AdminOrdersPage() {
       const e = err as { message?: string };
       error('Failed to update payment status: ' + (e.message || 'Error occurred'));
     } finally {
-      setVerifyingPayment(false);
+      setUpdatingAction(false);
     }
   };
 
@@ -178,6 +198,8 @@ export default function AdminOrdersPage() {
         return 'bg-[#B67355]/30 text-[#DCC9A6] border-[#B67355]';
       case 'delivered':
         return 'bg-emerald-950 text-emerald-300 border-emerald-800';
+      case 'returned':
+        return 'bg-rose-950 text-rose-300 border-rose-800 font-bold';
       case 'cancelled':
         return 'bg-red-950 text-red-300 border-red-800';
     }
@@ -186,6 +208,8 @@ export default function AdminOrdersPage() {
   const instapayPendingCount = orders.filter(
     (o) => o.paymentMethod === 'INSTAPAY' && (!o.paymentStatus || o.paymentStatus === 'pending_verification')
   ).length;
+
+  const returnedOrdersCount = orders.filter((o) => o.status === 'returned').length;
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -196,10 +220,10 @@ export default function AdminOrdersPage() {
             Real-Time Order & Verification Feed
           </span>
           <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white mt-1">
-            Orders & Payment Verification
+            Orders & Returns Management
           </h1>
           <p className="text-xs text-[#8E8A85] font-sans">
-            Review incoming orders, verify uploaded Instapay receipts, and manage delivery logistics.
+            Manage live orders, inspect Instapay receipts, view complete customer details, and track return histories.
           </p>
         </div>
 
@@ -263,6 +287,7 @@ export default function AdminOrdersPage() {
             { id: 'processing', label: 'Processing' },
             { id: 'shipped', label: 'Out for Delivery' },
             { id: 'delivered', label: 'Delivered' },
+            { id: 'returned', label: `⚠️ Returned (${returnedOrdersCount})` },
             { id: 'cancelled', label: 'Cancelled' },
           ].map((tab) => (
             <button
@@ -309,14 +334,14 @@ export default function AdminOrdersPage() {
             <table className="w-full text-left text-xs font-sans">
               <thead className="bg-[#141414] border-b border-[#333333] text-[#8E8A85] uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="py-3.5 px-4">Order ID</th>
-                  <th className="py-3.5 px-4">Customer Details</th>
+                  <th className="py-3.5 px-4">Order ID & Date</th>
+                  <th className="py-3.5 px-4">Customer Details & Risk</th>
                   <th className="py-3.5 px-4">Governorate / City</th>
                   <th className="py-3.5 px-4">Items Summary</th>
                   <th className="py-3.5 px-4">Payment Method & Receipt</th>
                   <th className="py-3.5 px-4">Total Amount</th>
                   <th className="py-3.5 px-4">Delivery Status</th>
-                  <th className="py-3.5 px-4 text-right">Invoice & Details</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#262626]">
@@ -326,8 +351,22 @@ export default function AdminOrdersPage() {
                   const isPaymentVerified = ord.paymentStatus === 'verified';
                   const isPaymentRejected = ord.paymentStatus === 'rejected';
 
+                  // SMART PREVIOUS RETURN DETECTION
+                  const returnHistory = checkCustomerReturnHistory(
+                    ord.customerDetails,
+                    ord.customerUid,
+                    ord.id || ord.orderId,
+                    orders
+                  );
+
                   return (
-                    <tr key={ord.id || ord.orderId} className="hover:bg-[#252525] transition-colors">
+                    <tr
+                      key={ord.id || ord.orderId}
+                      className={`hover:bg-[#252525] transition-colors ${
+                        returnHistory.hasReturns ? 'bg-red-950/15' : ''
+                      }`}
+                    >
+                      {/* Order ID */}
                       <td className="py-4 px-4 font-mono font-bold text-white">
                         <div className="flex flex-col">
                           <span>#{ord.orderId}</span>
@@ -339,8 +378,10 @@ export default function AdminOrdersPage() {
                         </div>
                       </td>
 
+                      {/* Customer Details + Smart Return Risk Alert */}
                       <td className="py-4 px-4">
-                        <p className="font-medium text-white">{ord.customerDetails?.fullName}</p>
+                        <p className="font-bold text-white">{ord.customerDetails?.fullName}</p>
+                        
                         <div className="flex items-center gap-2 mt-1">
                           <a
                             href={`tel:${ord.customerDetails?.phone}`}
@@ -359,13 +400,23 @@ export default function AdminOrdersPage() {
                             <MessageCircle className="w-3.5 h-3.5" />
                           </a>
                         </div>
+
+                        {/* SMART RETURN WARNING BADGE ON NEW ORDERS */}
+                        {returnHistory.hasReturns && (
+                          <div className="mt-1.5 inline-flex items-center gap-1 bg-red-950 text-red-300 border border-red-800 text-[10px] font-bold px-2 py-0.5 rounded animate-pulse shadow-sm">
+                            <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />
+                            <span>⚠️ Previous Returns: {returnHistory.returnCount} orders</span>
+                          </div>
+                        )}
                       </td>
 
+                      {/* Location */}
                       <td className="py-4 px-4 text-[#8E8A85]">
                         <p className="text-white">{ord.customerDetails?.governorate}</p>
                         <p className="text-[11px] truncate max-w-[140px]">{ord.customerDetails?.city}</p>
                       </td>
 
+                      {/* Items Summary */}
                       <td className="py-4 px-4">
                         <span className="text-white font-semibold">{ord.items?.length} items</span>
                         <p className="text-[10px] text-[#8E8A85] truncate max-w-[150px]">
@@ -424,6 +475,7 @@ export default function AdminOrdersPage() {
                         )}
                       </td>
 
+                      {/* Total Amount */}
                       <td className="py-4 px-4">
                         <span className="font-serif text-sm font-bold text-[#DCC9A6]">
                           EGP {ord.totalAmount?.toFixed(2)}
@@ -435,6 +487,7 @@ export default function AdminOrdersPage() {
                         )}
                       </td>
 
+                      {/* Status Dropdown (Includes 'Returned') */}
                       <td className="py-4 px-4">
                         <select
                           value={ord.status}
@@ -450,18 +503,32 @@ export default function AdminOrdersPage() {
                           <option value="processing">Processing</option>
                           <option value="shipped">Shipped</option>
                           <option value="delivered">Delivered</option>
+                          <option value="returned">⚠️ Returned (مرتجع)</option>
                           <option value="cancelled">Cancelled</option>
                         </select>
                       </td>
 
+                      {/* Dual Action Buttons: Order Details + Invoice */}
                       <td className="py-4 px-4 text-right">
-                        <button
-                          onClick={() => setSelectedOrder(ord)}
-                          className="inline-flex items-center gap-1 bg-[#141414] border border-[#333333] text-[#DCC9A6] px-3 py-1.5 text-xs hover:border-[#DCC9A6] transition-colors rounded"
-                        >
-                          <span>Invoice</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setSelectedDetailsOrder(ord)}
+                            className="inline-flex items-center gap-1 bg-[#B67355] text-white px-2.5 py-1.5 text-xs font-semibold hover:bg-[#DCC9A6] hover:text-[#1F1F1F] transition-all rounded shadow-sm"
+                            title="View Complete Order & Customer Details"
+                          >
+                            <Package className="w-3.5 h-3.5" />
+                            <span>Order Details</span>
+                          </button>
+
+                          <button
+                            onClick={() => setSelectedInvoiceOrder(ord)}
+                            className="inline-flex items-center gap-1 bg-[#141414] border border-[#333333] text-[#DCC9A6] px-2.5 py-1.5 text-xs hover:border-[#DCC9A6] transition-colors rounded"
+                            title="Print Official A4 Invoice"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>Invoice</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -471,6 +538,249 @@ export default function AdminOrdersPage() {
           </div>
         )}
       </div>
+
+      {/* COMPREHENSIVE ORDER DETAILS & CUSTOMER PROFILE MODAL */}
+      {selectedDetailsOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          <div className="relative w-full max-w-3xl bg-[#1F1F1F] border border-[#333333] p-6 sm:p-8 shadow-2xl rounded-2xl text-white space-y-6 max-h-[92vh] overflow-y-auto">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#333333] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#B67355] flex items-center justify-center text-white">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif text-xl font-bold text-white">
+                      Order #{selectedDetailsOrder.orderId}
+                    </h3>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${getStatusColor(selectedDetailsOrder.status)}`}>
+                      {selectedDetailsOrder.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#8E8A85] font-sans">
+                    Placed on {typeof selectedDetailsOrder.createdAt === 'string' ? new Date(selectedDetailsOrder.createdAt).toLocaleString('en-GB') : 'Recent'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDetailsOrder(null)}
+                className="p-1.5 text-[#8E8A85] hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Smart Return Warning in Order Details Modal */}
+            {(() => {
+              const returnHistory = checkCustomerReturnHistory(
+                selectedDetailsOrder.customerDetails,
+                selectedDetailsOrder.customerUid,
+                selectedDetailsOrder.id || selectedDetailsOrder.orderId,
+                orders
+              );
+
+              if (returnHistory.hasReturns) {
+                return (
+                  <div className="p-4 bg-red-950/50 border-2 border-red-700 rounded-xl text-red-200 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-red-300">
+                        ⚠️ WARNING: Client has {returnHistory.returnCount} previous returned orders!
+                      </h4>
+                      <p className="text-xs text-red-200 mt-0.5">
+                        This customer previously returned orders: <strong>{returnHistory.returnedOrderIds.join(', ')}</strong>. Please verify shipment before dispatch.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Customer & Delivery Information Card */}
+            <div className="bg-[#141414] p-4 border border-[#333333] rounded-xl space-y-3 text-xs">
+              <h4 className="font-bold text-sm text-white uppercase tracking-wider border-b border-[#333333] pb-2 flex items-center justify-between">
+                <span>Customer & Destination</span>
+                <span className="text-[#8E8A85] text-xs font-normal">بيانات العميل والتوصيل</span>
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[#CCCCCC]">
+                <div className="space-y-1.5">
+                  <p>
+                    <strong className="text-white">Full Name:</strong> {selectedDetailsOrder.customerDetails?.fullName}
+                  </p>
+                  <p>
+                    <strong className="text-white">Primary Phone:</strong> {selectedDetailsOrder.customerDetails?.phone}
+                  </p>
+                  {selectedDetailsOrder.customerDetails?.alternatePhone && (
+                    <p>
+                      <strong className="text-white">Alternate Phone:</strong> {selectedDetailsOrder.customerDetails?.alternatePhone}
+                    </p>
+                  )}
+                  <p>
+                    <strong className="text-white">Email:</strong> {selectedDetailsOrder.customerDetails?.email}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p>
+                    <strong className="text-white">Governorate & City:</strong> {selectedDetailsOrder.customerDetails?.governorate}, {selectedDetailsOrder.customerDetails?.city}
+                  </p>
+                  <p>
+                    <strong className="text-white">Street Address:</strong> {selectedDetailsOrder.customerDetails?.address}
+                  </p>
+                  {selectedDetailsOrder.customerDetails?.notes && (
+                    <p className="italic text-[#DCC9A6]">
+                      <strong className="text-white not-italic">Notes:</strong> {selectedDetailsOrder.customerDetails?.notes}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Direct Communication Buttons */}
+              <div className="flex items-center gap-3 pt-2 border-t border-[#262626]">
+                <a
+                  href={`tel:${selectedDetailsOrder.customerDetails?.phone}`}
+                  className="inline-flex items-center gap-1.5 bg-[#1F1F1F] border border-[#333333] text-white px-3 py-1.5 text-xs font-semibold hover:border-[#DCC9A6] transition-colors rounded"
+                >
+                  <Phone className="w-3.5 h-3.5 text-[#B67355]" />
+                  <span>Call Customer</span>
+                </a>
+
+                <a
+                  href={`https://wa.me/2${selectedDetailsOrder.customerDetails?.phone?.replace(/^0/, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 bg-[#25D366] text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-opacity rounded"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>WhatsApp Customer</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Items In Order List */}
+            <div className="space-y-3">
+              <h4 className="font-bold text-sm text-white uppercase tracking-wider border-b border-[#333333] pb-2">
+                Ordered Items ({selectedDetailsOrder.items?.length || 0})
+              </h4>
+
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {selectedDetailsOrder.items?.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 bg-[#141414] border border-[#333333] rounded-xl flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      {item.imageUrl && (
+                        <div className="relative w-12 h-14 bg-[#1F1F1F] rounded overflow-hidden shrink-0 border border-[#333333]">
+                          <Image
+                            src={item.imageUrl}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <h5 className="font-bold text-white">{item.name}</h5>
+                        <p className="text-[11px] text-[#8E8A85]">
+                          {item.selectedColor?.name} • Size {item.selectedSize} • Quantity: {item.quantity}
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="font-serif font-bold text-[#DCC9A6] text-sm">
+                      EGP {(item.price * item.quantity).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Financial Summary Breakdown */}
+            <div className="p-4 bg-[#141414] border border-[#333333] rounded-xl space-y-2 text-xs">
+              <div className="flex justify-between text-[#8E8A85]">
+                <span>Items Subtotal:</span>
+                <span className="font-mono font-bold text-white">EGP {selectedDetailsOrder.subtotal?.toFixed(2)}</span>
+              </div>
+              {selectedDetailsOrder.discountAmount ? (
+                <div className="flex justify-between text-emerald-400">
+                  <span>Applied Discount ({selectedDetailsOrder.discountTitle || selectedDetailsOrder.discountCode || 'Promo'}):</span>
+                  <span className="font-mono font-bold">-EGP {selectedDetailsOrder.discountAmount.toFixed(2)}</span>
+                </div>
+              ) : null}
+              <div className="flex justify-between text-[#8E8A85]">
+                <span>Delivery Fee:</span>
+                <span className="font-mono font-bold text-white">
+                  {selectedDetailsOrder.shippingFee === 0 ? 'FREE' : `EGP ${selectedDetailsOrder.shippingFee?.toFixed(2)}`}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm font-bold text-[#DCC9A6] border-t border-[#262626] pt-2">
+                <span>Total Amount Due:</span>
+                <span className="font-serif text-base">EGP {selectedDetailsOrder.totalAmount?.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Actions Bar (Change Status, Mark as Returned, View Invoice) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-[#333333]">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#8E8A85]">Delivery Status:</span>
+                <select
+                  value={selectedDetailsOrder.status}
+                  onChange={(e) =>
+                    handleStatusChange(selectedDetailsOrder.id || selectedDetailsOrder.orderId, e.target.value as OrderStatus)
+                  }
+                  className={`text-xs font-bold uppercase tracking-wider px-3 py-1.5 border rounded focus:outline-none cursor-pointer ${getStatusColor(
+                    selectedDetailsOrder.status
+                  )}`}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="processing">Processing</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="returned">⚠️ Returned (مرتجع)</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* 1-Click Mark Order as Returned Button */}
+                {selectedDetailsOrder.status !== 'returned' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleStatusChange(selectedDetailsOrder.id || selectedDetailsOrder.orderId, 'returned')}
+                    className="inline-flex items-center gap-1.5 bg-rose-950 border border-rose-800 hover:bg-rose-900 text-rose-300 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Mark as Returned (مرتجع)</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-rose-400 font-bold bg-rose-950 px-3 py-1.5 border border-rose-800 rounded">
+                    ✓ Marked as Returned
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedInvoiceOrder(selectedDetailsOrder);
+                  }}
+                  className="inline-flex items-center gap-1.5 bg-[#DCC9A6] text-[#1F1F1F] px-4 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors rounded shadow-md"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Invoice</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DEDICATED INSTAPAY RECEIPT INSPECTION & VERIFICATION MODAL */}
       {inspectReceiptOrder && (
@@ -524,7 +834,7 @@ export default function AdminOrdersPage() {
               </div>
 
               <div>
-                <span className="text-[#8E8A85] block text-[10px] uppercase">Current Verification</span>
+                <span className="text-[#8E8A85] block text-[10px] uppercase">Current Status</span>
                 <span
                   className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded mt-0.5 ${
                     inspectReceiptOrder.paymentStatus === 'verified'
@@ -539,7 +849,7 @@ export default function AdminOrdersPage() {
               </div>
             </div>
 
-            {/* Customer Sender Account Info (if provided) */}
+            {/* Customer Sender Account Info */}
             {inspectReceiptOrder.instapaySenderAccount && (
               <div className="p-3 bg-[#141414] border border-[#333333] rounded-lg text-xs flex items-center justify-between">
                 <span className="text-[#8E8A85]">Sender Account / Phone stated by customer:</span>
@@ -602,7 +912,7 @@ export default function AdminOrdersPage() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  disabled={verifyingPayment}
+                  disabled={updatingAction}
                   onClick={() => handleVerifyPayment(inspectReceiptOrder.id || inspectReceiptOrder.orderId, 'rejected')}
                   className="bg-red-950 border border-red-800 hover:bg-red-900 text-red-300 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded transition-colors disabled:opacity-50"
                 >
@@ -611,7 +921,7 @@ export default function AdminOrdersPage() {
 
                 <button
                   type="button"
-                  disabled={verifyingPayment}
+                  disabled={updatingAction}
                   onClick={() => handleVerifyPayment(inspectReceiptOrder.id || inspectReceiptOrder.orderId, 'verified')}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 text-xs font-bold uppercase tracking-wider rounded shadow-lg transition-all flex items-center gap-1.5 disabled:opacity-50"
                 >
@@ -625,7 +935,7 @@ export default function AdminOrdersPage() {
       )}
 
       {/* ADVANCED BILINGUAL ORDER INVOICE MODAL & A4 PRINTABLE VIEW */}
-      {selectedOrder && (
+      {selectedInvoiceOrder && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md">
           <div className="relative w-full max-w-4xl bg-[#1F1F1F] border border-[#333333] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] rounded-2xl">
             
@@ -636,9 +946,9 @@ export default function AdminOrdersPage() {
                   Official Invoice Preview • معاينة الفاتورة
                 </span>
                 <span className="text-xs bg-black px-2 py-0.5 border border-[#333333] text-white font-mono rounded">
-                  #{selectedOrder.orderId || selectedOrder.id}
+                  #{selectedInvoiceOrder.orderId || selectedInvoiceOrder.id}
                 </span>
-                {selectedOrder.paymentMethod === 'INSTAPAY' && (
+                {selectedInvoiceOrder.paymentMethod === 'INSTAPAY' && (
                   <span className="bg-[#B67355] text-white text-[10px] font-bold px-2 py-0.5 rounded">
                     ⚡ INSTAPAY
                   </span>
@@ -646,11 +956,11 @@ export default function AdminOrdersPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                {selectedOrder.receiptUrl && (
+                {selectedInvoiceOrder.receiptUrl && (
                   <button
                     type="button"
                     onClick={() => {
-                      setInspectReceiptOrder(selectedOrder);
+                      setInspectReceiptOrder(selectedInvoiceOrder);
                     }}
                     className="inline-flex items-center gap-1.5 bg-[#B67355] text-white px-3 py-1.5 text-xs font-semibold rounded hover:bg-[#DCC9A6] hover:text-[#1F1F1F] transition-colors"
                   >
@@ -660,7 +970,7 @@ export default function AdminOrdersPage() {
                 )}
 
                 <a
-                  href={`tel:${selectedOrder.customerDetails?.phone}`}
+                  href={`tel:${selectedInvoiceOrder.customerDetails?.phone}`}
                   className="inline-flex items-center gap-1.5 bg-[#1F1F1F] border border-[#333333] text-white px-3 py-1.5 text-xs font-semibold hover:border-[#DCC9A6] transition-colors rounded"
                 >
                   <Phone className="w-3.5 h-3.5 text-[#B67355]" />
@@ -668,7 +978,7 @@ export default function AdminOrdersPage() {
                 </a>
 
                 <a
-                  href={`https://wa.me/2${selectedOrder.customerDetails?.phone?.replace(/^0/, '')}`}
+                  href={`https://wa.me/2${selectedInvoiceOrder.customerDetails?.phone?.replace(/^0/, '')}`}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1.5 bg-[#25D366] text-white px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-opacity rounded"
@@ -685,12 +995,12 @@ export default function AdminOrdersPage() {
                   className="inline-flex items-center gap-2 bg-[#DCC9A6] text-[#1F1F1F] px-4 py-1.5 text-xs uppercase font-bold tracking-wider hover:bg-white transition-all shadow-md active:scale-95 rounded"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print A4</span>
+                  <span>Print A4 Invoice</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setSelectedOrder(null)}
+                  onClick={() => setSelectedInvoiceOrder(null)}
                   className="p-1.5 text-[#8E8A85] hover:text-white transition-colors ml-2"
                 >
                   <X className="w-5 h-5" />
@@ -700,7 +1010,7 @@ export default function AdminOrdersPage() {
 
             {/* Scrollable Container with Printable Invoice */}
             <div className="overflow-y-auto p-4 sm:p-8 bg-[#2A2A2A]">
-              <PrintableInvoice order={selectedOrder} />
+              <PrintableInvoice order={selectedInvoiceOrder} />
             </div>
           </div>
         </div>

@@ -62,9 +62,30 @@ export interface CartItem {
   category: string;
 }
 
-export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
 export type PaymentMethodType = 'COD' | 'INSTAPAY';
 export type PaymentStatus = 'pending_verification' | 'verified' | 'paid' | 'rejected';
+
+export interface ClientProfile {
+  id: string; // uid or phone/email identifier
+  uid?: string;
+  name: string;
+  email: string;
+  phone: string;
+  alternatePhone?: string;
+  governorate?: string;
+  city?: string;
+  address?: string;
+  createdAt?: unknown;
+  totalOrders: number;
+  totalSpent: number;
+  deliveredOrders: number;
+  returnedOrders: number;
+  returnRate: number; // percentage
+  hasPreviousReturns: boolean;
+  lastOrderDate?: string;
+  orders: Order[];
+}
 
 export interface CustomerDetails {
   fullName: string;

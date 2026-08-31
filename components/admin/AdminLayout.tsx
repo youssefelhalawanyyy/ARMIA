@@ -10,6 +10,7 @@ import {
   FolderTree,
   Percent,
   Truck,
+  Users,
   LogOut,
   Download,
   Store,
@@ -100,6 +101,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { name: 'Overview', href: '/admin', icon: LayoutDashboard },
     { name: 'Live Orders', href: '/admin/orders', icon: ShoppingBag },
+    { name: 'Clients Database', href: '/admin/clients', icon: Users },
     { name: 'Products (CRUD)', href: '/admin/products', icon: Package },
     { name: 'Categories (CRUD)', href: '/admin/categories', icon: FolderTree },
     { name: 'Discounts & Promos', href: '/admin/discounts', icon: Percent },

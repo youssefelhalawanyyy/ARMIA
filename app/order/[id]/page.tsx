@@ -85,6 +85,7 @@ function OrderTrackingContent() {
       processing: 2,
       shipped: 3,
       delivered: 4,
+      returned: -2,
       cancelled: -1,
     };
     return map[status] ?? 0;

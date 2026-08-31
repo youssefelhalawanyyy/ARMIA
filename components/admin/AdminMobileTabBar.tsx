@@ -117,6 +117,18 @@ export default function AdminMobileTabBar({ onOpenInstallModal }: AdminMobileTab
               </Link>
 
               <Link
+                href="/admin/clients"
+                onClick={() => setQuickMenuOpen(false)}
+                className="w-full flex items-center justify-between p-3 bg-[#141414] border border-[#333333] text-white rounded-xl active:scale-[0.98] transition-transform"
+              >
+                <div className="flex items-center gap-3">
+                  <Package className="w-4 h-4 text-[#DCC9A6]" />
+                  <span className="font-semibold">Clients Database & CRM</span>
+                </div>
+                <span className="text-neutral-500 text-[11px]">→</span>
+              </Link>
+
+              <Link
                 href="/admin/categories"
                 onClick={() => setQuickMenuOpen(false)}
                 className="w-full flex items-center justify-between p-3 bg-[#141414] border border-[#333333] text-white rounded-xl active:scale-[0.98] transition-transform"
