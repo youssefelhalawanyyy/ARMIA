@@ -7,6 +7,7 @@ import {
   query,
   orderBy,
   limit,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { BroadcastNotification, PushSubscriber } from '@/types';
@@ -48,7 +49,7 @@ export async function registerPushSubscriber(
 }
 
 /**
- * Request Web Notification permission from the browser
+ * Request Web Notification permission from the browser and register subscriber
  */
 export async function requestNotificationPermission(
   customerUid?: string,
@@ -61,18 +62,20 @@ export async function requestNotificationPermission(
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      const pseudoEndpoint = `https://fcm.googleapis.com/fcm/send/armia_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      await registerPushSubscriber(pseudoEndpoint, undefined, customerUid, customerName);
+      const deviceId =
+        localStorage.getItem('armia_device_sub_id') ||
+        `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      localStorage.setItem('armia_device_sub_id', deviceId);
+
+      const endpoint = `https://fcm.googleapis.com/fcm/send/${deviceId}`;
+      await registerPushSubscriber(endpoint, undefined, customerUid, customerName);
 
       // Trigger a welcoming confirmation notification
-      try {
-        new Notification('✨ Welcome to ARMIA VIP Concierge', {
-          body: 'You are now subscribed to exclusive haute couture drops and flash sales!',
-          icon: '/icons/icon-192x192.png',
-        });
-      } catch {
-        // Notification constructor may require service worker on some mobile browsers
-      }
+      displaySystemNotification(
+        '✨ Welcome to ARMIA VIP Concierge',
+        'You are now subscribed to exclusive haute couture drops and flash sales!',
+        '/collections/new-in'
+      );
 
       return { granted: true, message: 'VIP Notifications successfully enabled!' };
     } else {
@@ -81,6 +84,49 @@ export async function requestNotificationPermission(
   } catch (err) {
     console.error('Permission error:', err);
     return { granted: false, message: 'Could not enable notifications' };
+  }
+}
+
+/**
+ * Safely display a Native OS Notification using ServiceWorker if available, falling back to Notification API
+ */
+export async function displaySystemNotification(
+  title: string,
+  body: string,
+  targetUrl: string = '/'
+) {
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+
+  const options = {
+    body,
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-192x192.png',
+    data: { url: targetUrl },
+    vibrate: [200, 100, 200],
+  };
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && reg.showNotification) {
+        await reg.showNotification(title, options);
+        return;
+      }
+    }
+    new Notification(title, {
+      body,
+      icon: '/icons/icon-192x192.png',
+    });
+  } catch (err) {
+    try {
+      new Notification(title, {
+        body,
+        icon: '/icons/icon-192x192.png',
+      });
+    } catch {
+      // ignore
+    }
   }
 }
 
@@ -117,21 +163,13 @@ export async function dispatchBroadcastNotification(
     badgeTag: notification.badgeTag || 'VIP_DROP',
     recipientCount: Math.max(1, subscribersCount),
     sentAt: serverTimestamp(),
+    timestampMs: Date.now(),
   };
 
   await setDoc(docRef, payload);
 
-  // Trigger local notification if permission is granted on active browser
-  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-    try {
-      new Notification(notification.title, {
-        body: notification.body,
-        icon: '/icons/icon-192x192.png',
-      });
-    } catch {
-      // ignore
-    }
-  }
+  // Trigger immediate local notification on current sender machine as well
+  displaySystemNotification(notification.title, notification.body, notification.targetUrl);
 
   return {
     ...payload,
@@ -171,4 +209,71 @@ export async function getBroadcastHistory(): Promise<BroadcastNotification[]> {
   } catch {
     return [];
   }
+}
+
+/**
+ * Real-time Broadcast Listener for all active client and mobile devices
+ */
+export function listenToLiveBroadcasts(
+  onBroadcastReceived: (broadcast: BroadcastNotification) => void
+): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  const q = query(collection(db, BROADCASTS_COLLECTION));
+  let isInitialLoad = true;
+
+  const unsubscribe = onSnapshot(
+    q,
+    (snapshot) => {
+      if (isInitialLoad) {
+        // Record existing broadcasts so we only alert on newly incoming broadcasts
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            const id = change.doc.id;
+            const lastSeen = localStorage.getItem('armia_last_seen_bcast');
+            if (!lastSeen) {
+              localStorage.setItem('armia_last_seen_bcast', id);
+            }
+          }
+        });
+        isInitialLoad = false;
+        return;
+      }
+
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          const broadcast: BroadcastNotification = {
+            id: change.doc.id,
+            title: data.title || 'ARMIA BOUTIQUE',
+            titleArabic: data.titleArabic,
+            body: data.body || '',
+            bodyArabic: data.bodyArabic,
+            targetUrl: data.targetUrl || '/',
+            imageUrl: data.imageUrl,
+            badgeTag: data.badgeTag,
+            sentAt: new Date().toISOString(),
+            recipientCount: data.recipientCount || 1,
+          };
+
+          const lastSeen = localStorage.getItem('armia_last_seen_bcast');
+          if (lastSeen !== broadcast.id) {
+            localStorage.setItem('armia_last_seen_bcast', broadcast.id);
+
+            // 1. Trigger Native System / Mobile Lock Screen Notification
+            displaySystemNotification(broadcast.title, broadcast.body, broadcast.targetUrl);
+
+            // 2. Trigger In-App Luxury Banner
+            onBroadcastReceived(broadcast);
+          }
+        }
+      });
+    },
+    (err) => {
+      console.warn('Realtime broadcast listener notice:', err);
+    }
+  );
+
+  return unsubscribe;
 }

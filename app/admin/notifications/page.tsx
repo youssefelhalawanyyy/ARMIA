@@ -22,6 +22,8 @@ import {
   getPushSubscribersCount,
   dispatchBroadcastNotification,
   getBroadcastHistory,
+  displaySystemNotification,
+  requestNotificationPermission,
 } from '@/lib/pushNotificationService';
 import { BroadcastNotification } from '@/types';
 import { useToast } from '@/context/ToastContext';
@@ -308,14 +310,35 @@ export default function AdminNotificationsPage() {
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={sending}
-              className="w-full bg-[#B67355] hover:bg-[#DCC9A6] hover:text-[#1F1F1F] text-white py-3.5 px-4 text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] mt-4"
-            >
-              <Send className="w-4 h-4" />
-              <span>{sending ? 'Broadcasting Alert...' : 'Dispatch Push Alert to All Devices'}</span>
-            </button>
+            <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+              <button
+                type="submit"
+                disabled={sending}
+                className="w-full sm:flex-1 bg-[#B67355] hover:bg-[#DCC9A6] hover:text-[#1F1F1F] text-white py-3.5 px-4 text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99]"
+              >
+                <Send className="w-4 h-4" />
+                <span>{sending ? 'Broadcasting Alert...' : 'Dispatch Push Alert to All Devices'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (typeof window !== 'undefined' && 'Notification' in window) {
+                    if (Notification.permission !== 'granted') {
+                      await requestNotificationPermission();
+                    }
+                    displaySystemNotification(title, body, targetUrl);
+                    success('Test push notification sent directly to your screen!', 'Test Notification Sent');
+                  } else {
+                    info('Notifications are not supported in this browser environment.');
+                  }
+                }}
+                className="w-full sm:w-auto bg-[#141414] hover:bg-[#2A2A2A] border border-[#DCC9A6]/50 text-[#DCC9A6] py-3.5 px-4 text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5"
+              >
+                <BellRing className="w-4 h-4 text-[#B67355]" />
+                <span>Test on My Device</span>
+              </button>
+            </div>
           </form>
         </div>
 

@@ -9,6 +9,7 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import StorefrontMobileTabBar from "@/components/storefront/StorefrontMobileTabBar";
 import StorefrontPWAInstallModal from "@/components/storefront/StorefrontPWAInstallModal";
 import PushNotificationPrompt from "@/components/common/PushNotificationPrompt";
+import BroadcastNotificationReceiver from "@/components/common/BroadcastNotificationReceiver";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -86,6 +87,8 @@ export default function RootLayout({
                   <StorefrontPWAInstallModal />
                   {/* VIP Push Notification Prompt */}
                   <PushNotificationPrompt />
+                  {/* Real-time Broadcast Push Notification Receiver */}
+                  <BroadcastNotificationReceiver />
                 </CartProvider>
               </AuthProvider>
             </ToastProvider>
