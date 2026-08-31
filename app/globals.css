@@ -89,7 +89,17 @@ h1, h2, h3, h4, h5, h6, .font-serif {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm;
+    margin: 6mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
   }
 
   * {
@@ -97,18 +107,30 @@ h1, h2, h3, h4, h5, h6, .font-serif {
     print-color-adjust: exact !important;
   }
 
-  body {
-    background: #ffffff !important;
-    color: #000000 !important;
+  /* Strip all modal overlay styles, dark backdrops and fixed screens */
+  .fixed,
+  .overflow-y-auto,
+  [class*="backdrop-blur"],
+  [class*="bg-black"],
+  [class*="bg-[#1F1F1F]"],
+  [class*="bg-[#2A2A2A]"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    max-height: none !important;
+    position: static !important;
   }
 
-  /* Hide all app chrome, screens, and modals overlay during print */
   header,
   nav,
   aside,
   footer,
   button,
-  .no-print {
+  .no-print,
+  .no-print * {
     display: none !important;
   }
 
@@ -116,12 +138,13 @@ h1, h2, h3, h4, h5, h6, .font-serif {
     display: block !important;
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
     background: #ffffff !important;
     color: #000000 !important;
+    min-height: auto !important;
   }
 }
 
