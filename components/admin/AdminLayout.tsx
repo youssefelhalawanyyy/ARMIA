@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   Smartphone,
+  Ruler,
 } from 'lucide-react';
 import BrandLogo from '@/components/common/BrandLogo';
 import LanguageSwitcher from '@/components/common/LanguageSwitcher';
@@ -110,6 +111,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Push Notifications', href: '/admin/notifications', icon: Bell },
     { name: 'Products (CRUD)', href: '/admin/products', icon: Package },
     { name: 'Categories (CRUD)', href: '/admin/categories', icon: FolderTree },
+    { name: 'Size Charts', href: '/admin/size-charts', icon: Ruler },
     { name: 'Discounts & Promos', href: '/admin/discounts', icon: Percent },
     { name: 'Shipping Rates', href: '/admin/shipping', icon: Truck },
   ];

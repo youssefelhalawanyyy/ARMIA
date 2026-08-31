@@ -16,12 +16,14 @@ import {
   RotateCcw,
   Sparkles,
   Zap,
+  Ruler,
 } from 'lucide-react';
 import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import ProductCard from '@/components/storefront/ProductCard';
 import FlashDealCountdown from '@/components/storefront/FlashDealCountdown';
 import CompleteTheLook from '@/components/storefront/CompleteTheLook';
+import SizeGuideModal from '@/components/storefront/SizeGuideModal';
 import { Product, ProductColor } from '@/types';
 import { getProductById, getProducts } from '@/lib/productService';
 import { getActiveFlashDealForProduct } from '@/lib/discountService';
@@ -40,6 +42,7 @@ export default function ProductDetailPage() {
   const [selectedColor, setSelectedColor] = useState<ProductColor | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'specs' | 'wholesale' | 'shipping'>('specs');
   const [fallbackEndTime] = useState(() => new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString());
 
@@ -363,6 +366,15 @@ export default function ProductDetailPage() {
                           {selectedSize || (isArabic ? 'اختاري المقاس' : 'Select a size')}
                         </span>
                       </label>
+
+                      <button
+                        type="button"
+                        onClick={() => setSizeGuideOpen(true)}
+                        className="inline-flex items-center gap-1.5 text-xs text-[#B67355] hover:text-[#1F1F1F] font-semibold underline underline-offset-4 transition-colors"
+                      >
+                        <Ruler className="w-3.5 h-3.5" />
+                        <span>{isArabic ? 'دليل المقاسات' : 'Size Guide & Chart'}</span>
+                      </button>
                     </div>
                     <div className="flex flex-wrap gap-2.5">
                       {product.sizes.map((s) => (
@@ -577,6 +589,15 @@ export default function ProductDetailPage() {
       </main>
 
       <Footer />
+
+      {/* Bilingual Size Guide & Measurements Modal */}
+      <SizeGuideModal
+        isOpen={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        product={product}
+        selectedSize={selectedSize}
+        onSelectSize={(s) => setSelectedSize(s)}
+      />
     </div>
   );
 }

@@ -1,5 +1,27 @@
 export type CategoryType = 'dresses' | 'sets' | 'tops' | 'bottoms' | 'outerwear' | 'new-in' | string;
 
+export interface SizeChartRow {
+  size: string; // e.g. "S", "M", "L", "XL", "XXL"
+  ukEuSize?: string; // e.g. "36-38 EU (8-10 UK)"
+  bustCm: string; // e.g. "86-90"
+  waistCm: string; // e.g. "68-72"
+  hipsCm: string; // e.g. "94-98"
+  lengthCm?: string; // e.g. "140"
+  sleeveCm?: string; // e.g. "59"
+}
+
+export interface SizeChartGuide {
+  id: string; // e.g. 'dresses', 'sets', 'tops', 'bottoms', 'outerwear'
+  title: string;
+  titleArabic: string;
+  description?: string;
+  descriptionArabic?: string;
+  measuringTips: string[];
+  measuringTipsArabic: string[];
+  rows: SizeChartRow[];
+  updatedAt?: unknown;
+}
+
 export interface Category {
   id: string;
   slug: string;

@@ -47,5 +47,11 @@ service cloud.firestore {
     match /broadcast_notifications/{broadcastId} {
       allow read, write: if true;
     }
+
+    // Size Charts: Public read for storefront, write restricted to signed-in admins
+    match /size_charts/{chartId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
   }
 }
