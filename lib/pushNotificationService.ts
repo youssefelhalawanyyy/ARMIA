@@ -121,6 +121,38 @@ export async function registerPushSubscriber(
 }
 
 /**
+ * Automatically sync and upgrade browser VAPID push subscription on mount if permission is granted
+ */
+export async function autoSyncPushSubscription(customerUid?: string, customerName?: string) {
+  if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) return;
+  if (Notification.permission !== 'granted') return;
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+
+    if (!sub) {
+      const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: applicationServerKey as BufferSource,
+      });
+    }
+
+    if (sub) {
+      const jsonSub = sub.toJSON();
+      const endpoint = jsonSub.endpoint || '';
+      const keys = jsonSub.keys as { p256dh: string; auth: string } | undefined;
+      if (endpoint && keys) {
+        await registerPushSubscriber(endpoint, keys, customerUid, customerName);
+      }
+    }
+  } catch (err) {
+    console.warn('Auto sync VAPID subscription notice:', err);
+  }
+}
+
+/**
  * Request Web Notification permission from the browser and subscribe to real VAPID Push Manager
  */
 export async function requestNotificationPermission(

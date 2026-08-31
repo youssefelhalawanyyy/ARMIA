@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BellRing, Sparkles, X, ArrowRight, ExternalLink } from 'lucide-react';
-import { listenToLiveBroadcasts } from '@/lib/pushNotificationService';
+import { listenToLiveBroadcasts, autoSyncPushSubscription } from '@/lib/pushNotificationService';
 import { BroadcastNotification } from '@/types';
 import { useLanguage } from '@/context/LanguageContext';
 
@@ -12,6 +12,9 @@ export default function BroadcastNotificationReceiver() {
   const [activeBroadcast, setActiveBroadcast] = useState<BroadcastNotification | null>(null);
 
   useEffect(() => {
+    // Automatically ensure the client device has a valid VAPID subscription
+    autoSyncPushSubscription().catch(() => {});
+
     const unsubscribe = listenToLiveBroadcasts((broadcast) => {
       setActiveBroadcast(broadcast);
 
