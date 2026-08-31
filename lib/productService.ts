@@ -69,7 +69,23 @@ export async function getProducts(category?: string): Promise<Product[]> {
     if (!snapshot.empty) {
       const items: Product[] = [];
       snapshot.forEach((doc) => {
-        items.push(sanitizeFirestoreDoc<Product>(doc.id, doc.data()));
+        const product = sanitizeFirestoreDoc<Product>(doc.id, doc.data());
+        const seedMatch = INITIAL_PRODUCTS.find((p) => p.id === doc.id);
+        if (seedMatch) {
+          if (!product.nameArabic && seedMatch.nameArabic) product.nameArabic = seedMatch.nameArabic;
+          if (!product.descriptionArabic && seedMatch.descriptionArabic) product.descriptionArabic = seedMatch.descriptionArabic;
+          if (seedMatch.specs) {
+            if (!product.specs) {
+              product.specs = seedMatch.specs;
+            } else {
+              if (!product.specs.fabricArabic && seedMatch.specs.fabricArabic) product.specs.fabricArabic = seedMatch.specs.fabricArabic;
+              if (!product.specs.fitArabic && seedMatch.specs.fitArabic) product.specs.fitArabic = seedMatch.specs.fitArabic;
+              if (!product.specs.careArabic && seedMatch.specs.careArabic) product.specs.careArabic = seedMatch.specs.careArabic;
+              if (!product.specs.originArabic && seedMatch.specs.originArabic) product.specs.originArabic = seedMatch.specs.originArabic;
+            }
+          }
+        }
+        items.push(product);
       });
 
       if (category === 'new-in') {
@@ -99,7 +115,23 @@ export async function getProductById(id: string): Promise<Product | null> {
     const docRef = doc(db, PRODUCTS_COLLECTION, id);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      return sanitizeFirestoreDoc<Product>(snap.id, snap.data());
+      const product = sanitizeFirestoreDoc<Product>(snap.id, snap.data());
+      const seedMatch = INITIAL_PRODUCTS.find((p) => p.id === snap.id);
+      if (seedMatch) {
+        if (!product.nameArabic && seedMatch.nameArabic) product.nameArabic = seedMatch.nameArabic;
+        if (!product.descriptionArabic && seedMatch.descriptionArabic) product.descriptionArabic = seedMatch.descriptionArabic;
+        if (seedMatch.specs) {
+          if (!product.specs) {
+            product.specs = seedMatch.specs;
+          } else {
+            if (!product.specs.fabricArabic && seedMatch.specs.fabricArabic) product.specs.fabricArabic = seedMatch.specs.fabricArabic;
+            if (!product.specs.fitArabic && seedMatch.specs.fitArabic) product.specs.fitArabic = seedMatch.specs.fitArabic;
+            if (!product.specs.careArabic && seedMatch.specs.careArabic) product.specs.careArabic = seedMatch.specs.careArabic;
+            if (!product.specs.originArabic && seedMatch.specs.originArabic) product.specs.originArabic = seedMatch.specs.originArabic;
+          }
+        }
+      }
+      return product;
     }
   } catch (error) {
     console.warn('Firestore getProductById warning:', error);

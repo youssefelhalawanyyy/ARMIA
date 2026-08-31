@@ -181,7 +181,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           {/* Product Name */}
           <Link href={`/product/${product.id}`} className="block">
             <h3 className="font-serif text-sm font-semibold tracking-wider text-[#1F1F1F] group-hover:text-[#B67355] transition-colors truncate">
-              {product.name}
+              {isArabic && product.nameArabic ? product.nameArabic : product.name}
             </h3>
           </Link>
 

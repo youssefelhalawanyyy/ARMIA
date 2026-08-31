@@ -276,7 +276,7 @@ export default function ProductDetailPage() {
 
                 {/* Product Title */}
                 <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#1F1F1F]">
-                  {product.name}
+                  {isArabic && product.nameArabic ? product.nameArabic : product.name}
                 </h1>
 
                 {/* Price Display */}
@@ -313,7 +313,7 @@ export default function ProductDetailPage() {
 
                 {/* Description */}
                 <p className="mt-4 text-xs sm:text-sm text-[#8E8A85] font-sans leading-relaxed">
-                  {product.description}
+                  {isArabic && product.descriptionArabic ? product.descriptionArabic : product.description}
                 </p>
 
                 {/* Color Selector */}
@@ -323,28 +323,31 @@ export default function ProductDetailPage() {
                       <label className="text-xs font-sans uppercase tracking-wider font-semibold text-[#1F1F1F]">
                         {t.product.selectColor}:{' '}
                         <span className="font-normal text-[#8E8A85]">
-                          {selectedColor?.name || (isArabic ? 'اختاري اللون' : 'Select a color')}
+                          {(isArabic && selectedColor?.nameArabic ? selectedColor.nameArabic : selectedColor?.name) || (isArabic ? 'اختاري اللون' : 'Select a color')}
                         </span>
                       </label>
                     </div>
                     <div className="flex items-center gap-3">
-                      {product.colors.map((c) => (
-                        <button
-                          key={c.name}
-                          onClick={() => setSelectedColor(c)}
-                          className={`flex items-center gap-2 px-3 py-1.5 border text-xs font-sans transition-all rounded ${
-                            selectedColor?.name === c.name
-                              ? 'border-[#B67355] bg-white shadow-sm ring-1 ring-[#B67355]'
-                              : 'border-[#E8E2D8] bg-white hover:border-[#8E8A85]'
-                          }`}
-                        >
-                          <span
-                            className="w-3.5 h-3.5 rounded-full border border-black/20"
-                            style={{ backgroundColor: c.hex }}
-                          />
-                          <span className="font-medium text-[#1F1F1F]">{c.name}</span>
-                        </button>
-                      ))}
+                      {product.colors.map((c) => {
+                        const colorLabel = isArabic && c.nameArabic ? c.nameArabic : c.name;
+                        return (
+                          <button
+                            key={c.name}
+                            onClick={() => setSelectedColor(c)}
+                            className={`flex items-center gap-2 px-3 py-1.5 border text-xs font-sans transition-all rounded ${
+                              selectedColor?.name === c.name
+                                ? 'border-[#B67355] bg-white shadow-sm ring-1 ring-[#B67355]'
+                                : 'border-[#E8E2D8] bg-white hover:border-[#8E8A85]'
+                            }`}
+                          >
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-black/20"
+                              style={{ backgroundColor: c.hex }}
+                            />
+                            <span className="font-medium text-[#1F1F1F]">{colorLabel}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -481,20 +484,21 @@ export default function ProductDetailPage() {
                   {activeTab === 'specs' && (
                     <div className="space-y-1.5">
                       <p>
-                        <strong className="text-[#1F1F1F]">{isArabic ? 'الخامة:' : 'Fabric:'}</strong>{' '}
-                        {product.specs?.fabric || (isArabic ? 'كتان فرنسي طبيعي 100% مع معالجة فاخرة' : '100% Premium Organic Linen & Cotton Blend')}
+                        <strong className="text-[#1F1F1F]">{isArabic ? 'الخامة والأقمشة:' : 'Fabric:'}</strong>{' '}
+                        {(isArabic && product.specs?.fabricArabic ? product.specs.fabricArabic : product.specs?.fabric) || (isArabic ? 'كتان فرنسي طبيعي 100% مع معالجة فاخرة' : '100% Premium Organic Linen & Cotton Blend')}
                       </p>
                       <p>
-                        <strong className="text-[#1F1F1F]">{isArabic ? 'القصّة:' : 'Fit:'}</strong>{' '}
-                        {product.specs?.fit || (isArabic ? 'قصّة عصرية مريحة وأنيقة' : 'Relaxed Tailored Silhouette')}
+                        <strong className="text-[#1F1F1F]">{isArabic ? 'القصّة والمقاس:' : 'Fit:'}</strong>{' '}
+                        {(isArabic && product.specs?.fitArabic ? product.specs.fitArabic : product.specs?.fit) || (isArabic ? 'قصّة عصرية مريحة وأنيقة' : 'Relaxed Tailored Silhouette')}
                       </p>
                       <p>
                         <strong className="text-[#1F1F1F]">{isArabic ? 'العناية بالقطعة:' : 'Care:'}</strong>{' '}
-                        {product.specs?.care || (isArabic ? 'تنظيف جاف أو غسيل يدوي بماء بارد' : 'Dry clean or gentle hand wash cold. Do not tumble dry.')}
+                        {(isArabic && product.specs?.careArabic ? product.specs.careArabic : product.specs?.care) || (isArabic ? 'تنظيف جاف أو غسيل يدوي بماء بارد' : 'Dry clean or gentle hand wash cold. Do not tumble dry.')}
                       </p>
-                      {product.specs?.origin && (
+                      {(product.specs?.origin || product.specs?.originArabic) && (
                         <p>
-                          <strong className="text-[#1F1F1F]">{isArabic ? 'بلد الصنع:' : 'Origin:'}</strong> {product.specs.origin}
+                          <strong className="text-[#1F1F1F]">{isArabic ? 'بلد الصنع:' : 'Origin:'}</strong>{' '}
+                          {isArabic && product.specs?.originArabic ? product.specs.originArabic : product.specs?.origin}
                         </p>
                       )}
                     </div>

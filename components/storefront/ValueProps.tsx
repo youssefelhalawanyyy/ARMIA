@@ -2,28 +2,31 @@
 
 import React from 'react';
 import { Crown, PackageCheck, Truck, Headphones } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function ValueProps() {
+  const { isArabic } = useLanguage();
+
   const props = [
     {
       icon: Crown,
-      title: 'PREMIUM QUALITY',
-      subtitle: 'Best fabrics & details',
+      title: isArabic ? 'خامات وأقمشة فاخرة' : 'PREMIUM QUALITY',
+      subtitle: isArabic ? 'أجود أنواع الكتان والحرير والقطن' : 'Best fabrics & details',
     },
     {
       icon: PackageCheck,
-      title: 'WHOLESALE & RETAIL',
-      subtitle: 'For retailers & boutique clients',
+      title: isArabic ? 'جملة وقطاعي للبوتيكات' : 'WHOLESALE & RETAIL',
+      subtitle: isArabic ? 'تنسيق طلبات الجملة والمشاريع' : 'For retailers & boutique clients',
     },
     {
       icon: Truck,
-      title: 'FAST SHIPPING',
-      subtitle: 'Across Egypt (Cash on Delivery)',
+      title: isArabic ? 'شحن سريع لكافة المحافظات' : 'FAST SHIPPING',
+      subtitle: isArabic ? 'دفع عند الاستلام مع حق المعاينة' : 'Across Egypt (Cash on Delivery)',
     },
     {
       icon: Headphones,
-      title: 'DEDICATED SUPPORT',
-      subtitle: 'We are here for you',
+      title: isArabic ? 'خدمة عملاء وكونسيرج' : 'DEDICATED SUPPORT',
+      subtitle: isArabic ? 'فريقنا جاهز لمساعدتك 7 أيام بالأسبوع' : 'We are here for you',
     },
   ];
 

@@ -125,7 +125,7 @@ export default function Navbar() {
             {/* Right Action Icons & Language Switcher */}
             <div className="flex items-center space-x-3 sm:space-x-4 rtl:space-x-reverse">
               {/* Language Switcher Pill */}
-              <div className="hidden sm:flex items-center">
+              <div className="flex items-center">
                 <LanguageSwitcher variant="compact" />
               </div>
 

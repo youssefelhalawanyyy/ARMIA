@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Zap, Clock, Flame } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
 interface FlashDealCountdownProps {
@@ -13,11 +14,15 @@ interface FlashDealCountdownProps {
 
 export default function FlashDealCountdown({
   endTime,
-  title = 'LIMITED TIME SPECIAL OFFER',
+  title,
   discountBadge,
   compact = false,
 }: FlashDealCountdownProps) {
   const mounted = useIsMounted();
+  const { isArabic } = useLanguage();
+
+  const defaultTitle = isArabic ? 'عرض خاص لفترة محدودة' : 'LIMITED TIME SPECIAL OFFER';
+  const displayTitle = title || defaultTitle;
 
   const [timeLeft, setTimeLeft] = useState<{
     days: number;
@@ -80,8 +85,8 @@ export default function FlashDealCountdown({
       <div className="inline-flex items-center gap-1.5 bg-[#FAF7F2] text-[#B67355] px-2.5 py-1 text-[11px] font-mono border border-[#DCC9A6] shadow-sm rounded">
         <Zap className="w-3 h-3 text-[#B67355] fill-current animate-pulse" />
         <span className="font-bold text-[#1F1F1F]">
-          {timeLeft.days > 0 ? `${timeLeft.days}d ` : ''}
-          {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s
+          {timeLeft.days > 0 ? `${timeLeft.days}${isArabic ? 'ي ' : 'd '}` : ''}
+          {String(timeLeft.hours).padStart(2, '0')}{isArabic ? 'س' : 'h'} : {String(timeLeft.minutes).padStart(2, '0')}{isArabic ? 'د' : 'm'} : {String(timeLeft.seconds).padStart(2, '0')}{isArabic ? 'ث' : 's'}
         </span>
       </div>
     );
@@ -102,7 +107,7 @@ export default function FlashDealCountdown({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-[#B67355]">
-                ⚡ FLASH DEAL
+                {isArabic ? '⚡ عرض محدود' : '⚡ FLASH DEAL'}
               </span>
               {discountBadge && (
                 <span className="bg-[#B67355] text-white text-[10px] font-bold px-2 py-0.5 rounded font-sans uppercase shadow-sm">
@@ -111,26 +116,28 @@ export default function FlashDealCountdown({
               )}
             </div>
             <h4 className="font-serif text-sm sm:text-base font-bold text-[#1F1F1F] tracking-wide truncate max-w-[240px] sm:max-w-xs mt-0.5">
-              {title}
+              {displayTitle}
             </h4>
           </div>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs text-[#8E8A85] font-sans">
           <Clock className="w-3.5 h-3.5 text-[#B67355]" />
-          <span className="font-semibold uppercase tracking-wider text-[11px]">Ends In:</span>
+          <span className="font-semibold uppercase tracking-wider text-[11px]">
+            {isArabic ? 'ينتهي خلال:' : 'Ends In:'}
+          </span>
         </div>
       </div>
 
       {/* Digital Countdown Timer Boxes - Warm Ivory & Crisp White */}
-      <div className="grid grid-cols-4 gap-2.5 text-center">
+      <div className="grid grid-cols-4 gap-2.5 text-center" dir="ltr">
         {/* Days */}
         <div className="bg-white border border-[#E8E2D8] py-2.5 px-1.5 rounded-lg shadow-sm">
           <span className="block font-mono text-xl sm:text-2xl font-bold text-[#1F1F1F] tracking-tight">
             {String(timeLeft.days).padStart(2, '0')}
           </span>
           <span className="block text-[9px] uppercase font-sans font-bold tracking-widest text-[#8E8A85] mt-0.5">
-            Days
+            {isArabic ? 'أيام' : 'Days'}
           </span>
         </div>
 
@@ -140,7 +147,7 @@ export default function FlashDealCountdown({
             {String(timeLeft.hours).padStart(2, '0')}
           </span>
           <span className="block text-[9px] uppercase font-sans font-bold tracking-widest text-[#8E8A85] mt-0.5">
-            Hours
+            {isArabic ? 'ساعات' : 'Hours'}
           </span>
         </div>
 
@@ -150,7 +157,7 @@ export default function FlashDealCountdown({
             {String(timeLeft.minutes).padStart(2, '0')}
           </span>
           <span className="block text-[9px] uppercase font-sans font-bold tracking-widest text-[#8E8A85] mt-0.5">
-            Mins
+            {isArabic ? 'دقائق' : 'Mins'}
           </span>
         </div>
 
@@ -160,7 +167,7 @@ export default function FlashDealCountdown({
             {String(timeLeft.seconds).padStart(2, '0')}
           </span>
           <span className="block text-[9px] uppercase font-sans font-bold tracking-widest text-[#B67355] mt-0.5">
-            Secs
+            {isArabic ? 'ثواني' : 'Secs'}
           </span>
         </div>
       </div>

@@ -13,21 +13,29 @@ export interface Category {
 
 export interface ProductColor {
   name: string;
+  nameArabic?: string;
   hex: string;
 }
 
 export interface ProductSpecs {
   fabric: string;
+  fabricArabic?: string;
   fit: string;
+  fitArabic?: string;
   care: string;
+  careArabic?: string;
   origin?: string;
+  originArabic?: string;
   modelInfo?: string;
+  modelInfoArabic?: string;
 }
 
 export interface Product {
   id: string;
   name: string;
+  nameArabic?: string;
   category: string;
+  categoryArabic?: string;
   price: number; // In EGP
   discountPrice?: number; // In EGP
   stockQuantity: number;
@@ -35,6 +43,7 @@ export interface Product {
   sizes: string[];
   specs: ProductSpecs;
   description: string;
+  descriptionArabic?: string;
   imageUrls: string[];
   featured?: boolean;
   isNewArrival?: boolean;
