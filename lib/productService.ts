@@ -214,17 +214,116 @@ export function generateOrderId(): string {
 }
 
 /**
- * Create a new Customer Order (Cash on Delivery)
+ * Deduct inventory for all items and specific variants in an order
+ */
+export async function deductOrderInventory(items: Order['items']): Promise<void> {
+  if (!items || items.length === 0) return;
+
+  for (const item of items) {
+    if (!item.productId) continue;
+    try {
+      const prodRef = doc(db, PRODUCTS_COLLECTION, item.productId);
+      const snap = await getDoc(prodRef);
+      if (snap.exists()) {
+        const prodData = snap.data() as Product;
+        const currentStock = Number(prodData.stockQuantity) || 0;
+        const newStock = Math.max(0, currentStock - item.quantity);
+
+        let updatedVariants = prodData.variants;
+        if (Array.isArray(prodData.variants) && prodData.variants.length > 0) {
+          updatedVariants = prodData.variants.map((v) => {
+            const matchesColor =
+              v.color?.toLowerCase() === item.selectedColor?.name?.toLowerCase();
+            const matchesSize =
+              v.size?.toLowerCase() === item.selectedSize?.toLowerCase();
+
+            if (matchesColor && matchesSize) {
+              return {
+                ...v,
+                quantity: Math.max(0, (Number(v.quantity) || 0) - item.quantity),
+              };
+            }
+            return v;
+          });
+        }
+
+        await updateDoc(prodRef, {
+          stockQuantity: newStock,
+          ...(updatedVariants ? { variants: updatedVariants } : {}),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    } catch (err) {
+      console.warn(`Could not deduct inventory for product ${item.productId}:`, err);
+    }
+  }
+}
+
+/**
+ * Restock inventory for all items and variants when an order is cancelled or returned
+ */
+export async function restockOrderInventory(items: Order['items']): Promise<void> {
+  if (!items || items.length === 0) return;
+
+  for (const item of items) {
+    if (!item.productId) continue;
+    try {
+      const prodRef = doc(db, PRODUCTS_COLLECTION, item.productId);
+      const snap = await getDoc(prodRef);
+      if (snap.exists()) {
+        const prodData = snap.data() as Product;
+        const currentStock = Number(prodData.stockQuantity) || 0;
+        const newStock = currentStock + item.quantity;
+
+        let updatedVariants = prodData.variants;
+        if (Array.isArray(prodData.variants) && prodData.variants.length > 0) {
+          updatedVariants = prodData.variants.map((v) => {
+            const matchesColor =
+              v.color?.toLowerCase() === item.selectedColor?.name?.toLowerCase();
+            const matchesSize =
+              v.size?.toLowerCase() === item.selectedSize?.toLowerCase();
+
+            if (matchesColor && matchesSize) {
+              return {
+                ...v,
+                quantity: (Number(v.quantity) || 0) + item.quantity,
+              };
+            }
+            return v;
+          });
+        }
+
+        await updateDoc(prodRef, {
+          stockQuantity: newStock,
+          ...(updatedVariants ? { variants: updatedVariants } : {}),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    } catch (err) {
+      console.warn(`Could not restock inventory for product ${item.productId}:`, err);
+    }
+  }
+}
+
+/**
+ * Create a new Customer Order (Cash on Delivery / Instapay) & deduct inventory
  */
 export async function createOrderInFirestore(orderData: Omit<Order, 'id'>): Promise<string> {
   const ordersRef = collection(db, ORDERS_COLLECTION);
   const rawPayload = {
     ...orderData,
+    inventoryDeducted: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
   const payload = cleanUndefinedFields(rawPayload);
   const docRef = await addDoc(ordersRef, payload);
+
+  // Automatically deduct inventory from products catalog in real time
+  if (orderData.items && orderData.items.length > 0) {
+    await deductOrderInventory(orderData.items);
+  }
+
   return docRef.id;
 }
 
@@ -280,17 +379,48 @@ export async function getAllOrders(): Promise<Order[]> {
 }
 
 /**
- * Admin: Update order status
+ * Admin: Update order status with automatic inventory restock on cancel/return
  */
 export async function updateOrderStatusInFirestore(
   orderId: string,
   status: OrderStatus
 ): Promise<void> {
   const orderRef = doc(db, ORDERS_COLLECTION, orderId);
-  await updateDoc(orderRef, {
+  const snap = await getDoc(orderRef);
+  if (!snap.exists()) return;
+
+  const orderData = snap.data() as Order & { inventoryDeducted?: boolean };
+  const prevStatus = orderData.status;
+
+  const updates: Record<string, unknown> = {
     status,
     updatedAt: serverTimestamp(),
-  });
+  };
+
+  // If moving TO cancelled/returned from an active status -> RESTOCK items back to inventory
+  if (
+    (status === 'cancelled' || status === 'returned') &&
+    prevStatus !== 'cancelled' &&
+    prevStatus !== 'returned'
+  ) {
+    if (orderData.items && orderData.items.length > 0) {
+      await restockOrderInventory(orderData.items);
+      updates.inventoryDeducted = false;
+    }
+  }
+  // If moving FROM cancelled/returned back to an active status -> RE-DEDUCT items
+  else if (
+    (prevStatus === 'cancelled' || prevStatus === 'returned') &&
+    status !== 'cancelled' &&
+    status !== 'returned'
+  ) {
+    if (orderData.items && orderData.items.length > 0) {
+      await deductOrderInventory(orderData.items);
+      updates.inventoryDeducted = true;
+    }
+  }
+
+  await updateDoc(orderRef, updates);
 }
 
 /**

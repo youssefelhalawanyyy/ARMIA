@@ -96,8 +96,18 @@ export default function ProductCard({ product }: ProductCardProps) {
           />
         </Link>
 
-        {/* Discount, Flash Deal, or New Tag */}
+        {/* Discount, Flash Deal, New Tag, & Stock Status */}
         <div className="absolute top-2.5 left-2.5 rtl:left-auto rtl:right-2.5 flex flex-col gap-1 z-10 pointer-events-none">
+          {product.stockQuantity === 0 ? (
+            <span className="bg-[#141414]/95 text-[#D5D5D5] text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-sm rounded-sm border border-[#333333]">
+              {isArabic ? 'نفد من المخزون' : 'Sold Out'}
+            </span>
+          ) : product.stockQuantity <= 3 ? (
+            <span className="bg-[#B67355] text-white text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-sm rounded-sm animate-pulse">
+              {isArabic ? `متبقي ${product.stockQuantity} فقط!` : `Only ${product.stockQuantity} Left!`}
+            </span>
+          ) : null}
+
           {hasFlashDeal && flashDeal ? (
             <span className="bg-[#B67355] text-white text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1 rounded-sm">
               <Zap className="w-3 h-3 fill-current animate-pulse" />
@@ -133,9 +143,12 @@ export default function ProductCard({ product }: ProductCardProps) {
         <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/60 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300 flex items-center justify-center gap-2">
           <button
             onClick={handleQuickAdd}
-            className="w-full bg-white text-[#1F1F1F] py-2 px-3 text-[11px] font-sans uppercase font-bold tracking-wider hover:bg-[#1F1F1F] hover:text-[#DCC9A6] transition-colors flex items-center justify-center gap-1.5 shadow"
+            disabled={product.stockQuantity === 0}
+            className="w-full bg-white text-[#1F1F1F] py-2 px-3 text-[11px] font-sans uppercase font-bold tracking-wider hover:bg-[#1F1F1F] hover:text-[#DCC9A6] transition-colors flex items-center justify-center gap-1.5 shadow disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-[#1F1F1F]"
           >
-            {quickAddSuccess ? (
+            {product.stockQuantity === 0 ? (
+              <span>{isArabic ? 'نفد من المخزون' : 'Sold Out'}</span>
+            ) : quickAddSuccess ? (
               <>
                 <Check className="w-3.5 h-3.5 text-green-600" />
                 <span>{t.product.added}</span>

@@ -281,13 +281,21 @@ export default function ProductDetailPage() {
                 {/* Category & Status */}
                 <div className="flex items-center justify-between text-xs font-sans uppercase tracking-[0.2em] text-[#8E8A85] mb-2">
                   <span>ARMIA ATELIER • {product.category}</span>
-                  {product.stockQuantity > 0 ? (
-                    <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      {t.product.inStock} ({product.stockQuantity} {isArabic ? 'قطعة' : 'pieces'})
+                  {isCombinationSoldOut || product.stockQuantity === 0 ? (
+                    <span className="text-red-600 font-bold flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-red-600" />
+                      <span>{isCombinationSoldOut ? (isArabic ? 'المقاس المحدد غير متوفر' : 'Sold Out in Selected Color') : t.product.outOfStock}</span>
+                    </span>
+                  ) : currentCombinationStock <= 3 ? (
+                    <span className="text-[#B67355] font-bold flex items-center gap-1.5 animate-pulse">
+                      <span className="w-2 h-2 rounded-full bg-[#B67355]" />
+                      <span>{isArabic ? `كمية محدودة - متبقي ${currentCombinationStock} قطع فقط!` : `Low Stock - Only ${currentCombinationStock} Left!`}</span>
                     </span>
                   ) : (
-                    <span className="text-red-600 font-semibold">{t.product.outOfStock}</span>
+                    <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      {t.product.inStock} ({currentCombinationStock} {isArabic ? 'قطعة' : 'pieces'})
+                    </span>
                   )}
                 </div>
 
