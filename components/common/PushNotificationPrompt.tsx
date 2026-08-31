@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Bell, BellRing, Sparkles, X, Check } from 'lucide-react';
 import { requestNotificationPermission } from '@/lib/pushNotificationService';
 import { useAuth } from '@/context/AuthContext';
@@ -8,6 +9,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useToast } from '@/context/ToastContext';
 
 export default function PushNotificationPrompt() {
+  const pathname = usePathname();
   const { user } = useAuth();
   const { isArabic } = useLanguage();
   const { success, info } = useToast();
@@ -16,7 +18,10 @@ export default function PushNotificationPrompt() {
   const [enabling, setEnabling] = useState(false);
   const [isGranted, setIsGranted] = useState(false);
 
+  const isAdminRoute = pathname?.startsWith('/admin');
+
   useEffect(() => {
+    if (isAdminRoute) return;
     if (typeof window === 'undefined' || !('Notification' in window)) return;
 
     if (Notification.permission === 'granted') {
@@ -68,7 +73,7 @@ export default function PushNotificationPrompt() {
     }
   };
 
-  if (!visible || isGranted) return null;
+  if (isAdminRoute || !visible || isGranted) return null;
 
   return (
     <div className="fixed bottom-20 sm:bottom-6 left-4 sm:left-6 z-40 max-w-sm w-[calc(100%-2rem)] sm:w-auto animate-bounceSubtle font-sans">

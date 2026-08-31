@@ -2,16 +2,23 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { BellRing, Sparkles, X, ArrowRight, ExternalLink } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { BellRing, Sparkles, X, ArrowRight } from 'lucide-react';
 import { listenToLiveBroadcasts, autoSyncPushSubscription } from '@/lib/pushNotificationService';
 import { BroadcastNotification } from '@/types';
 import { useLanguage } from '@/context/LanguageContext';
 
 export default function BroadcastNotificationReceiver() {
+  const pathname = usePathname();
   const { isArabic } = useLanguage();
   const [activeBroadcast, setActiveBroadcast] = useState<BroadcastNotification | null>(null);
 
+  const isAdminRoute = pathname?.startsWith('/admin');
+
   useEffect(() => {
+    // Only client storefront pages receive and sync storefront notifications
+    if (isAdminRoute) return;
+
     // Automatically ensure the client device has a valid VAPID subscription
     autoSyncPushSubscription().catch(() => {});
 
@@ -29,9 +36,10 @@ export default function BroadcastNotificationReceiver() {
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [isAdminRoute]);
 
-  if (!activeBroadcast) return null;
+  // Never render storefront VIP popup banners inside the Admin Portal
+  if (isAdminRoute || !activeBroadcast) return null;
 
   const displayTitle =
     isArabic && activeBroadcast.titleArabic ? activeBroadcast.titleArabic : activeBroadcast.title;
