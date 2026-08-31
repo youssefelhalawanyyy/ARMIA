@@ -41,11 +41,15 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    // Register Service Worker
+    // Register Service Worker with automatic update checks
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw.js')
-        .then((reg) => console.log('ARMIA Service Worker registered', reg.scope))
+        .then((reg) => {
+          console.log('ARMIA Service Worker registered', reg.scope);
+          // Check for new version from server
+          reg.update().catch(() => {});
+        })
         .catch((err) => console.warn('ARMIA Service Worker registration failed:', err));
     }
 
