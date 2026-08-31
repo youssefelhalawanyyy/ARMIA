@@ -127,6 +127,19 @@ export interface Translations {
     paymentMethod: string;
     cashOnDelivery: string;
     cashOnDeliveryDesc: string;
+    instapay: string;
+    instapayDesc: string;
+    instapayNumber: string;
+    instapayName: string;
+    instapayCopy: string;
+    instapayCopied: string;
+    instapayAmountToTransfer: string;
+    uploadReceipt: string;
+    uploadReceiptDesc: string;
+    receiptRequired: string;
+    changeReceipt: string;
+    senderAccount: string;
+    senderAccountPlaceholder: string;
     orderSummary: string;
     promoCode: string;
     applyCode: string;
@@ -136,8 +149,11 @@ export interface Translations {
     free: string;
     total: string;
     placeOrderBtn: string;
+    placeOrderCodBtn: string;
+    placeOrderInstapayBtn: string;
     processing: string;
     codNote: string;
+    instapayNote: string;
   };
   // Order Confirmation Page
   orderConfirmation: {
@@ -346,7 +362,20 @@ export const translations: Record<Language, Translations> = {
       standardDelivery: 'Express COD Delivery',
       paymentMethod: '3. Payment Method',
       cashOnDelivery: 'Cash on Delivery (COD)',
-      cashOnDeliveryDesc: 'Pay securely in cash upon receiving and inspecting your package.',
+      cashOnDeliveryDesc: 'Pay securely in cash upon receiving and inspecting your package at your doorstep.',
+      instapay: 'Instapay Transfer (Instant & Direct)',
+      instapayDesc: 'Instant bank-to-bank transfer via Instapay app. Receipt upload required.',
+      instapayNumber: 'Instapay Mobile Number',
+      instapayName: 'Account Name',
+      instapayCopy: 'Copy Number',
+      instapayCopied: 'Number copied to clipboard!',
+      instapayAmountToTransfer: 'Total Amount to Transfer',
+      uploadReceipt: 'Upload Instapay Receipt Screenshot *',
+      uploadReceiptDesc: 'Attach a clear screenshot or receipt photo from your Instapay transaction.',
+      receiptRequired: 'Please upload your Instapay payment receipt before placing the order.',
+      changeReceipt: 'Change Receipt',
+      senderAccount: 'Sender Mobile Number / Account Name (Optional)',
+      senderAccountPlaceholder: 'e.g. 01XXXXXXXXX or Name on Instapay app',
       orderSummary: 'Order Summary',
       promoCode: 'Promo Code / Gift Voucher',
       applyCode: 'Apply',
@@ -355,9 +384,12 @@ export const translations: Record<Language, Translations> = {
       shippingFee: 'Delivery Fee',
       free: 'FREE',
       total: 'Total Amount',
-      placeOrderBtn: 'Confirm Order (Cash on Delivery)',
+      placeOrderBtn: 'Confirm & Place Order',
+      placeOrderCodBtn: 'Confirm Order (Cash on Delivery)',
+      placeOrderInstapayBtn: 'Confirm & Submit Order with Instapay',
       processing: 'Processing Order...',
       codNote: 'No credit card needed. You pay the courier upon delivery.',
+      instapayNote: 'Our boutique team will verify your uploaded Instapay receipt promptly.',
     },
     orderConfirmation: {
       successBadge: 'ORDER PLACED SUCCESSFULLY',
@@ -560,7 +592,20 @@ export const translations: Record<Language, Translations> = {
       standardDelivery: 'توصيل لباب المنزل مع المعاينة',
       paymentMethod: '3. طريقة الدفع',
       cashOnDelivery: 'الدفع نقداً عند الاستلام (COD)',
-      cashOnDeliveryDesc: 'ادفعي بأمان للمندوب بعد استلام ومعاينة الشحنة بالكامل.',
+      cashOnDeliveryDesc: 'ادفعي بأمان للمندوب بعد استلام ومعاينة الشحنة بالكامل عند باب بيتكِ.',
+      instapay: 'التحويل الفوري عبر إنستاباي (Instapay)',
+      instapayDesc: 'تحويل فوري ومباشر لحسابنا في إنستاباي مع إرفاق لقطة شاشة لإيصال التحويل.',
+      instapayNumber: 'رقم حساب إنستاباي المعتمد',
+      instapayName: 'اسم الحساب',
+      instapayCopy: 'نسخ الرقم',
+      instapayCopied: 'تم نسخ الرقم بنجاح!',
+      instapayAmountToTransfer: 'المبلغ الإجمالي المطلوب تحويله',
+      uploadReceipt: 'إرفاق إيصال التحويل من إنستاباي *',
+      uploadReceiptDesc: 'يرجى إرفاق لقطة شاشة واضحة لإيصال التحويل من تطبيق إنستاباي.',
+      receiptRequired: 'يرجى إرفاق إيصال التحويل أولاً قبل إتمام وتأكيد الطلب.',
+      changeReceipt: 'تغيير صورة الإيصال',
+      senderAccount: 'اسم أو رقم الحساب المحوّل منه (اختياري)',
+      senderAccountPlaceholder: 'مثال: رقم الهاتف أو الاسم المسجل في تطبيق إنستاباي',
       orderSummary: 'ملخص الطلب',
       promoCode: 'كود الخصم أو القسيمة الشرائية',
       applyCode: 'تطبيق',
@@ -569,9 +614,12 @@ export const translations: Record<Language, Translations> = {
       shippingFee: 'رسوم الشحن',
       free: 'مجاناً',
       total: 'المبلغ الإجمالي',
-      placeOrderBtn: 'تأكيد الطلب (الدفع عند الاستلام)',
+      placeOrderBtn: 'تأكيد وإتمام الطلب',
+      placeOrderCodBtn: 'تأكيد الطلب (الدفع عند الاستلام)',
+      placeOrderInstapayBtn: 'تأكيد الطلب وإرسال إيصال إنستاباي',
       processing: 'جاري تأكيد وتسجيل الطلب...',
       codNote: 'لا يتطلب دفع إلكتروني أو بطاقة بنكية. الدفع نقداً عند باب منزلك.',
+      instapayNote: 'سيقوم فريق الأتيليه بمراجعة إيصال التحويل وتأكيد شحن طلبكِ فوراً.',
     },
     orderConfirmation: {
       successBadge: 'تم تسجيل طلبك بنجاح',

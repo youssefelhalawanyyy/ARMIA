@@ -63,6 +63,8 @@ export interface CartItem {
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type PaymentMethodType = 'COD' | 'INSTAPAY';
+export type PaymentStatus = 'pending_verification' | 'verified' | 'paid' | 'rejected';
 
 export interface CustomerDetails {
   fullName: string;
@@ -117,7 +119,10 @@ export interface Order {
   appliedDiscount?: Discount;
   shippingFee: number;
   totalAmount: number;
-  paymentMethod: 'COD'; // Strictly COD
+  paymentMethod: PaymentMethodType;
+  receiptUrl?: string; // Instapay payment receipt screenshot/photo
+  instapaySenderAccount?: string; // Optional sender name or mobile
+  paymentStatus?: PaymentStatus;
   status: OrderStatus;
   createdAt: unknown;
   updatedAt?: unknown;

@@ -237,7 +237,9 @@ export default function PrintableInvoice({ order }: PrintableInvoiceProps) {
             <div className="space-y-1 text-[#2A2A2A]">
               <div className="grid grid-cols-12">
                 <span className="col-span-5 text-neutral-700 font-medium">Payment Method</span>
-                <span className="col-span-7 font-bold text-black">: Cash on Delivery (COD)</span>
+                <span className="col-span-7 font-bold text-black">
+                  : {order.paymentMethod === 'INSTAPAY' ? 'Instapay Transfer (01204000195)' : 'Cash on Delivery (COD)'}
+                </span>
               </div>
               <div className="grid grid-cols-12">
                 <span className="col-span-5 text-neutral-700 font-medium">Inspection Policy</span>

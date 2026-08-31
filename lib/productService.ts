@@ -12,7 +12,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Product, Order, OrderStatus } from '@/types';
+import { Product, Order, OrderStatus, PaymentStatus } from '@/types';
 import { INITIAL_PRODUCTS } from './seedData';
 
 const PRODUCTS_COLLECTION = 'products';
@@ -266,4 +266,23 @@ export async function updateOrderStatusInFirestore(
     status,
     updatedAt: serverTimestamp(),
   });
+}
+
+/**
+ * Admin: Update Instapay payment verification status
+ */
+export async function updatePaymentStatusInFirestore(
+  orderId: string,
+  paymentStatus: PaymentStatus,
+  autoConfirmOrder = false
+): Promise<void> {
+  const orderRef = doc(db, ORDERS_COLLECTION, orderId);
+  const updates: Record<string, unknown> = {
+    paymentStatus,
+    updatedAt: serverTimestamp(),
+  };
+  if (autoConfirmOrder && paymentStatus === 'verified') {
+    updates.status = 'confirmed';
+  }
+  await updateDoc(orderRef, updates);
 }

@@ -16,7 +16,18 @@ import {
   Sparkles,
   Ticket,
   X,
+  Smartphone,
+  Copy,
+  Check,
+  UploadCloud,
+  FileCheck,
+  Banknote,
+  ShieldCheck,
+  Info,
 } from 'lucide-react';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
+import { compressImage } from '@/lib/imageUtils';
 import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import { useCart } from '@/context/CartContext';
@@ -29,7 +40,7 @@ import {
   calculateDeliveryFee,
   DEFAULT_SHIPPING_SETTINGS,
 } from '@/lib/shippingService';
-import { CustomerDetails, Order, ShippingSettings } from '@/types';
+import { CustomerDetails, Order, ShippingSettings, PaymentMethodType } from '@/types';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
 export default function CheckoutPage() {
@@ -47,7 +58,7 @@ export default function CheckoutPage() {
 
   const { user, loginWithGoogle, loginWithEmail, signupWithEmail } = useAuth();
   const { t, isArabic } = useLanguage();
-  const { success, error } = useToast();
+  const { success, error, info } = useToast();
   const mounted = useIsMounted();
 
   const ArrowIcon = isArabic ? ArrowLeft : ArrowRight;
@@ -56,6 +67,13 @@ export default function CheckoutPage() {
   const [shippingSettings, setShippingSettings] = useState<ShippingSettings>(DEFAULT_SHIPPING_SETTINGS);
   const [couponInput, setCouponInput] = useState('');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+  // Payment method state: COD or INSTAPAY
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('COD');
+  const [receiptUrl, setReceiptUrl] = useState<string>('');
+  const [senderAccount, setSenderAccount] = useState<string>('');
+  const [uploadingReceipt, setUploadingReceipt] = useState<boolean>(false);
+  const [copiedInstapay, setCopiedInstapay] = useState<boolean>(false);
 
   // Load live dynamic shipping rates configured by admin
   useEffect(() => {
@@ -116,6 +134,62 @@ export default function CheckoutPage() {
       setCouponInput('');
     } else {
       error(result.message, isArabic ? 'خطأ في الكوبون' : 'Invalid Code');
+    }
+  };
+
+  const handleCopyInstapay = () => {
+    if (typeof navigator !== 'undefined') {
+      navigator.clipboard.writeText('01204000195');
+      setCopiedInstapay(true);
+      success(
+        isArabic ? 'تم نسخ رقم إنستاباي 01204000195' : 'Instapay number 01204000195 copied!',
+        isArabic ? 'تم النسخ' : 'Copied'
+      );
+      setTimeout(() => setCopiedInstapay(false), 3000);
+    }
+  };
+
+  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingReceipt(true);
+    try {
+      // 1. Instant client compression
+      const { blob, dataUrl } = await compressImage(file, 1400, 1800, 0.85);
+
+      // 2. Race upload with 3s timeout fallback to dataUrl
+      const uploadWithTimeout = async (): Promise<string> => {
+        const storageRef = ref(storage, `receipts/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
+        const snap = await uploadBytes(storageRef, blob);
+        return await getDownloadURL(snap.ref);
+      };
+
+      const timeoutPromise = new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error('Storage timeout')), 3000)
+      );
+
+      try {
+        const downloadUrl = await Promise.race([uploadWithTimeout(), timeoutPromise]);
+        setReceiptUrl(downloadUrl);
+        success(
+          isArabic ? 'تم رفع إيصال التحويل بنجاح!' : 'Payment receipt uploaded successfully!',
+          isArabic ? 'تم الإرفاق' : 'Receipt Attached'
+        );
+      } catch {
+        // Direct dataUrl attachment fallback
+        setReceiptUrl(dataUrl);
+        success(
+          isArabic ? 'تم إرفاق صورة الإيصال بنجاح!' : 'Payment receipt attached successfully!',
+          isArabic ? 'تم الإرفاق' : 'Receipt Attached'
+        );
+      }
+    } catch (err) {
+      console.error('Receipt upload error:', err);
+      error(isArabic ? 'فشل معالجة الإيصال، يرجى المحاولة مرة أخرى' : 'Failed to process receipt image.');
+    } finally {
+      setUploadingReceipt(false);
+      e.target.value = '';
     }
   };
 
@@ -187,6 +261,17 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Strict Instapay Validation: Customer MUST upload receipt
+    if (paymentMethod === 'INSTAPAY' && !receiptUrl) {
+      error(
+        isArabic
+          ? 'يرجى إرفاق لقطة شاشة لإيصال تحويل إنستاباي أولاً لإتمام طلبكِ'
+          : 'Please upload your Instapay payment confirmation receipt before placing the order.',
+        isArabic ? 'مطلوب إيصال التحويل' : 'Receipt Required'
+      );
+      return;
+    }
+
     setPlacingOrder(true);
 
     try {
@@ -220,7 +305,10 @@ export default function CheckoutPage() {
         appliedDiscount: appliedDiscount || undefined,
         shippingFee: dynamicShippingFee,
         totalAmount: dynamicTotalAmount,
-        paymentMethod: 'COD',
+        paymentMethod: paymentMethod,
+        receiptUrl: paymentMethod === 'INSTAPAY' ? receiptUrl : undefined,
+        instapaySenderAccount: paymentMethod === 'INSTAPAY' ? senderAccount.trim() || undefined : undefined,
+        paymentStatus: paymentMethod === 'INSTAPAY' ? 'pending_verification' : 'paid',
         status: 'pending',
         createdAt: null,
       };
@@ -236,7 +324,14 @@ export default function CheckoutPage() {
       });
 
       clearCart();
-      success(isArabic ? 'تم تأكيد طلبك بنجاح!' : 'Your order has been placed successfully!', isArabic ? 'تم الطلب' : 'Order Confirmed');
+      success(
+        isArabic
+          ? paymentMethod === 'INSTAPAY'
+            ? 'تم استلام طلبكِ وإيصال إنستاباي بنجاح! سيتم مراجعته وتأكيد الشحن فوراً.'
+            : 'تم تأكيد طلب الدفع عند الاستلام بنجاح!'
+          : 'Your order has been placed successfully!',
+        isArabic ? 'تم تسجيل الطلب' : 'Order Confirmed'
+      );
       router.push(`/order/${docId}?orderId=${generatedOrderId}`);
     } catch (err: unknown) {
       console.error('Order placement failed:', err);
@@ -265,7 +360,7 @@ export default function CheckoutPage() {
     return (
       <div className="min-h-screen flex flex-col bg-[#F6F3EE]">
         <Navbar />
-        <div className="max-w-md mx-auto my-20 p-8 bg-white border border-[#E8E2D8] text-center flex-grow">
+        <div className="max-w-md mx-auto my-20 p-8 bg-white border border-[#E8E2D8] text-center flex-grow rounded-xl">
           <ShoppingBag className="w-12 h-12 text-[#8E8A85] mx-auto mb-3" />
           <h2 className="font-serif text-xl font-bold text-[#1F1F1F] mb-1">
             {t.cart.emptyTitle}
@@ -275,7 +370,7 @@ export default function CheckoutPage() {
           </p>
           <Link
             href="/collections"
-            className="inline-block bg-[#1F1F1F] text-[#DCC9A6] px-8 py-3 text-xs uppercase tracking-widest font-sans font-bold hover:bg-[#B67355] transition-colors"
+            className="inline-block bg-[#1F1F1F] text-[#DCC9A6] px-8 py-3 text-xs uppercase tracking-widest font-sans font-bold hover:bg-[#B67355] transition-colors rounded"
           >
             {t.cart.explorePieces}
           </Link>
@@ -359,44 +454,44 @@ export default function CheckoutPage() {
                         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                       />
                     </svg>
-                    <span>{isArabic ? 'تسجيل الدخول السريع عبر Google' : 'Instant Google Sign In'}</span>
+                    <span>
+                      {isArabic ? 'المتابعة السريعة بحساب Google' : 'Continue with Google Account'}
+                    </span>
                   </button>
 
-                  <div className="flex items-center gap-3 my-4">
-                    <div className="flex-1 h-[1px] bg-[#E8E2D8]" />
-                    <span className="text-[10px] text-[#8E8A85] uppercase tracking-widest font-sans">
-                      {isArabic ? 'أو بالبريد الإلكتروني' : 'or with email'}
+                  <div className="relative flex items-center justify-center my-4">
+                    <div className="border-t border-[#E8E2D8] w-full" />
+                    <span className="bg-white px-3 text-[11px] text-[#8E8A85] uppercase font-sans tracking-wider absolute">
+                      {isArabic ? 'أو بالبريد الإلكتروني' : 'Or with Email'}
                     </span>
-                    <div className="flex-1 h-[1px] bg-[#E8E2D8]" />
                   </div>
 
                   {authError && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded mb-3 flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       <span>{authError}</span>
                     </div>
                   )}
 
-                  {/* Email & Pass form */}
-                  <form onSubmit={handleAuthSubmit} className="space-y-3.5">
+                  <form onSubmit={handleAuthSubmit} className="space-y-3">
                     {authMode === 'signup' && (
                       <div>
-                        <label className="block text-[11px] font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-medium">
-                          {t.checkout.fullName}
+                        <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
+                          {isArabic ? 'الاسم الكامل *' : 'Full Name *'}
                         </label>
                         <input
                           type="text"
                           required
                           value={authName}
                           onChange={(e) => setAuthName(e.target.value)}
-                          placeholder={t.checkout.fullNamePlaceholder}
-                          className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
+                          placeholder={isArabic ? 'مثال: نورهان عادل' : 'e.g. Salma Hassan'}
+                          className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
                         />
                       </div>
                     )}
 
                     <div>
-                      <label className="block text-[11px] font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-medium">
+                      <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
                         {isArabic ? 'البريد الإلكتروني *' : 'Email Address *'}
                       </label>
                       <input
@@ -404,44 +499,43 @@ export default function CheckoutPage() {
                         required
                         value={authEmail}
                         onChange={(e) => setAuthEmail(e.target.value)}
-                        placeholder="name@example.com"
-                        className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
+                        placeholder="client@example.com"
+                        className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-medium">
+                      <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
                         {isArabic ? 'كلمة المرور *' : 'Password *'}
                       </label>
                       <input
                         type="password"
                         required
+                        minLength={6}
                         value={authPassword}
                         onChange={(e) => setAuthPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
+                        className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={authLoading}
-                      className="w-full bg-[#1F1F1F] text-[#DCC9A6] py-3 text-xs uppercase tracking-[0.2em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-[#B67355] hover:text-white transition-all shadow-md mt-2 disabled:opacity-50"
+                      className="w-full bg-[#1F1F1F] text-[#DCC9A6] py-3 text-xs uppercase font-sans font-bold tracking-wider hover:bg-[#B67355] hover:text-white transition-all shadow rounded disabled:opacity-50"
                     >
-                      <span>
-                        {authLoading
-                          ? t.checkout.processing
-                          : authMode === 'signin'
-                          ? isArabic ? 'تسجيل الدخول والمتابعة' : 'Sign In & Continue'
-                          : isArabic ? 'إنشاء الحساب والمتابعة' : 'Create Account & Continue'}
-                      </span>
+                      {authLoading
+                        ? isArabic ? 'جاري التحقق...' : 'Authenticating...'
+                        : authMode === 'signin'
+                        ? isArabic ? 'تسجيل الدخول ومتابعة الطلب' : 'Sign In & Continue'
+                        : isArabic ? 'إنشاء حساب جديد ومتابعة الطلب' : 'Create Account & Continue'}
                     </button>
                   </form>
 
-                  <div className="mt-4 text-center text-xs font-sans text-[#8E8A85]">
+                  <div className="mt-4 text-center text-xs text-[#8E8A85]">
                     {authMode === 'signin' ? (
                       <p>
-                        {isArabic ? 'عميل جديد؟ ' : 'New customer? '}
+                        {isArabic ? 'ليس لديكِ حساب بعد؟ ' : "Don't have an account? "}
                         <button
                           type="button"
                           onClick={() => setAuthMode('signup')}
@@ -466,7 +560,7 @@ export default function CheckoutPage() {
                 </div>
               ) : (
                 /* Authenticated User Status */
-                <div className="bg-white border border-[#E8E2D8] p-4 flex items-center justify-between rounded-xl">
+                <div className="bg-white border border-[#E8E2D8] p-4 flex items-center justify-between rounded-xl shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
                       <UserCheck className="w-5 h-5" />
@@ -487,7 +581,7 @@ export default function CheckoutPage() {
               )}
 
               {/* SHIPPING DETAILS FORM */}
-              <form id="checkout-form" onSubmit={handlePlaceOrder} className="bg-white border border-[#E8E2D8] p-6 sm:p-8 space-y-6 rounded-xl">
+              <form id="checkout-form" onSubmit={handlePlaceOrder} className="bg-white border border-[#E8E2D8] p-6 sm:p-8 space-y-6 rounded-xl shadow-sm">
                 <div className="flex items-center gap-2 border-b border-[#E8E2D8] pb-4">
                   <Truck className="w-5 h-5 text-[#B67355]" />
                   <h3 className="font-serif text-lg font-bold text-[#1F1F1F]">
@@ -506,7 +600,7 @@ export default function CheckoutPage() {
                       value={effectiveFullName}
                       onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                       placeholder={t.checkout.fullNamePlaceholder}
-                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
+                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
                     />
                   </div>
 
@@ -521,7 +615,7 @@ export default function CheckoutPage() {
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       placeholder={t.checkout.phonePlaceholder}
                       dir="ltr"
-                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
+                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
                     />
                     <span className="text-[10px] text-[#8E8A85] font-sans mt-0.5 block">
                       {isArabic ? 'ضروري لتنسيق وتأكيد موعد التوصيل' : 'Required for courier delivery coordination'}
@@ -538,7 +632,7 @@ export default function CheckoutPage() {
                       onChange={(e) => setFormData({ ...formData, alternatePhone: e.target.value })}
                       placeholder={t.checkout.alternatePhonePlaceholder}
                       dir="ltr"
-                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
+                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
                     />
                   </div>
 
@@ -554,7 +648,7 @@ export default function CheckoutPage() {
                     <select
                       value={formData.governorate}
                       onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
-                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans text-[#1F1F1F] focus:outline-none focus:border-[#B67355]"
+                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans text-[#1F1F1F] focus:outline-none focus:border-[#B67355] rounded"
                     >
                       {activeZones.map((zone) => (
                         <option key={zone.id} value={`${zone.governorate} (${zone.governorateArabic})`}>
@@ -574,7 +668,7 @@ export default function CheckoutPage() {
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       placeholder={t.checkout.selectCity}
-                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
+                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
                     />
                   </div>
 
@@ -588,7 +682,7 @@ export default function CheckoutPage() {
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       placeholder={t.checkout.addressPlaceholder}
-                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
+                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
                     />
                   </div>
 
@@ -601,34 +695,261 @@ export default function CheckoutPage() {
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       placeholder={t.checkout.orderNotesPlaceholder}
-                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
+                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
                     />
                   </div>
                 </div>
 
-                {/* Payment Option: Cash on Delivery (COD) */}
-                <div className="pt-6 border-t border-[#E8E2D8]">
-                  <h4 className="text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-3 font-semibold">
-                    {t.checkout.paymentMethod}
-                  </h4>
-                  <div className="p-4 border-2 border-[#B67355] bg-[#F6F3EE] flex items-center justify-between rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded-full bg-[#B67355] flex items-center justify-center text-white">
-                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                      </div>
-                      <div>
-                        <span className="font-serif text-sm font-bold text-[#1F1F1F]">
-                          {t.checkout.cashOnDelivery}
-                        </span>
-                        <p className="text-[11px] text-[#8E8A85] font-sans">
-                          {t.checkout.cashOnDeliveryDesc}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-sans font-bold text-[#B67355] uppercase tracking-wider bg-white px-2 py-1 border border-[#DCC9A6] rounded">
-                      COD
+                {/* ADVANCED BILINGUAL PAYMENT METHODS SECTION */}
+                <div className="pt-6 border-t border-[#E8E2D8] space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-sans uppercase tracking-wider text-[#1F1F1F] font-bold">
+                      {t.checkout.paymentMethod}
+                    </h4>
+                    <span className="text-[11px] text-[#8E8A85]">
+                      {isArabic ? 'اختاري وسيلة الدفع المناسبة لكِ' : 'Select your payment option'}
                     </span>
                   </div>
+
+                  {/* Payment Selection Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    
+                    {/* Option 1: Cash on Delivery (COD) */}
+                    <div
+                      onClick={() => setPaymentMethod('COD')}
+                      className={`p-4 border-2 cursor-pointer transition-all rounded-xl relative ${
+                        paymentMethod === 'COD'
+                          ? 'border-[#B67355] bg-[#FAF7F2] shadow-sm ring-1 ring-[#B67355]'
+                          : 'border-[#E8E2D8] bg-white hover:border-[#DCC9A6]'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0 ${
+                            paymentMethod === 'COD'
+                              ? 'border-[#B67355] bg-[#B67355]'
+                              : 'border-[#CCCCCC] bg-white'
+                          }`}
+                        >
+                          {paymentMethod === 'COD' && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-serif text-sm font-bold text-[#1F1F1F]">
+                              {t.checkout.cashOnDelivery}
+                            </span>
+                            <span className="text-[10px] font-sans font-bold text-[#B67355] uppercase bg-[#FAF0E6] px-2 py-0.5 border border-[#DCC9A6] rounded">
+                              COD
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#8E8A85] font-sans mt-1 leading-relaxed">
+                            {t.checkout.cashOnDeliveryDesc}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Option 2: Instapay Transfer */}
+                    <div
+                      onClick={() => setPaymentMethod('INSTAPAY')}
+                      className={`p-4 border-2 cursor-pointer transition-all rounded-xl relative ${
+                        paymentMethod === 'INSTAPAY'
+                          ? 'border-[#B67355] bg-[#FAF7F2] shadow-sm ring-1 ring-[#B67355]'
+                          : 'border-[#E8E2D8] bg-white hover:border-[#DCC9A6]'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0 ${
+                            paymentMethod === 'INSTAPAY'
+                              ? 'border-[#B67355] bg-[#B67355]'
+                              : 'border-[#CCCCCC] bg-white'
+                          }`}
+                        >
+                          {paymentMethod === 'INSTAPAY' && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-serif text-sm font-bold text-[#1F1F1F]">
+                              {t.checkout.instapay}
+                            </span>
+                            <span className="text-[10px] font-sans font-bold text-white uppercase bg-[#B67355] px-2 py-0.5 rounded shadow-sm">
+                              INSTAPAY
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#8E8A85] font-sans mt-1 leading-relaxed">
+                            {t.checkout.instapayDesc}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* INSTAPAY TRANSFER & RECEIPT UPLOAD PANEL */}
+                  {paymentMethod === 'INSTAPAY' && (
+                    <div className="bg-[#FAF7F2] border border-[#DCC9A6] p-5 rounded-xl space-y-5 animate-in fade-in duration-300">
+                      
+                      {/* Instapay Account Banner */}
+                      <div className="bg-white border border-[#E8E2D8] p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase font-sans font-bold tracking-widest text-[#B67355]">
+                            {t.checkout.instapayNumber}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-lg font-extrabold text-[#1F1F1F] tracking-wider">
+                              01204000195
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleCopyInstapay}
+                              className="inline-flex items-center gap-1 bg-[#1F1F1F] text-[#DCC9A6] hover:bg-[#B67355] hover:text-white px-2.5 py-1 text-xs font-sans rounded transition-all active:scale-95 shadow-sm"
+                            >
+                              {copiedInstapay ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>{t.checkout.instapayCopied}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>{t.checkout.instapayCopy}</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-[#8E8A85]">
+                            {t.checkout.instapayName}: <strong className="text-[#1F1F1F]">ARMIA Boutique (آرميا بوتيك)</strong>
+                          </p>
+                        </div>
+
+                        <div className="text-left sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-[#E8E2D8]">
+                          <span className="text-[10px] uppercase font-sans font-bold text-[#8E8A85]">
+                            {t.checkout.instapayAmountToTransfer}
+                          </span>
+                          <p className="font-serif text-lg font-extrabold text-[#B67355]">
+                            EGP {dynamicTotalAmount.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Instructions */}
+                      <div className="text-xs text-[#1F1F1F] space-y-1.5 bg-white/60 p-3 rounded border border-[#E8E2D8]/60">
+                        <div className="flex items-center gap-2 font-semibold text-[#B67355]">
+                          <Info className="w-4 h-4" />
+                          <span>
+                            {isArabic ? 'خطوات التحويل وتأكيد الطلب:' : 'Transfer & Confirmation Steps:'}
+                          </span>
+                        </div>
+                        <ol className="list-decimal list-inside space-y-1 text-[#8E8A85] text-[11px] leading-relaxed">
+                          <li>
+                            {isArabic
+                              ? `افتحي تطبيق إنستاباي وحوّلي المبلغ المطلوب (${dynamicTotalAmount.toFixed(2)} ج.م) لرقم 01204000195.`
+                              : `Open your Instapay app and transfer EGP ${dynamicTotalAmount.toFixed(2)} to 01204000195.`}
+                          </li>
+                          <li>
+                            {isArabic
+                              ? 'التقطي لقطة شاشة (Screenshot) لإيصال التحويل الناجح.'
+                              : 'Capture a screenshot of your successful transfer receipt.'}
+                          </li>
+                          <li>
+                            {isArabic
+                              ? 'ارفعي صورة الإيصال في المربع بالأسفل قبل الضغط على تأكيد الطلب.'
+                              : 'Upload the receipt screenshot below before submitting your order.'}
+                          </li>
+                        </ol>
+                      </div>
+
+                      {/* Receipt Upload Box */}
+                      <div className="space-y-3">
+                        <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] font-bold">
+                          {t.checkout.uploadReceipt}
+                        </label>
+
+                        {!receiptUrl ? (
+                          <label className="w-full flex flex-col items-center justify-center border-2 border-dashed border-[#DCC9A6] bg-white p-6 rounded-xl cursor-pointer hover:border-[#B67355] transition-all group">
+                            <UploadCloud className="w-8 h-8 text-[#B67355] group-hover:scale-110 transition-transform mb-2" />
+                            <span className="font-serif text-sm font-bold text-[#1F1F1F]">
+                              {uploadingReceipt
+                                ? isArabic ? 'جاري رفع ومعالجة الإيصال...' : 'Uploading & Optimizing Receipt...'
+                                : isArabic ? 'اضغطي لرفع لقطة شاشة إيصال إنستاباي' : 'Click to Upload Instapay Receipt'}
+                            </span>
+                            <span className="text-[11px] text-[#8E8A85] font-sans mt-1">
+                              {t.checkout.uploadReceiptDesc}
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleReceiptUpload}
+                              disabled={uploadingReceipt}
+                              className="hidden"
+                            />
+                          </label>
+                        ) : (
+                          /* Uploaded Receipt Preview Card */
+                          <div className="bg-white border border-[#DCC9A6] p-4 rounded-xl flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                              <div className="relative w-14 h-16 bg-[#141414] rounded overflow-hidden shrink-0 border border-[#E8E2D8]">
+                                <Image
+                                  src={receiptUrl}
+                                  alt="Payment Receipt"
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                              <div>
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                  <FileCheck className="w-3.5 h-3.5" />
+                                  <span>{isArabic ? '✓ تم إرفاق الإيصال بنجاح' : '✓ Receipt Attached'}</span>
+                                </span>
+                                <p className="text-[11px] text-[#8E8A85] mt-1">
+                                  {isArabic ? 'جاهز للمراجعة من إدارة الأتيليه' : 'Ready for atelier verification'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs text-[#B67355] font-semibold underline cursor-pointer hover:text-[#1F1F1F]">
+                                <span>{t.checkout.changeReceipt}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleReceiptUpload}
+                                  disabled={uploadingReceipt}
+                                  className="hidden"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setReceiptUrl('')}
+                                className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors"
+                                title="Remove Receipt"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Optional Sender Account Details */}
+                      <div>
+                        <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
+                          {t.checkout.senderAccount}
+                        </label>
+                        <input
+                          type="text"
+                          value={senderAccount}
+                          onChange={(e) => setSenderAccount(e.target.value)}
+                          placeholder={t.checkout.senderAccountPlaceholder}
+                          className="w-full bg-white border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </form>
             </div>
@@ -701,12 +1022,12 @@ export default function CheckoutPage() {
                         value={couponInput}
                         onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                         placeholder={t.checkout.promoPlaceholder}
-                        className="flex-1 bg-[#F6F3EE] border border-[#E8E2D8] px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:border-[#B67355]"
+                        className="flex-1 bg-[#F6F3EE] border border-[#E8E2D8] px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:border-[#B67355] rounded"
                       />
                       <button
                         type="submit"
                         disabled={applyingCoupon || !couponInput.trim()}
-                        className="bg-[#1F1F1F] text-[#DCC9A6] px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-[#B67355] hover:text-white transition-colors disabled:opacity-40"
+                        className="bg-[#1F1F1F] text-[#DCC9A6] px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-[#B67355] hover:text-white transition-colors disabled:opacity-40 rounded"
                       >
                         {t.checkout.applyCode}
                       </button>
@@ -759,27 +1080,49 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* Place Order CTA */}
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    form="checkout-form"
-                    disabled={placingOrder || !user}
-                    className="w-full bg-[#1F1F1F] text-[#DCC9A6] py-4 text-xs uppercase tracking-[0.2em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-[#B67355] hover:text-white transition-all shadow-lg active:scale-[0.99] disabled:opacity-40 rounded"
-                  >
-                    <span>
-                      {placingOrder
-                        ? t.checkout.processing
-                        : !user
-                        ? isArabic ? 'يرجى تسجيل الدخول أعلاه أولاً' : 'Sign In Required Above'
-                        : t.checkout.placeOrderBtn}
+                {/* Selected Payment Method Badge Note */}
+                <div className="p-3 bg-[#FAF7F2] border border-[#E8E2D8] rounded-lg text-xs space-y-1">
+                  <div className="flex items-center justify-between font-semibold text-[#1F1F1F]">
+                    <span>{isArabic ? 'طريقة الدفع المختارة:' : 'Selected Payment:'}</span>
+                    <span className="text-[#B67355] font-bold">
+                      {paymentMethod === 'COD' ? t.checkout.cashOnDelivery : 'Instapay (01204000195)'}
                     </span>
-                    {!placingOrder && <ArrowIcon className="w-4 h-4" />}
-                  </button>
-                  <p className="text-[10px] text-[#8E8A85] text-center font-sans mt-2">
-                    {t.checkout.codNote}
+                  </div>
+                  <p className="text-[10px] text-[#8E8A85]">
+                    {paymentMethod === 'COD' ? t.checkout.codNote : t.checkout.instapayNote}
                   </p>
                 </div>
+
+                {/* Submit Order Button */}
+                <button
+                  type="submit"
+                  form="checkout-form"
+                  disabled={placingOrder || (paymentMethod === 'INSTAPAY' && !receiptUrl)}
+                  className="w-full bg-[#1F1F1F] text-[#DCC9A6] py-4 text-xs font-sans uppercase tracking-[0.2em] font-bold hover:bg-[#B67355] hover:text-white transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 rounded disabled:opacity-50"
+                >
+                  {placingOrder ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-[#DCC9A6] border-t-transparent rounded-full animate-spin" />
+                      <span>{t.checkout.processing}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>
+                        {paymentMethod === 'COD'
+                          ? t.checkout.placeOrderCodBtn
+                          : t.checkout.placeOrderInstapayBtn}
+                      </span>
+                      <ArrowIcon className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                {/* Instapay Receipt Warning if Missing */}
+                {paymentMethod === 'INSTAPAY' && !receiptUrl && (
+                  <p className="text-[11px] text-amber-700 bg-amber-50 p-2 border border-amber-200 rounded text-center font-medium">
+                    ⚠️ {t.checkout.receiptRequired}
+                  </p>
+                )}
               </div>
             </div>
           </div>

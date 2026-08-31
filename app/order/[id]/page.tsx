@@ -254,6 +254,60 @@ function OrderTrackingContent() {
                 </h4>
               </div>
               <div className="text-xs font-sans space-y-2 text-[#8E8A85]">
+                <div className="flex justify-between items-center">
+                  <span>{isArabic ? 'طريقة الدفع:' : 'Payment Method:'}</span>
+                  <span className="text-[#1F1F1F] font-semibold">
+                    {order.paymentMethod === 'INSTAPAY' ? (
+                      <span className="inline-flex items-center gap-1 text-white bg-[#B67355] px-2 py-0.5 rounded text-[11px] font-bold">
+                        ⚡ Instapay (01204000195)
+                      </span>
+                    ) : (
+                      <span className="text-[#1F1F1F]">
+                        {isArabic ? 'دفع عند الاستلام (COD)' : 'Cash on Delivery (COD)'}
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                {order.paymentMethod === 'INSTAPAY' && (
+                  <div className="p-2.5 bg-[#FAF7F2] border border-[#DCC9A6] rounded text-[11px] space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[#8E8A85]">
+                        {isArabic ? 'حالة مراجعة الإيصال:' : 'Receipt Verification:'}
+                      </span>
+                      <span
+                        className={`font-bold px-2 py-0.5 rounded text-[10px] ${
+                          order.paymentStatus === 'verified'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : order.paymentStatus === 'rejected'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {order.paymentStatus === 'verified'
+                          ? isArabic ? '✓ تم التحقق والتأكيد' : '✓ Verified & Confirmed'
+                          : order.paymentStatus === 'rejected'
+                          ? isArabic ? '✕ تم رفض الإيصال' : '✕ Receipt Rejected'
+                          : isArabic ? '⏳ قيد المراجعة الفورية' : '⏳ Pending Atelier Review'}
+                      </span>
+                    </div>
+
+                    {order.receiptUrl && (
+                      <div className="pt-1 flex items-center justify-between">
+                        <span className="text-[#8E8A85]">{isArabic ? 'إيصال التحويل:' : 'Attached Receipt:'}</span>
+                        <a
+                          href={order.receiptUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[#B67355] font-semibold underline"
+                        >
+                          {isArabic ? 'معاينة الإيصال' : 'View Uploaded Receipt'}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex justify-between">
                   <span>{t.cart.subtotal}:</span>
                   <span className="text-[#1F1F1F] font-semibold font-mono">
@@ -273,7 +327,12 @@ function OrderTrackingContent() {
                   </span>
                 </div>
                 <div className="border-t border-[#E8E2D8] pt-2 flex justify-between text-sm font-bold text-[#1F1F1F]">
-                  <span className="font-serif">{t.orderConfirmation.codDue}:</span>
+                  <span className="font-serif">
+                    {order.paymentMethod === 'INSTAPAY'
+                      ? isArabic ? 'إجمالي المدفوع إنستاباي:' : 'Total Paid via Instapay:'
+                      : t.orderConfirmation.codDue}
+                    :
+                  </span>
                   <span className="font-serif text-base text-[#B67355]">
                     EGP {order.totalAmount?.toFixed(2)}
                   </span>
