@@ -73,10 +73,25 @@ function sanitizeFirestoreDoc<T>(id: string, rawData: Record<string, unknown> | 
   return { id, ...plainData } as T;
 }
 
+const PRODUCT_CACHE = new Map<string, { data: Product[]; timestamp: number }>();
+const SINGLE_PRODUCT_CACHE = new Map<string, { data: Product; timestamp: number }>();
+const CACHE_TTL_MS = 20000; // 20s hot memory cache
+
+export function invalidateProductCache(): void {
+  PRODUCT_CACHE.clear();
+  SINGLE_PRODUCT_CACHE.clear();
+}
+
 /**
- * Fetch all products or filter by category
+ * Fetch all products or filter by category with high-speed memory caching
  */
 export async function getProducts(category?: string): Promise<Product[]> {
+  const cacheKey = category || 'all';
+  const cached = PRODUCT_CACHE.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   try {
     const productsRef = collection(db, PRODUCTS_COLLECTION);
     let q = query(productsRef);
@@ -108,29 +123,43 @@ export async function getProducts(category?: string): Promise<Product[]> {
         items.push(product);
       });
 
-      if (category === 'new-in') {
-        return items.filter((item) => item.isNewArrival || item.category === 'new-in');
-      }
-      return items;
+      const finalItems =
+        category === 'new-in'
+          ? items.filter((item) => item.isNewArrival || item.category === 'new-in')
+          : items;
+
+      PRODUCT_CACHE.set(cacheKey, { data: finalItems, timestamp: Date.now() });
+      return finalItems;
     }
   } catch (error) {
     console.warn('Firestore fetch warning, using fallback seed data:', error);
   }
 
   // Fallback to initial boutique catalog
+  let fallbackResult: Product[];
   if (category && category !== 'all') {
     if (category === 'new-in') {
-      return INITIAL_PRODUCTS.filter((p) => p.isNewArrival);
+      fallbackResult = INITIAL_PRODUCTS.filter((p) => p.isNewArrival);
+    } else {
+      fallbackResult = INITIAL_PRODUCTS.filter((p) => p.category === category);
     }
-    return INITIAL_PRODUCTS.filter((p) => p.category === category);
+  } else {
+    fallbackResult = INITIAL_PRODUCTS;
   }
-  return INITIAL_PRODUCTS;
+
+  PRODUCT_CACHE.set(cacheKey, { data: fallbackResult, timestamp: Date.now() });
+  return fallbackResult;
 }
 
 /**
- * Fetch single product by ID
+ * Fetch single product by ID with caching
  */
 export async function getProductById(id: string): Promise<Product | null> {
+  const cached = SINGLE_PRODUCT_CACHE.get(id);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   try {
     const docRef = doc(db, PRODUCTS_COLLECTION, id);
     const snap = await getDoc(docRef);
@@ -151,6 +180,7 @@ export async function getProductById(id: string): Promise<Product | null> {
           }
         }
       }
+      SINGLE_PRODUCT_CACHE.set(id, { data: product, timestamp: Date.now() });
       return product;
     }
   } catch (error) {
@@ -158,7 +188,11 @@ export async function getProductById(id: string): Promise<Product | null> {
   }
 
   const fallback = INITIAL_PRODUCTS.find((p) => p.id === id);
-  return fallback || null;
+  if (fallback) {
+    SINGLE_PRODUCT_CACHE.set(id, { data: fallback, timestamp: Date.now() });
+    return fallback;
+  }
+  return null;
 }
 
 /**
@@ -195,6 +229,7 @@ export async function saveProduct(product: Partial<Product> & { id?: string }): 
   const payload = cleanUndefinedFields(rawPayload);
 
   await setDoc(docRef, payload, { merge: true });
+  invalidateProductCache();
   return prodId;
 }
 
@@ -204,6 +239,7 @@ export async function saveProduct(product: Partial<Product> & { id?: string }): 
 export async function deleteProduct(productId: string): Promise<void> {
   const docRef = doc(db, PRODUCTS_COLLECTION, productId);
   await deleteDoc(docRef);
+  invalidateProductCache();
 }
 
 /**
@@ -257,6 +293,7 @@ export async function deductOrderInventory(items: Order['items']): Promise<void>
       console.warn(`Could not deduct inventory for product ${item.productId}:`, err);
     }
   }
+  invalidateProductCache();
 }
 
 /**
@@ -303,6 +340,7 @@ export async function restockOrderInventory(items: Order['items']): Promise<void
       console.warn(`Could not restock inventory for product ${item.productId}:`, err);
     }
   }
+  invalidateProductCache();
 }
 
 /**

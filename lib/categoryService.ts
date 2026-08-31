@@ -67,15 +67,23 @@ export const DEFAULT_CATEGORIES: Category[] = [
 
 const CATEGORIES_STORAGE_KEY = 'armia_categories_cache_v1';
 
+let inMemoryCategories: Category[] | null = null;
+let lastCatFetch = 0;
+const CAT_CACHE_TTL = 30000; // 30 seconds
+
 /**
- * Fetch all categories from Firestore with local storage caching
+ * Fetch all categories from Firestore with high-speed caching
  */
 export async function getCategories(): Promise<Category[]> {
+  if (inMemoryCategories && Date.now() - lastCatFetch < CAT_CACHE_TTL) {
+    return inMemoryCategories;
+  }
+
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-      if (cached) {
-        // Cached exists
+      if (cached && !inMemoryCategories) {
+        inMemoryCategories = JSON.parse(cached);
       }
     } catch {
       // ignore
@@ -89,25 +97,20 @@ export async function getCategories(): Promise<Category[]> {
       const data = snap.data();
       if (data && Array.isArray(data.categories) && data.categories.length > 0) {
         const cats = data.categories as Category[];
+        const sorted = cats.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+        inMemoryCategories = sorted;
+        lastCatFetch = Date.now();
         if (typeof window !== 'undefined') {
-          localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(cats));
+          localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(sorted));
         }
-        return cats.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+        return sorted;
       }
     }
   } catch (err) {
     console.warn('Firestore categories notice (using defaults):', err);
   }
 
-  if (typeof window !== 'undefined') {
-    try {
-      const cached = localStorage.getItem(CATEGORIES_STORAGE_KEY);
-      if (cached) return JSON.parse(cached);
-    } catch {
-      // ignore
-    }
-  }
-
+  if (inMemoryCategories) return inMemoryCategories;
   return DEFAULT_CATEGORIES;
 }
 
