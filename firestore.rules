@@ -43,10 +43,9 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Broadcast Notifications: Public read for notification feeds, admin create
+    // Broadcast Notifications: Public read and write for instant real-time device broadcasting
     match /broadcast_notifications/{broadcastId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read, write: if true;
     }
   }
 }

@@ -5,8 +5,6 @@ import {
   getDocs,
   serverTimestamp,
   query,
-  orderBy,
-  limit,
   onSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -14,6 +12,78 @@ import { BroadcastNotification, PushSubscriber } from '@/types';
 
 const SUBSCRIBERS_COLLECTION = 'push_subscribers';
 const BROADCASTS_COLLECTION = 'broadcast_notifications';
+const SEEN_BROADCASTS_KEY = 'armia_seen_broadcast_ids_v1';
+
+/**
+ * Check if the current device has already seen a broadcast notification
+ */
+export function hasSeenBroadcast(id: string): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const raw = localStorage.getItem(SEEN_BROADCASTS_KEY);
+    const seenList: string[] = raw ? JSON.parse(raw) : [];
+    return seenList.includes(id);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark a broadcast notification as seen on this device
+ */
+export function markBroadcastAsSeen(id: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(SEEN_BROADCASTS_KEY);
+    const seenList: string[] = raw ? JSON.parse(raw) : [];
+    if (!seenList.includes(id)) {
+      seenList.push(id);
+      // Keep only last 50 IDs
+      const trimmed = seenList.slice(-50);
+      localStorage.setItem(SEEN_BROADCASTS_KEY, JSON.stringify(trimmed));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Play a subtle luxury bell chime using Web Audio API (zero external asset dependencies)
+ */
+export function playNotificationChime() {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+    osc1.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.15);
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(587.33, ctx.currentTime); // D5 note
+
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc1.start(ctx.currentTime);
+    osc2.start(ctx.currentTime);
+
+    osc1.stop(ctx.currentTime + 0.6);
+    osc2.stop(ctx.currentTime + 0.6);
+  } catch {
+    // Web audio might be suspended until first user interaction
+  }
+}
 
 /**
  * Register or update browser push notification subscription in Firestore
@@ -95,6 +165,8 @@ export async function displaySystemNotification(
   body: string,
   targetUrl: string = '/'
 ) {
+  playNotificationChime();
+
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
 
@@ -118,7 +190,7 @@ export async function displaySystemNotification(
       body,
       icon: '/icons/icon-192x192.png',
     });
-  } catch (err) {
+  } catch {
     try {
       new Notification(title, {
         body,
@@ -213,6 +285,7 @@ export async function getBroadcastHistory(): Promise<BroadcastNotification[]> {
 
 /**
  * Real-time Broadcast Listener for all active client and mobile devices
+ * Guarantees that any broadcast dispatched in the last 48 hours is delivered to the client device
  */
 export function listenToLiveBroadcasts(
   onBroadcastReceived: (broadcast: BroadcastNotification) => void
@@ -220,51 +293,39 @@ export function listenToLiveBroadcasts(
   if (typeof window === 'undefined') return () => {};
 
   const q = query(collection(db, BROADCASTS_COLLECTION));
-  let isInitialLoad = true;
 
   const unsubscribe = onSnapshot(
     q,
     (snapshot) => {
-      if (isInitialLoad) {
-        // Record existing broadcasts so we only alert on newly incoming broadcasts
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added') {
-            const data = change.doc.data();
-            const id = change.doc.id;
-            const lastSeen = localStorage.getItem('armia_last_seen_bcast');
-            if (!lastSeen) {
-              localStorage.setItem('armia_last_seen_bcast', id);
-            }
-          }
-        });
-        isInitialLoad = false;
-        return;
-      }
-
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
           const data = change.doc.data();
-          const broadcast: BroadcastNotification = {
-            id: change.doc.id,
-            title: data.title || 'ARMIA BOUTIQUE',
-            titleArabic: data.titleArabic,
-            body: data.body || '',
-            bodyArabic: data.bodyArabic,
-            targetUrl: data.targetUrl || '/',
-            imageUrl: data.imageUrl,
-            badgeTag: data.badgeTag,
-            sentAt: new Date().toISOString(),
-            recipientCount: data.recipientCount || 1,
-          };
+          const broadcastId = change.doc.id;
+          const timestampMs = data.timestampMs || (data.sentAt ? new Date(data.sentAt).getTime() : Date.now());
 
-          const lastSeen = localStorage.getItem('armia_last_seen_bcast');
-          if (lastSeen !== broadcast.id) {
-            localStorage.setItem('armia_last_seen_bcast', broadcast.id);
+          // Only consider broadcasts from the last 48 hours
+          const isRecent = Date.now() - timestampMs < 48 * 60 * 60 * 1000;
 
-            // 1. Trigger Native System / Mobile Lock Screen Notification
+          if (isRecent && !hasSeenBroadcast(broadcastId)) {
+            markBroadcastAsSeen(broadcastId);
+
+            const broadcast: BroadcastNotification = {
+              id: broadcastId,
+              title: data.title || 'ARMIA BOUTIQUE',
+              titleArabic: data.titleArabic,
+              body: data.body || '',
+              bodyArabic: data.bodyArabic,
+              targetUrl: data.targetUrl || '/',
+              imageUrl: data.imageUrl,
+              badgeTag: data.badgeTag,
+              sentAt: new Date().toISOString(),
+              recipientCount: data.recipientCount || 1,
+            };
+
+            // 1. Native System / Mobile Lock Screen Notification
             displaySystemNotification(broadcast.title, broadcast.body, broadcast.targetUrl);
 
-            // 2. Trigger In-App Luxury Banner
+            // 2. In-App Luxury Banner with Audio Chime
             onBroadcastReceived(broadcast);
           }
         }

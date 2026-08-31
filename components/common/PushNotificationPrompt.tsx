@@ -32,7 +32,7 @@ export default function PushNotificationPrompt() {
     if (!dismissed) {
       const timer = setTimeout(() => {
         setVisible(true);
-      }, 3500);
+      }, 1500);
       return () => clearTimeout(timer);
     }
   }, []);
