@@ -21,6 +21,7 @@ import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import ProductCard from '@/components/storefront/ProductCard';
 import FlashDealCountdown from '@/components/storefront/FlashDealCountdown';
+import CompleteTheLook from '@/components/storefront/CompleteTheLook';
 import { Product, ProductColor } from '@/types';
 import { getProductById, getProducts } from '@/lib/productService';
 import { getActiveFlashDealForProduct } from '@/lib/discountService';
@@ -548,6 +549,9 @@ export default function ProductDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Complete The Look Curated Outfit Bundle */}
+          <CompleteTheLook currentProduct={product} allProducts={relatedProducts} />
 
           {/* Related Products Grid */}
           {relatedProducts.length > 0 && (

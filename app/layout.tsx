@@ -8,6 +8,7 @@ import { PWAProvider } from "@/context/PWAContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import StorefrontMobileTabBar from "@/components/storefront/StorefrontMobileTabBar";
 import StorefrontPWAInstallModal from "@/components/storefront/StorefrontPWAInstallModal";
+import PushNotificationPrompt from "@/components/common/PushNotificationPrompt";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -73,6 +74,8 @@ export default function RootLayout({
                   <StorefrontMobileTabBar />
                   {/* Client Storefront PWA Install Modal & Floating Banner */}
                   <StorefrontPWAInstallModal />
+                  {/* VIP Push Notification Prompt */}
+                  <PushNotificationPrompt />
                 </CartProvider>
               </AuthProvider>
             </ToastProvider>

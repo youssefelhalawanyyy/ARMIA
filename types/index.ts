@@ -173,3 +173,55 @@ export interface ShippingSettings {
   freeShippingThreshold: number;
   zones: ShippingZone[];
 }
+
+export type AbandonedRecoveryStatus = 'dropped' | 'contacted' | 'recovered' | 'dismissed';
+
+export interface AbandonedCheckout {
+  id: string;
+  customerDetails: Partial<CustomerDetails>;
+  customerUid?: string;
+  items: CartItem[];
+  subtotal: number;
+  discountCode?: string;
+  appliedDiscount?: Discount;
+  status: AbandonedRecoveryStatus;
+  recoveryNotes?: string;
+  lastContactedAt?: unknown;
+  createdAt: unknown;
+  updatedAt?: unknown;
+}
+
+export interface OutfitBundle {
+  mainProduct: Product;
+  pairedProduct: Product;
+  bundleDiscountPercentage: number; // e.g. 10 (%)
+  title: string;
+  titleArabic: string;
+}
+
+export interface PushSubscriber {
+  id: string;
+  endpoint: string;
+  keys?: {
+    p256dh: string;
+    auth: string;
+  };
+  userAgent?: string;
+  customerUid?: string;
+  customerName?: string;
+  createdAt: unknown;
+}
+
+export interface BroadcastNotification {
+  id: string;
+  title: string;
+  titleArabic?: string;
+  body: string;
+  bodyArabic?: string;
+  targetUrl: string;
+  imageUrl?: string;
+  badgeTag?: string;
+  sentAt: unknown;
+  recipientCount: number;
+}
+

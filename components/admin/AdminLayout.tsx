@@ -11,6 +11,8 @@ import {
   Percent,
   Truck,
   Users,
+  ShoppingCart,
+  Bell,
   LogOut,
   Download,
   Store,
@@ -101,7 +103,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { name: 'Overview', href: '/admin', icon: LayoutDashboard },
     { name: 'Live Orders', href: '/admin/orders', icon: ShoppingBag },
+    { name: 'Abandoned Carts', href: '/admin/abandoned', icon: ShoppingCart },
     { name: 'Clients Database', href: '/admin/clients', icon: Users },
+    { name: 'Push Notifications', href: '/admin/notifications', icon: Bell },
     { name: 'Products (CRUD)', href: '/admin/products', icon: Package },
     { name: 'Categories (CRUD)', href: '/admin/categories', icon: FolderTree },
     { name: 'Discounts & Promos', href: '/admin/discounts', icon: Percent },

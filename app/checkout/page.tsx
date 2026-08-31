@@ -40,6 +40,10 @@ import {
   calculateDeliveryFee,
   DEFAULT_SHIPPING_SETTINGS,
 } from '@/lib/shippingService';
+import {
+  saveAbandonedCheckout,
+  markAbandonedCheckoutRecovered,
+} from '@/lib/abandonedService';
 import { CustomerDetails, Order, ShippingSettings, PaymentMethodType } from '@/types';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
@@ -118,6 +122,44 @@ export default function CheckoutPage() {
   const isFreeDelivery = subtotal >= shippingSettings.freeShippingThreshold && shippingSettings.freeShippingThreshold > 0;
   const dynamicShippingFee = isFreeDelivery ? 0 : calculateDeliveryFee(formData.governorate, subtotal, shippingSettings);
   
+  // Checkout session ID for abandoned checkout tracking
+  const [checkoutSessionId, setCheckoutSessionId] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      let sid = sessionStorage.getItem('armia_checkout_sid');
+      if (!sid) {
+        sid = 'chk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+        sessionStorage.setItem('armia_checkout_sid', sid);
+      }
+      setCheckoutSessionId(sid);
+    }
+  }, []);
+
+  // Debounced auto-save abandoned checkout in the background
+  useEffect(() => {
+    if (!checkoutSessionId || items.length === 0) return;
+    const hasContact = Boolean(formData.phone?.trim() || formData.email?.trim() || user?.email);
+    if (!hasContact) return;
+
+    const timer = setTimeout(() => {
+      saveAbandonedCheckout(
+        checkoutSessionId,
+        items,
+        {
+          ...formData,
+          fullName: effectiveFullName,
+          email: effectiveEmail,
+        },
+        subtotal,
+        appliedDiscount || undefined,
+        user?.uid
+      );
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [formData, items, subtotal, appliedDiscount, user, checkoutSessionId, effectiveFullName, effectiveEmail]);
+
   // Total Due calculation (Subtotal - Discount + Shipping)
   const dynamicTotalAmount = Math.max(0, subtotal - discountAmount) + dynamicShippingFee;
 
@@ -324,6 +366,9 @@ export default function CheckoutPage() {
       });
 
       clearCart();
+      if (checkoutSessionId) {
+        await markAbandonedCheckoutRecovered(checkoutSessionId);
+      }
       success(
         isArabic
           ? paymentMethod === 'INSTAPAY'

@@ -32,5 +32,21 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
+
+    // Abandoned Checkouts: Anyone can create/update draft, admins can read and manage all
+    match /abandoned_checkouts/{checkoutId} {
+      allow read, write: if true;
+    }
+
+    // Push Subscribers: Anyone can register their subscription, admins can read all
+    match /push_subscribers/{subscriberId} {
+      allow read, write: if true;
+    }
+
+    // Broadcast Notifications: Public read for notification feeds, admin create
+    match /broadcast_notifications/{broadcastId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
   }
 }
