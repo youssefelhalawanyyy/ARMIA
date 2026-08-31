@@ -323,6 +323,23 @@ export default function AdminNotificationsPage() {
         </div>
       </div>
 
+      {/* Background Push Delivery Operating System Notes */}
+      <div className="bg-[#141414] border border-[#333333] p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-[#B67355]/20 border border-[#B67355]/40 flex items-center justify-center text-[#DCC9A6] shrink-0 mt-0.5">
+            <Smartphone className="w-4 h-4" />
+          </div>
+          <div className="space-y-0.5">
+            <span className="font-bold text-white block">
+              Mobile Background Delivery Guidelines:
+            </span>
+            <p className="text-[11px] text-[#8E8A85]">
+              <strong className="text-white">Android:</strong> Delivers directly to lock screen when Chrome or PWA is closed. &nbsp;|&nbsp; <strong className="text-white">iPhone (iOS):</strong> Apple requires the client to tap <em>"Add to Home Screen (إضافة للشاشة الرئيسية)"</em> in Safari to receive alerts when Safari is closed (Apple WebKit policy).
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Broadcast Composer & Live Phone Mockup Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
