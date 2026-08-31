@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import {
   Bell,
@@ -17,6 +17,11 @@ import {
   Radio,
   Flame,
   Truck,
+  UploadCloud,
+  ImageIcon,
+  Trash2,
+  Camera,
+  Layers,
 } from 'lucide-react';
 import {
   getPushSubscribersCount,
@@ -25,15 +30,20 @@ import {
   displaySystemNotification,
   requestNotificationPermission,
 } from '@/lib/pushNotificationService';
+import { compressImage } from '@/lib/imageUtils';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { BroadcastNotification } from '@/types';
 import { useToast } from '@/context/ToastContext';
 
 export default function AdminNotificationsPage() {
   const { success, error, info } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [subscribersCount, setSubscribersCount] = useState<number>(0);
   const [history, setHistory] = useState<BroadcastNotification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [sending, setSending] = useState<boolean>(false);
+  const [uploadingImage, setUploadingImage] = useState<boolean>(false);
 
   // Form State
   const [title, setTitle] = useState<string>('✨ ARMIA New Haute Couture Drop');
@@ -53,60 +63,66 @@ export default function AdminNotificationsPage() {
       ]);
       setSubscribersCount(count);
       setHistory(hist);
-    } catch (err) {
-      console.error('Error fetching notification data:', err);
+    } catch {
+      error('Failed to load push stats and history');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [error]);
 
   useEffect(() => {
-    let isMounted = true;
-    Promise.all([getPushSubscribersCount(), getBroadcastHistory()])
-      .then(([count, hist]) => {
-        if (isMounted) {
-          setSubscribersCount(count);
-          setHistory(hist);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        console.error('Error loading push data:', err);
-        if (isMounted) setLoading(false);
-      });
+    loadData();
+  }, [loadData]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  // Handle Photo File Upload
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const applyPreset = (presetType: 'drop' | 'flash' | 'shipping') => {
-    switch (presetType) {
-      case 'drop':
-        setTitle('✨ New Haute Couture Collection Just Dropped!');
-        setBody('Explore our exclusive autumn evening dresses & tailored linen sets. Limited atelier pieces.');
-        setTargetUrl('/collections/new-in');
-        setBadgeTag('NEW_COLLECTION');
-        break;
-      case 'flash':
-        setTitle('⏳ Flash Deal: 25% OFF For 3 Hours Only!');
-        setBody('Special VIP promotion on select Linen Sets. Use code FLASH25 at checkout before timer ends!');
-        setTargetUrl('/collections/sets');
-        setBadgeTag('FLASH_SALE');
-        break;
-      case 'shipping':
-        setTitle('🚚 Free Doorstep Delivery Across Egypt Today!');
-        setBody('Enjoy complimentary express shipping on all orders placed today with zero delivery fees.');
-        setTargetUrl('/collections');
-        setBadgeTag('FREE_SHIPPING');
-        break;
+    setUploadingImage(true);
+    try {
+      // 1. Client-side luxury compression to WebP/JPEG (1200x800, max 250KB)
+      const { blob, dataUrl } = await compressImage(file, 1200, 800, 0.85);
+
+      // 2. Upload to Firebase Storage with timeout race
+      const uploadWithTimeout = async (): Promise<string> => {
+        const storageRef = ref(
+          storage,
+          `notifications/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+        );
+        const snap = await uploadBytes(storageRef, blob);
+        return await getDownloadURL(snap.ref);
+      };
+
+      const timeoutPromise = new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error('Storage timeout')), 2500)
+      );
+
+      try {
+        const storageUrl = await Promise.race([uploadWithTimeout(), timeoutPromise]);
+        setImageUrl(storageUrl);
+        success('Notification banner photo uploaded & ready!', 'Image Uploaded');
+      } catch {
+        setImageUrl(dataUrl);
+        success('Notification banner photo optimized & attached!', 'Image Attached');
+      }
+    } catch (err) {
+      console.warn('Image processing notice:', err);
+      const localUrl = URL.createObjectURL(file);
+      setImageUrl(localUrl);
+      info('Local banner preview attached');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
   const handleSendBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !body.trim()) {
-      error('Notification title and message body are required.');
+      error('Please enter both headline and body text');
       return;
     }
 
@@ -121,24 +137,43 @@ export default function AdminNotificationsPage() {
       });
 
       success(
-        `Push alert broadcasted successfully to all active client devices!`,
-        'Broadcast Dispatched'
+        `Push alert broadcasted successfully to all subscribed devices!`,
+        'VIP Alert Dispatched'
       );
-
       setHistory((prev) => [dispatched, ...prev]);
-    } catch (err: unknown) {
-      console.error('Dispatch failed:', err);
-      const e = err as { message?: string };
-      error('Failed to send broadcast: ' + (e.message || 'Error occurred'));
+    } catch {
+      error('Failed to dispatch push notification alert');
     } finally {
       setSending(false);
     }
   };
 
+  // Quick Preset Handlers
+  const applyPreset = (presetType: 'drop' | 'flash' | 'shipping') => {
+    if (presetType === 'drop') {
+      setTitle('✨ ARMIA New Haute Couture Drop');
+      setBody('The Private Atelier Autumn/Winter Collection is now live. Reserve your piece online.');
+      setTargetUrl('/collections/new-in');
+      setBadgeTag('HAUTE_COUTURE');
+    } else if (presetType === 'flash') {
+      setTitle('🔥 Flash VIP Privilege: 15% Off All Linen Sets');
+      setBody('Exclusive 3-hour privilege on all Egyptian linen sets. Use code VIP15 at checkout.');
+      setTargetUrl('/collections/sets');
+      setBadgeTag('FLASH_SALE');
+    } else if (presetType === 'shipping') {
+      setTitle('🚚 Complimentary Express Delivery Weekend');
+      setBody('Enjoy 100% free door-to-door delivery on all orders across Cairo, Giza & Alexandria.');
+      setTargetUrl('/collections');
+      setBadgeTag('FREE_SHIPPING');
+    }
+    info('Preset template applied');
+  };
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-8 max-w-7xl mx-auto pb-16 font-sans">
+      
+      {/* Header & Refresh */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#333333] pb-6">
         <div>
           <span className="text-[10px] font-sans font-semibold uppercase tracking-[0.25em] text-[#B67355]">
             Instant Customer Engagement
@@ -224,25 +259,23 @@ export default function AdminNotificationsPage() {
               <button
                 type="button"
                 onClick={() => applyPreset('drop')}
-                className="inline-flex items-center gap-1.5 bg-[#141414] hover:bg-[#2A2A2A] border border-[#333333] text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
+                className="bg-[#141414] hover:bg-[#2A2A2A] text-xs text-[#DCC9A6] border border-[#333333] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#DCC9A6]" />
+                <Sparkles className="w-3.5 h-3.5 text-[#B67355]" />
                 <span>Collection Drop</span>
               </button>
-
               <button
                 type="button"
                 onClick={() => applyPreset('flash')}
-                className="inline-flex items-center gap-1.5 bg-[#141414] hover:bg-[#2A2A2A] border border-[#333333] text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
+                className="bg-[#141414] hover:bg-[#2A2A2A] text-xs text-amber-300 border border-[#333333] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                <Flame className="w-3.5 h-3.5 text-amber-400" />
+                <Flame className="w-3.5 h-3.5 text-amber-500" />
                 <span>Flash Deal (3-Hr)</span>
               </button>
-
               <button
                 type="button"
                 onClick={() => applyPreset('shipping')}
-                className="inline-flex items-center gap-1.5 bg-[#141414] hover:bg-[#2A2A2A] border border-[#333333] text-white text-xs px-3 py-1.5 rounded-lg transition-colors"
+                className="bg-[#141414] hover:bg-[#2A2A2A] text-xs text-emerald-400 border border-[#333333] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
               >
                 <Truck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Free Shipping Day</span>
@@ -251,6 +284,7 @@ export default function AdminNotificationsPage() {
           </div>
 
           <form onSubmit={handleSendBroadcast} className="space-y-4 text-xs">
+            
             {/* Title */}
             <div>
               <label className="block text-[#8E8A85] uppercase tracking-wider font-bold mb-1.5">
@@ -261,12 +295,12 @@ export default function AdminNotificationsPage() {
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. ✨ New Collection Drop Alert"
+                placeholder="e.g. ✨ New Summer Linen Collection Available"
                 className="w-full bg-[#141414] border border-[#333333] text-white px-3.5 py-2.5 rounded text-xs focus:outline-none focus:border-[#DCC9A6]"
               />
             </div>
 
-            {/* Message Body */}
+            {/* Body */}
             <div>
               <label className="block text-[#8E8A85] uppercase tracking-wider font-bold mb-1.5">
                 Notification Message Body *
@@ -296,24 +330,91 @@ export default function AdminNotificationsPage() {
               />
             </div>
 
-            {/* Optional Image URL */}
-            <div>
-              <label className="block text-[#8E8A85] uppercase tracking-wider font-bold mb-1.5">
-                Optional Banner Image URL
+            {/* Photo Upload & Image Banner Section */}
+            <div className="space-y-2 pt-1">
+              <label className="block text-[#8E8A85] uppercase tracking-wider font-bold">
+                Notification Banner Photo (Upload Image File)
               </label>
+
+              {/* Hidden File Input */}
               <input
-                type="url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://..."
-                className="w-full bg-[#141414] border border-[#333333] text-white px-3.5 py-2.5 rounded text-xs focus:outline-none focus:border-[#DCC9A6]"
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageFileUpload}
+                className="hidden"
+                disabled={uploadingImage}
               />
+
+              {!imageUrl ? (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-[#444444] hover:border-[#DCC9A6] bg-[#141414] rounded-xl p-5 text-center cursor-pointer transition-colors group flex flex-col items-center justify-center gap-2"
+                >
+                  <div className="w-10 h-10 rounded-full bg-[#1F1F1F] group-hover:bg-[#B67355] flex items-center justify-center text-[#DCC9A6] group-hover:text-white transition-colors">
+                    <UploadCloud className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-white block">
+                      {uploadingImage ? 'Compressing & Uploading...' : 'Click to Upload Image from Phone / Computer'}
+                    </span>
+                    <span className="text-[10px] text-[#8E8A85] block mt-0.5">
+                      Supports JPG, PNG, WEBP — automatically optimized for fast delivery
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-[#141414] border border-[#333333] rounded-xl p-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative w-16 h-12 rounded-lg overflow-hidden bg-black shrink-0 border border-[#333333]">
+                      <Image src={imageUrl} alt="Banner Preview" fill className="object-cover" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-white block truncate">
+                        Photo Banner Attached
+                      </span>
+                      <span className="text-[10px] text-emerald-400 flex items-center gap-1 mt-0.5">
+                        <CheckCircle2 className="w-3 h-3" /> Ready for broadcast
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs text-[#DCC9A6] hover:text-white px-2.5 py-1.5 rounded bg-[#1F1F1F] border border-[#333333] transition-colors"
+                    >
+                      Change
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('')}
+                      className="text-xs text-rose-400 hover:text-rose-300 p-1.5 rounded hover:bg-rose-950/30 transition-colors"
+                      title="Remove image"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Alternative Image URL Input fallback */}
+              <div className="pt-1">
+                <input
+                  type="url"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="Or paste external photo web link: https://..."
+                  className="w-full bg-[#141414] border border-[#2A2A2A] text-[#8E8A85] focus:text-white px-3 py-1.5 rounded text-[11px] focus:outline-none focus:border-[#DCC9A6]"
+                />
+              </div>
             </div>
 
-            <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+            <div className="pt-3 flex flex-col sm:flex-row items-center gap-3">
               <button
                 type="submit"
-                disabled={sending}
+                disabled={sending || uploadingImage}
                 className="w-full sm:flex-1 bg-[#B67355] hover:bg-[#DCC9A6] hover:text-[#1F1F1F] text-white py-3.5 px-4 text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99]"
               >
                 <Send className="w-4 h-4" />
@@ -411,37 +512,44 @@ export default function AdminNotificationsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-sans">
-              <thead className="bg-[#141414] border-b border-[#333333] text-[#8E8A85] uppercase tracking-wider text-[10px]">
+            <table className="w-full text-left text-xs text-[#D5D5D5]">
+              <thead className="bg-[#141414] text-[10px] uppercase tracking-wider text-[#8E8A85] border-b border-[#333333]">
                 <tr>
-                  <th className="py-3.5 px-4">Campaign Headline</th>
-                  <th className="py-3.5 px-4">Message Body</th>
-                  <th className="py-3.5 px-4">Target Link</th>
-                  <th className="py-3.5 px-4">Recipients</th>
-                  <th className="py-3.5 px-4">Dispatched At</th>
+                  <th className="py-3 px-4">Campaign Headline</th>
+                  <th className="py-3 px-4">Message Body</th>
+                  <th className="py-3 px-4">Target Link</th>
+                  <th className="py-3 px-4">Recipients</th>
+                  <th className="py-3 px-4">Dispatched At</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#262626]">
+              <tbody className="divide-y divide-[#2A2A2A]">
                 {history.map((h) => (
-                  <tr key={h.id} className="hover:bg-[#252525]">
-                    <td className="py-3.5 px-4 font-bold text-white max-w-[180px] truncate">
-                      {h.title}
+                  <tr key={h.id} className="hover:bg-[#252525] transition-colors">
+                    <td className="py-3.5 px-4 font-semibold text-white">
+                      <div className="flex items-center gap-2">
+                        {h.imageUrl && (
+                          <div className="relative w-8 h-8 rounded bg-black shrink-0 overflow-hidden border border-[#333333]">
+                            <Image src={h.imageUrl} alt="" fill className="object-cover" />
+                          </div>
+                        )}
+                        <span>{h.title}</span>
+                      </div>
                     </td>
-                    <td className="py-3.5 px-4 text-[#CCCCCC] max-w-[260px] truncate">
+                    <td className="py-3.5 px-4 text-[#8E8A85] max-w-xs truncate">
                       {h.body}
                     </td>
-                    <td className="py-3.5 px-4 text-[#DCC9A6] font-mono text-[11px]">
-                      {h.targetUrl}
+                    <td className="py-3.5 px-4 font-mono text-[11px] text-[#DCC9A6]">
+                      {h.targetUrl || '/'}
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                        {h.recipientCount} devices
+                      <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 px-2 py-0.5 rounded text-[10px] font-bold">
+                        {h.recipientCount || 1} devices
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-[#8E8A85] text-[11px]">
-                      {typeof h.sentAt === 'string'
-                        ? new Date(h.sentAt).toLocaleDateString('en-GB')
-                        : 'Recent'}
+                    <td className="py-3.5 px-4 text-[#8E8A85]">
+                      {typeof h.sentAt === 'string' || typeof h.sentAt === 'number'
+                        ? new Date(h.sentAt).toLocaleDateString()
+                        : 'Just now'}
                     </td>
                   </tr>
                 ))}
@@ -450,6 +558,7 @@ export default function AdminNotificationsPage() {
           </div>
         )}
       </div>
+
     </div>
   );
 }
