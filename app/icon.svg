@@ -1,4 +1,4 @@
-<svg width="192" height="192" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="512" height="512" rx="100" fill="#141414"/>
   <defs>
     <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -13,15 +13,25 @@
     </radialGradient>
   </defs>
 
+  <!-- Ambient Glow -->
   <circle cx="256" cy="230" r="180" fill="url(#glowGrad)" />
 
+  <!-- Main Monogram Group -->
   <g transform="translate(100, 60) scale(3.12)">
+    <!-- Outer Stylized A -->
     <path d="M 50 12 L 20 85 L 32 85 L 43 58 L 57 58 L 68 85 L 80 85 Z" fill="url(#goldGrad)" opacity="0.95" />
+    
+    <!-- Monogram Inner Cutout -->
     <path d="M 50 28 L 45 52 L 55 52 Z" fill="#141414" />
+    
+    <!-- Haute Couture Silhouette & Curvature -->
     <path d="M 50 14 C 54 14, 58 17, 60 21 C 62 25, 60 29, 58 32 C 63 36, 68 43, 67 52 C 65 62, 55 70, 42 78 C 36 82, 30 84, 25 85 C 32 81, 42 74, 49 65 C 56 56, 57 48, 54 42 C 51 38, 48 35, 47 31 C 45 25, 46 19, 50 14 Z" fill="url(#goldGrad)" />
+    
+    <!-- Flowing Hair Line -->
     <path d="M 60 25 C 68 33, 72 45, 69 56 C 65 68, 52 77, 35 84" stroke="url(#goldGrad)" stroke-width="2.5" stroke-linecap="round" />
   </g>
 
+  <!-- ARMIA Brand Wordmark -->
   <text x="256" y="425" font-family="'Playfair Display', Georgia, serif" font-size="44" font-weight="bold" letter-spacing="14" fill="url(#goldGrad)" text-anchor="middle">ARMIA</text>
   <text x="256" y="455" font-family="'Montserrat', sans-serif" font-size="14" font-weight="600" letter-spacing="10" fill="#DCC9A6" opacity="0.8" text-anchor="middle">BOUTIQUE</text>
 </svg>

@@ -41,8 +41,16 @@ export const metadata: Metadata = {
     title: "ARMIA",
   },
   icons: {
-    icon: "/favicon.ico",
-    apple: "/icons/icon-192x192.svg",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico" },
+    ],
+    apple: [
+      { url: "/icons/icon-192x192.svg", sizes: "192x192", type: "image/svg+xml" },
+      { url: "/apple-icon.svg", sizes: "512x512", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
   },
 };
 
