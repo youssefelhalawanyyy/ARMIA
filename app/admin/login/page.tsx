@@ -187,7 +187,7 @@ export default function AdminLoginPage() {
         {/* Security Note */}
         <div className="pt-4 border-t border-[#333333] text-center space-y-2">
           <p className="text-[10px] text-[#8E8A85]">
-            Default recognized admin emails: <code className="bg-[#000000] px-1 py-0.5 text-[#DCC9A6]">admin@armia.com</code>, <code className="bg-[#000000] px-1 py-0.5 text-[#DCC9A6]">admin@armiaboutique.com</code>
+            Recognized admin emails: <code className="bg-[#000000] px-1 py-0.5 text-[#DCC9A6]">armiaboutique1@gmail.com</code>, <code className="bg-[#000000] px-1 py-0.5 text-[#DCC9A6]">admin@armia.com</code>
           </p>
         </div>
       </div>

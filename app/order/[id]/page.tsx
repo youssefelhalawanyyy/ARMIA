@@ -147,7 +147,7 @@ function OrderTrackingContent() {
                   <span>{t.orderConfirmation.printReceipt}</span>
                 </button>
                 <a
-                  href={`https://wa.me/201001234567?text=${encodeURIComponent(
+                  href={`https://wa.me/201220859992?text=${encodeURIComponent(
                     `مرحباً أرميا بوتيك، أود الاستفسار عن طلبي رقم #${order.orderId}`
                   )}`}
                   target="_blank"

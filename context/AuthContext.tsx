@@ -31,7 +31,12 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Define default admin emails or keywords if needed
-const ADMIN_EMAILS = ['admin@armia.com', 'admin@armiaboutique.com', 'armia.boutique.eg@gmail.com'];
+const ADMIN_EMAILS = [
+  'admin@armia.com',
+  'admin@armiaboutique.com',
+  'armia.boutique.eg@gmail.com',
+  'armiaboutique1@gmail.com',
+];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null);

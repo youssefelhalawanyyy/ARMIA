@@ -95,11 +95,11 @@ export default function PrintableInvoice({ order }: PrintableInvoiceProps) {
               </div>
               <div className="grid grid-cols-12">
                 <span className="col-span-4 text-neutral-700 font-medium">Phone</span>
-                <span className="col-span-8 font-mono">: +20 100 123 4567</span>
+                <span className="col-span-8 font-mono">: +20 122 085 9992</span>
               </div>
               <div className="grid grid-cols-12">
                 <span className="col-span-4 text-neutral-700 font-medium">Email</span>
-                <span className="col-span-8 font-mono">: contact@armiaboutique.com</span>
+                <span className="col-span-8 font-mono">: armiaboutique1@gmail.com</span>
               </div>
             </div>
           </div>
@@ -245,7 +245,11 @@ export default function PrintableInvoice({ order }: PrintableInvoiceProps) {
               </div>
               <div className="grid grid-cols-12">
                 <span className="col-span-5 text-neutral-700 font-medium">Customer Support</span>
-                <span className="col-span-7 font-mono">: +20 100 123 4567 (WhatsApp)</span>
+                <span className="col-span-7 font-mono">: +20 122 085 9992 (WhatsApp)</span>
+              </div>
+              <div className="grid grid-cols-12">
+                <span className="col-span-5 text-neutral-700 font-medium">Instapay Account</span>
+                <span className="col-span-7 font-mono font-bold">: 01204000195</span>
               </div>
               <div className="grid grid-cols-12">
                 <span className="col-span-5 text-neutral-700 font-medium">Exchange Window</span>
