@@ -19,6 +19,41 @@ const PRODUCTS_COLLECTION = 'products';
 const ORDERS_COLLECTION = 'orders';
 
 /**
+ * Safely converts Firestore document data into a pure plain object serializable across React Server Component boundaries.
+ */
+function sanitizeFirestoreDoc<T>(id: string, rawData: Record<string, unknown> | null | undefined): T {
+  if (!rawData || typeof rawData !== 'object') {
+    return { id, ...(rawData || {}) } as T;
+  }
+
+  const serializeValue = (val: unknown): unknown => {
+    if (val === null || val === undefined) return val;
+    // Handle Firestore Timestamp
+    const obj = val as { toDate?: () => Date; seconds?: number; nanoseconds?: number };
+    if (typeof obj?.toDate === 'function') {
+      return obj.toDate().toISOString();
+    }
+    if (typeof obj?.seconds === 'number' && typeof obj?.nanoseconds === 'number') {
+      return new Date(obj.seconds * 1000 + obj.nanoseconds / 1000000).toISOString();
+    }
+    if (Array.isArray(val)) {
+      return val.map(serializeValue);
+    }
+    if (typeof val === 'object') {
+      const sanitized: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(val)) {
+        sanitized[k] = serializeValue(v);
+      }
+      return sanitized;
+    }
+    return val;
+  };
+
+  const plainData = serializeValue(rawData) as Record<string, unknown>;
+  return { id, ...plainData } as T;
+}
+
+/**
  * Fetch all products or filter by category
  */
 export async function getProducts(category?: string): Promise<Product[]> {
@@ -34,11 +69,7 @@ export async function getProducts(category?: string): Promise<Product[]> {
     if (!snapshot.empty) {
       const items: Product[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        items.push({
-          id: doc.id,
-          ...data,
-        } as Product);
+        items.push(sanitizeFirestoreDoc<Product>(doc.id, doc.data()));
       });
 
       if (category === 'new-in') {
@@ -68,7 +99,7 @@ export async function getProductById(id: string): Promise<Product | null> {
     const docRef = doc(db, PRODUCTS_COLLECTION, id);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      return { id: snap.id, ...snap.data() } as Product;
+      return sanitizeFirestoreDoc<Product>(snap.id, snap.data());
     }
   } catch (error) {
     console.warn('Firestore getProductById warning:', error);
@@ -153,16 +184,13 @@ export async function getCustomerOrders(customerUid: string): Promise<Order[]> {
     const snapshot = await getDocs(q);
     const orders: Order[] = [];
     snapshot.forEach((doc) => {
-      orders.push({
-        id: doc.id,
-        ...doc.data(),
-      } as Order);
+      orders.push(sanitizeFirestoreDoc<Order>(doc.id, doc.data()));
     });
 
     // Sort by createdAt descending
     return orders.sort((a, b) => {
-      const timeA = (a.createdAt as { seconds?: number })?.seconds || 0;
-      const timeB = (b.createdAt as { seconds?: number })?.seconds || 0;
+      const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : 0;
+      const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : 0;
       return timeB - timeA;
     });
   } catch (error) {
@@ -180,15 +208,12 @@ export async function getAllOrders(): Promise<Order[]> {
     const snapshot = await getDocs(ordersRef);
     const orders: Order[] = [];
     snapshot.forEach((doc) => {
-      orders.push({
-        id: doc.id,
-        ...doc.data(),
-      } as Order);
+      orders.push(sanitizeFirestoreDoc<Order>(doc.id, doc.data()));
     });
 
     return orders.sort((a, b) => {
-      const timeA = (a.createdAt as { seconds?: number })?.seconds || 0;
-      const timeB = (b.createdAt as { seconds?: number })?.seconds || 0;
+      const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : 0;
+      const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : 0;
       return timeB - timeA;
     });
   } catch (error) {
