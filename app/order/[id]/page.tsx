@@ -16,6 +16,7 @@ import {
 import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import PrintableInvoice from '@/components/admin/PrintableInvoice';
+import { printIsolatedInvoice } from '@/lib/invoiceGenerator';
 import { useLanguage } from '@/context/LanguageContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -94,7 +95,9 @@ function OrderTrackingContent() {
   const currentStep = order ? getStepIndex(order.status) : 0;
 
   const handlePrint = () => {
-    if (typeof window !== 'undefined') window.print();
+    if (order) {
+      printIsolatedInvoice(order);
+    }
   };
 
   return (

@@ -34,6 +34,7 @@ import {
   updatePaymentStatusInFirestore,
 } from '@/lib/productService';
 import { checkCustomerReturnHistory } from '@/lib/clientService';
+import { printIsolatedInvoice } from '@/lib/invoiceGenerator';
 import { Order, OrderStatus, PaymentStatus } from '@/types';
 import { useToast } from '@/context/ToastContext';
 import PrintableInvoice from '@/components/admin/PrintableInvoice';
@@ -475,14 +476,26 @@ export default function AdminOrdersPage() {
                         )}
                       </td>
 
-                      {/* Total Amount */}
+                      {/* Total Amount & Price Breakdown */}
                       <td className="py-4 px-4">
-                        <span className="font-serif text-sm font-bold text-[#DCC9A6]">
+                        <span className="font-serif text-sm font-bold text-[#DCC9A6] block">
                           EGP {ord.totalAmount?.toFixed(2)}
                         </span>
-                        {ord.discountAmount && ord.discountAmount > 0 && (
-                          <span className="block text-[10px] text-emerald-400 font-mono">
-                            -EGP {ord.discountAmount.toFixed(2)} discount
+                        {ord.discountAmount && ord.discountAmount > 0 ? (
+                          <div className="text-[10px] space-y-0.5 font-mono mt-0.5">
+                            <span className="text-emerald-400 block font-semibold">
+                              -EGP {ord.discountAmount.toFixed(2)} discount
+                            </span>
+                            <span className="text-[#DCC9A6] block text-[9.5px] font-medium">
+                              After Disc: EGP {(ord.subtotal - ord.discountAmount).toFixed(2)}
+                            </span>
+                            <span className="text-[#8E8A85] block text-[9px]">
+                              (+Ship: {ord.shippingFee === 0 ? 'Free' : `EGP ${ord.shippingFee?.toFixed(2)}`})
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-[#8E8A85] block mt-0.5">
+                            (Ship: {ord.shippingFee === 0 ? 'FREE' : `EGP ${ord.shippingFee?.toFixed(2)}`})
                           </span>
                         )}
                       </td>
@@ -705,14 +718,20 @@ export default function AdminOrdersPage() {
             {/* Financial Summary Breakdown */}
             <div className="p-4 bg-[#141414] border border-[#333333] rounded-xl space-y-2 text-xs">
               <div className="flex justify-between text-[#8E8A85]">
-                <span>Items Subtotal:</span>
+                <span>Items Original Subtotal:</span>
                 <span className="font-mono font-bold text-white">EGP {selectedDetailsOrder.subtotal?.toFixed(2)}</span>
               </div>
               {selectedDetailsOrder.discountAmount ? (
-                <div className="flex justify-between text-emerald-400">
-                  <span>Applied Discount ({selectedDetailsOrder.discountTitle || selectedDetailsOrder.discountCode || 'Promo'}):</span>
-                  <span className="font-mono font-bold">-EGP {selectedDetailsOrder.discountAmount.toFixed(2)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between text-emerald-400">
+                    <span>Applied Discount ({selectedDetailsOrder.discountTitle || selectedDetailsOrder.discountCode || 'Promo'}):</span>
+                    <span className="font-mono font-bold">-EGP {selectedDetailsOrder.discountAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-[#DCC9A6] font-semibold">
+                    <span>Items Total (After Discount):</span>
+                    <span className="font-mono font-bold">EGP {((selectedDetailsOrder.subtotal || 0) - selectedDetailsOrder.discountAmount).toFixed(2)}</span>
+                  </div>
+                </>
               ) : null}
               <div className="flex justify-between text-[#8E8A85]">
                 <span>Delivery Fee:</span>
@@ -721,7 +740,7 @@ export default function AdminOrdersPage() {
                 </span>
               </div>
               <div className="flex justify-between text-sm font-bold text-[#DCC9A6] border-t border-[#262626] pt-2">
-                <span>Total Amount Due:</span>
+                <span>Final Total Amount Due:</span>
                 <span className="font-serif text-base">EGP {selectedDetailsOrder.totalAmount?.toFixed(2)}</span>
               </div>
             </div>
@@ -769,12 +788,12 @@ export default function AdminOrdersPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedInvoiceOrder(selectedDetailsOrder);
+                    printIsolatedInvoice(selectedDetailsOrder);
                   }}
                   className="inline-flex items-center gap-1.5 bg-[#DCC9A6] text-[#1F1F1F] px-4 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors rounded shadow-md"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Print Invoice</span>
+                  <span>Print A4 Invoice</span>
                 </button>
               </div>
             </div>
@@ -990,7 +1009,7 @@ export default function AdminOrdersPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (typeof window !== 'undefined') window.print();
+                    printIsolatedInvoice(selectedInvoiceOrder);
                   }}
                   className="inline-flex items-center gap-2 bg-[#DCC9A6] text-[#1F1F1F] px-4 py-1.5 text-xs uppercase font-bold tracking-wider hover:bg-white transition-all shadow-md active:scale-95 rounded"
                 >

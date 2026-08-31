@@ -21,8 +21,10 @@ import {
   FileText,
   Mail,
   Zap,
+  Printer,
 } from 'lucide-react';
 import { getAllClients } from '@/lib/clientService';
+import { printIsolatedInvoice } from '@/lib/invoiceGenerator';
 import { ClientProfile, Order } from '@/types';
 import { useToast } from '@/context/ToastContext';
 import PrintableInvoice from '@/components/admin/PrintableInvoice';
@@ -630,13 +632,23 @@ export default function AdminClientsPage() {
               <span className="text-xs uppercase tracking-widest text-[#DCC9A6] font-bold">
                 Invoice Preview • #{viewInvoiceOrder.orderId}
               </span>
-              <button
-                type="button"
-                onClick={() => setViewInvoiceOrder(null)}
-                className="p-1.5 text-[#8E8A85] hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => printIsolatedInvoice(viewInvoiceOrder)}
+                  className="inline-flex items-center gap-1.5 bg-[#DCC9A6] text-[#1F1F1F] px-4 py-1.5 text-xs font-bold uppercase tracking-wider hover:bg-white transition-colors rounded shadow-md"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print A4 Invoice (1 Page)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewInvoiceOrder(null)}
+                  className="p-1.5 text-[#8E8A85] hover:text-white ml-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
             <div className="overflow-y-auto p-4 sm:p-8 bg-[#2A2A2A]">
               <PrintableInvoice order={viewInvoiceOrder} />
