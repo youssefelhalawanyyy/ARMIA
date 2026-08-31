@@ -867,7 +867,7 @@ export default function CheckoutPage() {
                             </button>
                           </div>
                           <p className="text-[11px] text-[#8E8A85]">
-                            {t.checkout.instapayName}: <strong className="text-[#1F1F1F]">ARMIA Boutique (آرميا بوتيك)</strong>
+                            {t.checkout.instapayName}: <strong className="text-[#1F1F1F]">armia emad</strong>
                           </p>
                         </div>
 

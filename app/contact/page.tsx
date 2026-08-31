@@ -102,7 +102,7 @@ export default function ContactPage() {
                       <strong className="block text-sm">
                         {isArabic ? 'حساب إنستاباي (Instapay)' : 'Instapay Account'}
                       </strong>
-                      <p className="text-[#8E8A85] font-mono">01204000195</p>
+                      <p className="text-[#8E8A85] font-mono">01204000195 <span className="text-xs font-sans text-[#1F1F1F] font-semibold">({isArabic ? 'باسم: armia emad' : 'Name: armia emad'})</span></p>
                     </div>
                   </div>
                 </div>
