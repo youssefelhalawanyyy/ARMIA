@@ -8,10 +8,9 @@ import {
   Package,
   AlertTriangle,
   ArrowRight,
-  Database,
   Clock,
 } from 'lucide-react';
-import { getAllOrders, getProducts, seedProductsToFirestore } from '@/lib/productService';
+import { getAllOrders, getProducts } from '@/lib/productService';
 import { Order, Product, OrderStatus } from '@/types';
 import { useToast } from '@/context/ToastContext';
 
@@ -20,7 +19,6 @@ export default function AdminDashboardOverview() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -40,23 +38,6 @@ export default function AdminDashboardOverview() {
     }
     loadData();
   }, []);
-
-  const handleSeedDatabase = async () => {
-    setSeeding(true);
-    try {
-      const count = await seedProductsToFirestore();
-      success(`Successfully seeded ${count} initial ARMIA products to Firestore!`, 'Database Seeded');
-      // Refresh products
-      const prods = await getProducts('all');
-      setProducts(prods);
-    } catch (err: unknown) {
-      console.error('Seeding error:', err);
-      const e = err as { message?: string };
-      error('Failed to seed catalog: ' + (e.message || 'Error occurred'));
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   // Metrics calculations
   const totalSales = orders
@@ -123,16 +104,6 @@ export default function AdminDashboardOverview() {
             Real-time analytics, order tracking, and boutique inventory status.
           </p>
         </div>
-
-        {/* 1-Click Database Seeder Helper */}
-        <button
-          onClick={handleSeedDatabase}
-          disabled={seeding}
-          className="inline-flex items-center gap-2 bg-[#1F1F1F] border border-[#DCC9A6] text-[#DCC9A6] px-4 py-2.5 text-xs font-sans uppercase tracking-wider font-bold hover:bg-[#DCC9A6] hover:text-[#1F1F1F] transition-all shadow-md active:scale-[0.99] disabled:opacity-50"
-        >
-          <Database className="w-4 h-4" />
-          <span>{seeding ? 'Seeding Firestore...' : 'Seed Initial Catalog to Firestore'}</span>
-        </button>
       </div>
 
       {/* Metrics Cards Grid */}
