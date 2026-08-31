@@ -13,7 +13,37 @@ import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from './pushConfig';
 
 const SUBSCRIBERS_COLLECTION = 'push_subscribers';
 const BROADCASTS_COLLECTION = 'broadcast_notifications';
-const SEEN_BROADCASTS_KEY = 'armia_seen_broadcast_ids_v1';
+const SEEN_BROADCASTS_KEY = 'armia_seen_broadcast_ids_v2';
+
+/**
+ * Generate a safe unique Firestore document ID from push endpoint URL
+ */
+function safeSubscriberDocId(endpoint: string): string {
+  let hash = 0;
+  for (let i = 0; i < endpoint.length; i++) {
+    const char = endpoint.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  const cleanSuffix = endpoint.slice(-20).replace(/[^a-zA-Z0-9]/g, '');
+  return `sub_${Math.abs(hash).toString(36)}_${cleanSuffix || 'dev'}`;
+}
+
+/**
+ * Convert ArrayBuffer to base64 URL safe string
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer | null): string {
+  if (!buffer) return '';
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
 
 /**
  * Check if the current device has already seen a broadcast notification
@@ -99,7 +129,7 @@ export async function registerPushSubscriber(
   if (!endpoint) return false;
 
   try {
-    const subscriberId = btoa(endpoint).slice(-30).replace(/[^a-zA-Z0-9]/g, '_');
+    const subscriberId = safeSubscriberDocId(endpoint);
     const docRef = doc(db, SUBSCRIBERS_COLLECTION, subscriberId);
 
     const payload: Partial<PushSubscriber> = {
@@ -124,7 +154,13 @@ export async function registerPushSubscriber(
  * Automatically sync and upgrade browser VAPID push subscription on mount if permission is granted
  */
 export async function autoSyncPushSubscription(customerUid?: string, customerName?: string) {
-  if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) return;
+  if (
+    typeof window === 'undefined' ||
+    !('Notification' in window) ||
+    !('serviceWorker' in navigator)
+  ) {
+    return;
+  }
   if (Notification.permission !== 'granted') return;
 
   try {
@@ -140,11 +176,23 @@ export async function autoSyncPushSubscription(customerUid?: string, customerNam
     }
 
     if (sub) {
-      const jsonSub = sub.toJSON();
-      const endpoint = jsonSub.endpoint || '';
-      const keys = jsonSub.keys as { p256dh: string; auth: string } | undefined;
-      if (endpoint && keys) {
-        await registerPushSubscriber(endpoint, keys, customerUid, customerName);
+      const endpoint = sub.endpoint || '';
+      let p256dh = '';
+      let auth = '';
+
+      if (typeof sub.getKey === 'function') {
+        p256dh = arrayBufferToBase64(sub.getKey('p256dh'));
+        auth = arrayBufferToBase64(sub.getKey('auth'));
+      }
+
+      if (!p256dh) {
+        const jsonSub = sub.toJSON();
+        p256dh = jsonSub.keys?.p256dh || '';
+        auth = jsonSub.keys?.auth || '';
+      }
+
+      if (endpoint && p256dh && auth) {
+        await registerPushSubscriber(endpoint, { p256dh, auth }, customerUid, customerName);
       }
     }
   } catch (err) {
@@ -169,7 +217,6 @@ export async function requestNotificationPermission(
       let endpoint = '';
       let keys: { p256dh: string; auth: string } | undefined;
 
-      // Subscribe to Native Push Manager via Service Worker
       if ('serviceWorker' in navigator && 'PushManager' in window) {
         try {
           const reg = await navigator.serviceWorker.ready;
@@ -184,32 +231,33 @@ export async function requestNotificationPermission(
           }
 
           if (sub) {
-            const jsonSub = sub.toJSON();
-            endpoint = jsonSub.endpoint || '';
-            keys = jsonSub.keys as { p256dh: string; auth: string } | undefined;
+            endpoint = sub.endpoint || '';
+            let p256dh = '';
+            let auth = '';
+
+            if (typeof sub.getKey === 'function') {
+              p256dh = arrayBufferToBase64(sub.getKey('p256dh'));
+              auth = arrayBufferToBase64(sub.getKey('auth'));
+            }
+
+            if (!p256dh) {
+              const jsonSub = sub.toJSON();
+              p256dh = jsonSub.keys?.p256dh || '';
+              auth = jsonSub.keys?.auth || '';
+            }
+
+            if (p256dh && auth) {
+              keys = { p256dh, auth };
+            }
           }
         } catch (subErr) {
           console.warn('VAPID PushManager subscription fallback:', subErr);
         }
       }
 
-      // Fallback pseudo endpoint if PushManager is restricted
-      if (!endpoint) {
-        const deviceId =
-          localStorage.getItem('armia_device_sub_id') ||
-          `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        localStorage.setItem('armia_device_sub_id', deviceId);
-        endpoint = `https://fcm.googleapis.com/fcm/send/${deviceId}`;
+      if (endpoint) {
+        await registerPushSubscriber(endpoint, keys, customerUid, customerName);
       }
-
-      await registerPushSubscriber(endpoint, keys, customerUid, customerName);
-
-      // Trigger a welcoming confirmation notification
-      displaySystemNotification(
-        '✨ Welcome to ARMIA VIP Concierge',
-        'You are now subscribed to exclusive haute couture drops and flash sales!',
-        '/collections/new-in'
-      );
 
       return { granted: true, message: 'VIP Notifications successfully enabled!' };
     } else {
@@ -296,7 +344,7 @@ export async function dispatchBroadcastNotification(
     console.warn('API push dispatch warning:', apiErr);
   }
 
-  // 2. Record in Firestore for active listeners
+  // 2. Record in Firestore for active in-app banner listeners
   const subscribersCount = await getPushSubscribersCount();
   const broadcastId = `bcast_${Date.now()}`;
   const docRef = doc(db, BROADCASTS_COLLECTION, broadcastId);
@@ -358,7 +406,8 @@ export async function getBroadcastHistory(): Promise<BroadcastNotification[]> {
 }
 
 /**
- * Real-time Broadcast Listener for all active client and mobile devices
+ * Real-time Broadcast Listener for active in-app luxury banners
+ * NOTE: Does NOT trigger redundant native OS notification to prevent duplicates with Service Worker
  */
 export function listenToLiveBroadcasts(
   onBroadcastReceived: (broadcast: BroadcastNotification) => void
@@ -395,10 +444,8 @@ export function listenToLiveBroadcasts(
               recipientCount: data.recipientCount || 1,
             };
 
-            // 1. Native System / Mobile Lock Screen Notification
-            displaySystemNotification(broadcast.title, broadcast.body, broadcast.targetUrl);
-
-            // 2. In-App Luxury Banner with Audio Chime
+            // Trigger In-App Luxury VIP Banner with Audio Chime (no duplicate OS popup)
+            playNotificationChime();
             onBroadcastReceived(broadcast);
           }
         }
