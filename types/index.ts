@@ -68,20 +68,27 @@ export interface CustomerDetails {
 
 export type DiscountType = 'percentage' | 'fixed_amount' | 'free_shipping';
 export type DiscountTrigger = 'auto' | 'coupon';
+export type DiscountTargetType = 'all' | 'category' | 'product';
 
 export interface Discount {
   id: string;
-  title: string; // e.g. "VIP 15% OFF"
+  title: string; // e.g. "VIP 15% OFF" or "Flash Deal: Linen Set"
   titleArabic?: string; // e.g. "خصم حصري 15%"
   code?: string; // e.g. "ARMIA15"
   type: DiscountType; // 'percentage' | 'fixed_amount' | 'free_shipping'
   value: number; // e.g. 15 (%) or 150 (EGP)
   trigger: DiscountTrigger; // 'auto' (applies automatically) | 'coupon' (requires code)
+  targetType?: DiscountTargetType; // 'all' | 'category' | 'product'
+  applicableCategory?: string; // 'all' or specific category id/slug
+  applicableProductId?: string; // Specific Product ID for single item flash deal
+  applicableProductName?: string; // Snapshot of product name
+  applicableProductImage?: string; // Snapshot of product thumbnail
   minSubtotal?: number; // Minimum cart subtotal in EGP
   maxDiscountAmount?: number; // Optional cap for percentage discounts
-  applicableCategory?: string; // 'all' or specific category id/slug
   startDate?: string;
   endDate?: string;
+  startTime?: string; // ISO string or datetime string
+  endTime?: string; // ISO string or datetime string for countdown
   isActive: boolean;
   usageCount?: number;
   usageLimit?: number;

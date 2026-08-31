@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import {
   Tag,
   Plus,
@@ -13,6 +14,9 @@ import {
   ToggleLeft,
   ToggleRight,
   Copy,
+  Zap,
+  Clock,
+  Package,
 } from 'lucide-react';
 import {
   getDiscounts,
@@ -21,16 +25,19 @@ import {
   DEFAULT_DISCOUNTS,
 } from '@/lib/discountService';
 import { getCategories, DEFAULT_CATEGORIES } from '@/lib/categoryService';
-import { Discount, DiscountType, DiscountTrigger, Category } from '@/types';
+import { getProducts } from '@/lib/productService';
+import { Discount, DiscountType, DiscountTrigger, DiscountTargetType, Category, Product } from '@/types';
 import { useToast } from '@/context/ToastContext';
+import FlashDealCountdown from '@/components/storefront/FlashDealCountdown';
 
 export default function AdminDiscountsPage() {
   const { success, error, info } = useToast();
   const [discounts, setDiscounts] = useState<Discount[]>(DEFAULT_DISCOUNTS);
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [triggerFilter, setTriggerFilter] = useState<'all' | 'auto' | 'coupon'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'flash' | 'auto' | 'coupon'>('all');
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -40,27 +47,35 @@ export default function AdminDiscountsPage() {
   const [title, setTitle] = useState('');
   const [titleArabic, setTitleArabic] = useState('');
   const [trigger, setTrigger] = useState<DiscountTrigger>('auto');
+  const [targetType, setTargetType] = useState<DiscountTargetType>('all');
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [code, setCode] = useState('');
   const [type, setType] = useState<DiscountType>('percentage');
-  const [value, setValue] = useState<number>(15);
+  const [value, setValue] = useState<number>(20);
   const [minSubtotal, setMinSubtotal] = useState<number>(0);
   const [maxDiscountAmount, setMaxDiscountAmount] = useState<number | undefined>(undefined);
   const [applicableCategory, setApplicableCategory] = useState<string>('all');
+  const [startTime, setStartTime] = useState<string>('');
+  const [endTime, setEndTime] = useState<string>('');
   const [isActive, setIsActive] = useState<boolean>(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    Promise.all([getDiscounts(), getCategories()])
-      .then(([discs, cats]) => {
+    Promise.all([getDiscounts(), getCategories(), getProducts('all')])
+      .then(([discs, cats, prods]) => {
         if (isMounted) {
           setDiscounts(discs);
           if (cats && cats.length > 0) setCategories(cats);
+          if (prods && prods.length > 0) {
+            setProducts(prods);
+            setSelectedProductId(prods[0].id);
+          }
           setLoading(false);
         }
       })
       .catch((err) => {
-        console.error('Failed to load discounts or categories:', err);
+        console.error('Failed to load discounts, categories, or products:', err);
         if (isMounted) setLoading(false);
       });
 
@@ -69,18 +84,46 @@ export default function AdminDiscountsPage() {
     };
   }, []);
 
-  const openAddModal = () => {
+  // Format date to datetime-local input string YYYY-MM-DDTHH:mm
+  const toDateTimeLocal = (date: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  const applyDurationPreset = (hours: number) => {
+    const start = startTime ? new Date(startTime) : new Date();
+    const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+    setStartTime(toDateTimeLocal(start));
+    setEndTime(toDateTimeLocal(end));
+  };
+
+  const openAddModal = (initialTarget: DiscountTargetType = 'all') => {
     setEditingDiscount(null);
-    setTitle('');
-    setTitleArabic('');
+    setTargetType(initialTarget);
     setTrigger('auto');
-    setCode('');
     setType('percentage');
-    setValue(15);
-    setMinSubtotal(1500);
+    setValue(initialTarget === 'product' ? 25 : 15);
+    setMinSubtotal(0);
     setMaxDiscountAmount(undefined);
     setApplicableCategory('all');
     setIsActive(true);
+
+    const now = new Date();
+    const future = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48h default
+    setStartTime(toDateTimeLocal(now));
+    setEndTime(toDateTimeLocal(future));
+
+    if (initialTarget === 'product') {
+      const defaultProd = products[0];
+      setSelectedProductId(defaultProd ? defaultProd.id : '');
+      setTitle(defaultProd ? `⚡ Flash Deal: 25% OFF ${defaultProd.name}` : '⚡ Single Item Flash Deal');
+      setTitleArabic(defaultProd ? `عرض محدود: خصم 25% على ${defaultProd.name}` : 'عرض محدود على القطعة');
+    } else {
+      setTitle('');
+      setTitleArabic('');
+      setCode('');
+    }
+
     setModalOpen(true);
   };
 
@@ -89,14 +132,27 @@ export default function AdminDiscountsPage() {
     setTitle(d.title);
     setTitleArabic(d.titleArabic || '');
     setTrigger(d.trigger);
+    setTargetType(d.targetType || (d.applicableProductId ? 'product' : 'all'));
+    setSelectedProductId(d.applicableProductId || (products[0]?.id || ''));
     setCode(d.code || '');
     setType(d.type);
     setValue(d.value);
     setMinSubtotal(d.minSubtotal || 0);
     setMaxDiscountAmount(d.maxDiscountAmount);
     setApplicableCategory(d.applicableCategory || 'all');
+    setStartTime(d.startTime ? toDateTimeLocal(new Date(d.startTime)) : '');
+    setEndTime(d.endTime ? toDateTimeLocal(new Date(d.endTime)) : '');
     setIsActive(d.isActive);
     setModalOpen(true);
+  };
+
+  const handleProductSelectChange = (prodId: string) => {
+    setSelectedProductId(prodId);
+    const prod = products.find((p) => p.id === prodId);
+    if (prod && !editingDiscount) {
+      setTitle(`⚡ Flash Deal: ${value}% OFF ${prod.name}`);
+      setTitleArabic(`عرض محدود: خصم ${value}% على ${prod.name}`);
+    }
   };
 
   const handleToggleActive = async (discountId: string) => {
@@ -143,17 +199,25 @@ export default function AdminDiscountsPage() {
       return;
     }
 
+    const selectedProd = products.find((p) => p.id === selectedProductId);
+
     const payload: Discount = {
       id: editingDiscount ? editingDiscount.id : `disc-${Date.now()}`,
       title: title.trim(),
       titleArabic: titleArabic.trim() || title.trim(),
       trigger,
+      targetType,
+      applicableProductId: targetType === 'product' ? selectedProductId : undefined,
+      applicableProductName: targetType === 'product' && selectedProd ? selectedProd.name : undefined,
+      applicableProductImage: targetType === 'product' && selectedProd ? selectedProd.imageUrls[0] : undefined,
       code: trigger === 'coupon' ? code.trim().toUpperCase() : undefined,
       type,
       value: Number(value),
       minSubtotal: Number(minSubtotal) || 0,
       maxDiscountAmount: maxDiscountAmount ? Number(maxDiscountAmount) : undefined,
-      applicableCategory,
+      applicableCategory: targetType === 'category' ? applicableCategory : 'all',
+      startTime: startTime ? new Date(startTime).toISOString() : undefined,
+      endTime: endTime ? new Date(endTime).toISOString() : undefined,
       isActive,
       usageCount: editingDiscount?.usageCount || 0,
     };
@@ -179,17 +243,29 @@ export default function AdminDiscountsPage() {
     const matchesSearch =
       d.title.toLowerCase().includes(q) ||
       (d.titleArabic && d.titleArabic.includes(searchQuery)) ||
-      (d.code && d.code.toLowerCase().includes(q));
+      (d.code && d.code.toLowerCase().includes(q)) ||
+      (d.applicableProductName && d.applicableProductName.toLowerCase().includes(q));
 
-    const matchesTrigger =
-      triggerFilter === 'all' || d.trigger === triggerFilter;
+    let matchesFilter = true;
+    if (filterType === 'flash') matchesFilter = d.targetType === 'product' || Boolean(d.applicableProductId);
+    else if (filterType === 'auto') matchesFilter = d.trigger === 'auto' && d.targetType !== 'product';
+    else if (filterType === 'coupon') matchesFilter = d.trigger === 'coupon';
 
-    return matchesSearch && matchesTrigger;
+    return matchesSearch && matchesFilter;
   });
 
-  const autoCount = discounts.filter((d) => d.trigger === 'auto' && d.isActive).length;
+  const flashCount = discounts.filter((d) => (d.targetType === 'product' || Boolean(d.applicableProductId)) && d.isActive).length;
+  const autoCount = discounts.filter((d) => d.trigger === 'auto' && d.targetType !== 'product' && d.isActive).length;
   const couponCount = discounts.filter((d) => d.trigger === 'coupon' && d.isActive).length;
   const totalUsage = discounts.reduce((sum, d) => sum + (d.usageCount || 0), 0);
+
+  // Selected product snapshot for modal calculation
+  const modalProd = products.find((p) => p.id === selectedProductId);
+  const calculatedDealPrice = modalProd
+    ? type === 'percentage'
+      ? modalProd.price - (modalProd.price * value) / 100
+      : Math.max(0, modalProd.price - value)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -201,22 +277,31 @@ export default function AdminDiscountsPage() {
               Marketing & Conversions
             </span>
             <span className="text-[10px] bg-black text-[#DCC9A6] border border-[#333333] px-2 py-0.5 font-mono font-bold">
-              {autoCount} Auto / {couponCount} Codes
+              {flashCount} Flash Deals • {autoCount} Cart Auto • {couponCount} Codes
             </span>
           </div>
           <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white mt-1">
-            Discounts & Auto-Promotions
+            Discounts & Timed Flash Deals
           </h1>
           <p className="text-xs text-[#8E8A85] font-sans mt-0.5">
-            Configure automatic threshold discounts and coupon vouchers that apply seamlessly at checkout.
+            Configure single-item timed flash deals with client countdowns, automatic cart discounts, and promo vouchers.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
-            onClick={openAddModal}
-            className="inline-flex items-center gap-2 bg-[#DCC9A6] text-[#1F1F1F] px-5 py-2 text-xs uppercase font-extrabold tracking-wider hover:bg-white transition-all shadow-lg active:scale-95"
+            onClick={() => openAddModal('product')}
+            className="inline-flex items-center gap-1.5 bg-[#B67355] text-white px-4 py-2 text-xs uppercase font-extrabold tracking-wider hover:bg-white hover:text-[#1F1F1F] transition-all shadow-lg active:scale-95 border border-[#B67355]"
+          >
+            <Zap className="w-4 h-4 fill-current animate-pulse" />
+            <span>+ Single Item Flash Deal</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openAddModal('all')}
+            className="inline-flex items-center gap-2 bg-[#DCC9A6] text-[#1F1F1F] px-4 py-2 text-xs uppercase font-extrabold tracking-wider hover:bg-white transition-all shadow-lg active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>Create Discount Rule</span>
@@ -225,43 +310,65 @@ export default function AdminDiscountsPage() {
       </div>
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-[#1F1F1F] border border-[#333333] p-5 space-y-1.5 shadow-md">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        {/* Flash Deals Card */}
+        <div className="bg-[#1F1F1F] border-2 border-[#B67355] p-4 space-y-1 shadow-md relative overflow-hidden">
+          <div className="flex items-center justify-between text-xs text-[#DCC9A6] uppercase tracking-wider font-semibold">
+            <span className="flex items-center gap-1.5 font-bold">
+              <Zap className="w-4 h-4 text-[#E5A84B]" />
+              <span>Single Item Flash Deals</span>
+            </span>
+            <span className="text-[9px] bg-[#B67355] text-white px-1.5 py-0.5 rounded font-mono">
+              Live Timer
+            </span>
+          </div>
+          <p className="font-serif text-2xl sm:text-3xl font-bold text-white">
+            {flashCount} Active
+          </p>
+          <p className="text-[10px] text-[#8E8A85]">
+            Shows digital countdown timer on item cards & product page.
+          </p>
+        </div>
+
+        {/* Auto Cart */}
+        <div className="bg-[#1F1F1F] border border-[#333333] p-4 space-y-1 shadow-md">
           <span className="text-xs text-[#8E8A85] uppercase tracking-wider font-semibold flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-[#DCC9A6]" />
-            <span>Automatic Cart Discounts</span>
+            <span>Auto Cart Discounts</span>
           </span>
           <p className="font-serif text-2xl sm:text-3xl font-bold text-white">
             {autoCount} Active
           </p>
           <p className="text-[10px] text-[#8E8A85]">
-            Applies directly to customer cart when spending threshold is met.
+            Threshold spend discounts applied directly in bag.
           </p>
         </div>
 
-        <div className="bg-[#1F1F1F] border border-[#333333] p-5 space-y-1.5 shadow-md">
+        {/* Coupon Codes */}
+        <div className="bg-[#1F1F1F] border border-[#333333] p-4 space-y-1 shadow-md">
           <span className="text-xs text-[#8E8A85] uppercase tracking-wider font-semibold flex items-center gap-1.5">
-            <Ticket className="w-4 h-4 text-[#B67355]" />
-            <span>Promo & Coupon Codes</span>
+            <Ticket className="w-4 h-4 text-[#DCC9A6]" />
+            <span>Promo Vouchers</span>
           </span>
           <p className="font-serif text-2xl sm:text-3xl font-bold text-white">
             {couponCount} Active
           </p>
           <p className="text-[10px] text-[#8E8A85]">
-            Applied by customers entering promo vouchers at checkout.
+            Voucher codes entered at checkout.
           </p>
         </div>
 
-        <div className="bg-[#1F1F1F] border border-[#333333] p-5 space-y-1.5 shadow-md">
+        {/* Total Redemptions */}
+        <div className="bg-[#1F1F1F] border border-[#333333] p-4 space-y-1 shadow-md">
           <span className="text-xs text-[#8E8A85] uppercase tracking-wider font-semibold flex items-center gap-1.5">
             <Tag className="w-4 h-4 text-[#DCC9A6]" />
-            <span>Total Campaign Redemptions</span>
+            <span>Total Redemptions</span>
           </span>
           <p className="font-serif text-2xl sm:text-3xl font-bold text-white font-mono">
             {totalUsage} Orders
           </p>
           <p className="text-[10px] text-[#8E8A85]">
-            Total orders completed utilizing boutique promotions.
+            Completed customer orders with promotions.
           </p>
         </div>
       </div>
@@ -269,17 +376,18 @@ export default function AdminDiscountsPage() {
       {/* Filter & Search Bar */}
       <div className="bg-[#1F1F1F] border border-[#333333] p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         {/* Trigger Tabs */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {[
             { id: 'all', label: 'All Rules' },
+            { id: 'flash', label: '⚡ Single Item Flash Deals' },
             { id: 'auto', label: '✨ Auto-Applied' },
             { id: 'coupon', label: '🎟️ Promo Codes' },
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setTriggerFilter(tab.id as 'all' | 'auto' | 'coupon')}
+              onClick={() => setFilterType(tab.id as 'all' | 'flash' | 'auto' | 'coupon')}
               className={`px-3 py-1.5 text-xs font-sans uppercase tracking-wider font-semibold transition-all ${
-                triggerFilter === tab.id
+                filterType === tab.id
                   ? 'bg-[#B67355] text-white shadow'
                   : 'bg-[#141414] text-[#8E8A85] border border-[#333333] hover:text-[#DCC9A6]'
               }`}
@@ -295,7 +403,7 @@ export default function AdminDiscountsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search discounts, codes..."
+            placeholder="Search discounts, items, codes..."
             className="w-full bg-[#141414] border border-[#333333] text-white px-3.5 py-2 pl-9 text-xs focus:outline-none focus:border-[#DCC9A6]"
           />
           <Search className="w-4 h-4 text-[#8E8A85] absolute left-3 top-2.5" />
@@ -309,10 +417,10 @@ export default function AdminDiscountsPage() {
             <thead>
               <tr className="bg-[#141414] border-b border-[#333333] text-[11px] uppercase tracking-wider text-[#DCC9A6] font-bold">
                 <th className="py-3 px-4 w-12 text-center">Status</th>
-                <th className="py-3 px-4">Promotion Name</th>
-                <th className="py-3 px-4 text-center">Trigger Mode</th>
+                <th className="py-3 px-4">Promotion / Flash Item</th>
+                <th className="py-3 px-4 text-center">Type / Scope</th>
                 <th className="py-3 px-4 text-center">Discount Value</th>
-                <th className="py-3 px-4">Conditions</th>
+                <th className="py-3 px-4">Countdown / Schedule</th>
                 <th className="py-3 px-4 text-center">Redeemed</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -332,130 +440,149 @@ export default function AdminDiscountsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredDiscounts.map((disc) => (
-                  <tr
-                    key={disc.id}
-                    className={`hover:bg-[#252525] transition-colors ${
-                      !disc.isActive ? 'opacity-40 bg-black/20' : ''
-                    }`}
-                  >
-                    {/* Active Toggle Switch */}
-                    <td className="py-3.5 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleActive(disc.id)}
-                        title={disc.isActive ? 'Active (Click to pause)' : 'Paused (Click to activate)'}
-                        className="text-neutral-400 hover:text-white"
-                      >
-                        {disc.isActive ? (
-                          <ToggleRight className="w-6 h-6 text-emerald-400" />
+                filteredDiscounts.map((disc) => {
+                  const isItemDeal = disc.targetType === 'product' || Boolean(disc.applicableProductId);
+
+                  return (
+                    <tr
+                      key={disc.id}
+                      className={`hover:bg-[#252525] transition-colors ${
+                        !disc.isActive ? 'opacity-40 bg-black/20' : ''
+                      }`}
+                    >
+                      {/* Active Toggle Switch */}
+                      <td className="py-3.5 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(disc.id)}
+                          title={disc.isActive ? 'Active (Click to pause)' : 'Paused (Click to activate)'}
+                          className="text-neutral-400 hover:text-white"
+                        >
+                          {disc.isActive ? (
+                            <ToggleRight className="w-6 h-6 text-emerald-400" />
+                          ) : (
+                            <ToggleLeft className="w-6 h-6 text-neutral-600" />
+                          )}
+                        </button>
+                      </td>
+
+                      {/* Title & Product info */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          {isItemDeal && disc.applicableProductImage && (
+                            <div className="relative w-10 h-12 bg-black border border-[#333333] shrink-0 overflow-hidden rounded">
+                              <Image
+                                src={disc.applicableProductImage}
+                                alt={disc.applicableProductName || 'Item'}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-bold text-white text-sm font-sans block">
+                              {disc.title}
+                            </span>
+                            {disc.applicableProductName && (
+                              <span className="text-[11px] text-[#B67355] font-semibold block">
+                                Target Item: {disc.applicableProductName}
+                              </span>
+                            )}
+                            {disc.titleArabic && (
+                              <span className="text-xs text-[#DCC9A6] font-sans block mt-0.5" dir="rtl">
+                                {disc.titleArabic}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Scope & Trigger */}
+                      <td className="py-3.5 px-4 text-center">
+                        {isItemDeal ? (
+                          <span className="inline-flex items-center gap-1 bg-[#B67355]/30 border border-[#B67355] text-[#E5A84B] px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded">
+                            <Zap className="w-3 h-3 fill-current animate-pulse" />
+                            Single Item Flash
+                          </span>
+                        ) : disc.trigger === 'auto' ? (
+                          <span className="inline-flex items-center gap-1 bg-amber-950/80 border border-amber-600 text-amber-300 px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded">
+                            <Sparkles className="w-3 h-3" />
+                            Auto-Apply
+                          </span>
                         ) : (
-                          <ToggleLeft className="w-6 h-6 text-neutral-600" />
+                          <div className="inline-flex items-center gap-1.5 bg-black border border-[#DCC9A6]/60 px-2.5 py-1 rounded">
+                            <span className="font-mono font-bold text-xs text-[#DCC9A6] tracking-wider">
+                              {disc.code}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCode(disc.code || '')}
+                              className="text-neutral-400 hover:text-white"
+                              title="Copy code"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
                         )}
-                      </button>
-                    </td>
+                      </td>
 
-                    {/* Title & Arabic */}
-                    <td className="py-3.5 px-4">
-                      <div>
-                        <span className="font-bold text-white text-sm font-sans block">
-                          {disc.title}
+                      {/* Value */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="font-serif font-bold text-sm text-[#DCC9A6]">
+                          {disc.type === 'percentage'
+                            ? `${disc.value}% OFF`
+                            : disc.type === 'fixed_amount'
+                            ? `EGP ${disc.value.toFixed(2)} OFF`
+                            : 'Free Delivery'}
                         </span>
-                        {disc.titleArabic && (
-                          <span className="text-xs text-[#DCC9A6] font-sans block mt-0.5" dir="rtl">
-                            {disc.titleArabic}
+                      </td>
+
+                      {/* Countdown & Timings */}
+                      <td className="py-3.5 px-4 text-xs">
+                        {disc.endTime ? (
+                          <div className="space-y-1">
+                            <FlashDealCountdown compact={true} endTime={disc.endTime} />
+                            <span className="text-[10px] text-[#8E8A85] block font-mono">
+                              Until {new Date(disc.endTime).toLocaleDateString()} {new Date(disc.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-neutral-400">
+                            Permanent active rule
                           </span>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Trigger: Auto vs Coupon */}
-                    <td className="py-3.5 px-4 text-center">
-                      {disc.trigger === 'auto' ? (
-                        <span className="inline-flex items-center gap-1 bg-amber-950/80 border border-amber-600 text-amber-300 px-2.5 py-1 text-[10px] uppercase font-bold tracking-wider rounded">
-                          <Sparkles className="w-3 h-3" />
-                          Auto-Apply
-                        </span>
-                      ) : (
-                        <div className="inline-flex items-center gap-1.5 bg-black border border-[#DCC9A6]/60 px-2.5 py-1 rounded">
-                          <span className="font-mono font-bold text-xs text-[#DCC9A6] tracking-wider">
-                            {disc.code}
-                          </span>
+                      {/* Usage */}
+                      <td className="py-3.5 px-4 text-center font-mono text-xs">
+                        {disc.usageCount || 0} uses
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={() => handleCopyCode(disc.code || '')}
-                            className="text-neutral-400 hover:text-white"
-                            title="Copy code"
+                            onClick={() => openEditModal(disc)}
+                            className="p-1.5 bg-[#141414] hover:bg-[#DCC9A6] hover:text-[#1F1F1F] border border-[#333333] rounded transition-colors"
+                            title="Edit discount"
                           >
-                            <Copy className="w-3 h-3" />
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(disc.id, disc.title)}
+                            className="p-1.5 bg-[#141414] hover:bg-red-900 border border-[#333333] hover:text-red-200 rounded transition-colors"
+                            title="Delete discount"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      )}
-                    </td>
-
-                    {/* Value */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="font-serif font-bold text-sm text-[#DCC9A6]">
-                        {disc.type === 'percentage'
-                          ? `${disc.value}% OFF`
-                          : disc.type === 'fixed_amount'
-                          ? `EGP ${disc.value.toFixed(2)} OFF`
-                          : 'Free Delivery'}
-                      </span>
-                    </td>
-
-                    {/* Conditions */}
-                    <td className="py-3.5 px-4 text-xs">
-                      <div className="space-y-0.5 text-neutral-400">
-                        {disc.minSubtotal ? (
-                          <p>
-                            Min spend: <strong className="text-neutral-200">EGP {disc.minSubtotal}</strong>
-                          </p>
-                        ) : (
-                          <p>No minimum spend</p>
-                        )}
-                        {disc.applicableCategory && disc.applicableCategory !== 'all' && (
-                          <p className="text-[11px] text-[#B67355]">
-                            Category: <strong>{disc.applicableCategory}</strong>
-                          </p>
-                        )}
-                        {disc.maxDiscountAmount && (
-                          <p className="text-[10px] text-neutral-500">
-                            Max Cap: EGP {disc.maxDiscountAmount}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Usage */}
-                    <td className="py-3.5 px-4 text-center font-mono text-xs">
-                      {disc.usageCount || 0} uses
-                    </td>
-
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(disc)}
-                          className="p-1.5 bg-[#141414] hover:bg-[#DCC9A6] hover:text-[#1F1F1F] border border-[#333333] rounded transition-colors"
-                          title="Edit discount"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(disc.id, disc.title)}
-                          className="p-1.5 bg-[#141414] hover:bg-red-900 border border-[#333333] hover:text-red-200 rounded transition-colors"
-                          title="Delete discount"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -465,7 +592,7 @@ export default function AdminDiscountsPage() {
       {/* ADD / EDIT DISCOUNT MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md">
-          <div className="relative w-full max-w-lg bg-[#181818] border-2 border-[#DCC9A6] p-6 sm:p-8 shadow-2xl text-white">
+          <div className="relative w-full max-w-xl bg-[#181818] border-2 border-[#DCC9A6] p-6 sm:p-8 shadow-2xl text-white rounded-xl">
             <button
               type="button"
               onClick={() => setModalOpen(false)}
@@ -475,58 +602,134 @@ export default function AdminDiscountsPage() {
             </button>
 
             <h3 className="font-serif text-xl font-bold text-white mb-1">
-              {editingDiscount ? `Edit: ${editingDiscount.title}` : 'Create New Discount Rule'}
+              {editingDiscount
+                ? `Edit Promotion: ${editingDiscount.title}`
+                : targetType === 'product'
+                ? '⚡ Create Single Item Flash Deal (With Countdown)'
+                : 'Create New Discount Rule'}
             </h3>
             <p className="text-xs text-[#8E8A85] mb-6 font-sans">
-              Configure automatic cart discounts or promo codes with spend thresholds.
+              Choose the item, set the discount amount, time duration, and client countdown timer.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4 text-xs font-sans">
-              {/* Trigger Mode Selector */}
+              {/* Scope Target Selector (Storewide vs Category vs Single Item) */}
               <div>
                 <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1.5 font-semibold">
-                  How is this discount applied? *
+                  1. Promotion Target (Scope) *
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => setTrigger('auto')}
-                    className={`p-3 border text-left rounded transition-all ${
-                      trigger === 'auto'
-                        ? 'border-[#DCC9A6] bg-[#DCC9A6]/10 text-white'
+                    onClick={() => {
+                      setTargetType('product');
+                      setTrigger('auto');
+                    }}
+                    className={`p-2.5 border text-center rounded transition-all ${
+                      targetType === 'product'
+                        ? 'border-[#B67355] bg-[#B67355]/20 text-white font-bold'
                         : 'border-[#333333] bg-[#141414] text-neutral-400 hover:border-neutral-600'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 font-bold text-xs text-[#DCC9A6]">
-                      <Sparkles className="w-4 h-4" />
-                      <span>✨ Auto-Applied</span>
-                    </div>
-                    <p className="text-[10px] text-neutral-400 mt-1">
-                      Applies automatically in cart when conditions are met.
-                    </p>
+                    <Zap className="w-4 h-4 mx-auto mb-1 text-[#E5A84B]" />
+                    <span className="block text-[11px]">⚡ Single Item (Flash)</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setTrigger('coupon')}
-                    className={`p-3 border text-left rounded transition-all ${
-                      trigger === 'coupon'
-                        ? 'border-[#DCC9A6] bg-[#DCC9A6]/10 text-white'
+                    onClick={() => setTargetType('all')}
+                    className={`p-2.5 border text-center rounded transition-all ${
+                      targetType === 'all'
+                        ? 'border-[#DCC9A6] bg-[#DCC9A6]/20 text-white font-bold'
                         : 'border-[#333333] bg-[#141414] text-neutral-400 hover:border-neutral-600'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 font-bold text-xs text-[#DCC9A6]">
-                      <Ticket className="w-4 h-4" />
-                      <span>🎟️ Promo Code</span>
-                    </div>
-                    <p className="text-[10px] text-neutral-400 mt-1">
-                      Customer must enter a voucher code at checkout.
-                    </p>
+                    <Sparkles className="w-4 h-4 mx-auto mb-1 text-[#DCC9A6]" />
+                    <span className="block text-[11px]">Storewide / Cart</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('category')}
+                    className={`p-2.5 border text-center rounded transition-all ${
+                      targetType === 'category'
+                        ? 'border-[#DCC9A6] bg-[#DCC9A6]/20 text-white font-bold'
+                        : 'border-[#333333] bg-[#141414] text-neutral-400 hover:border-neutral-600'
+                    }`}
+                  >
+                    <Package className="w-4 h-4 mx-auto mb-1 text-[#DCC9A6]" />
+                    <span className="block text-[11px]">Specific Category</span>
                   </button>
                 </div>
               </div>
 
-              {/* Title & Arabic */}
+              {/* SINGLE PRODUCT PICKER (If targetType === 'product') */}
+              {targetType === 'product' && (
+                <div className="bg-[#141414] border border-[#B67355] p-3.5 rounded-lg space-y-3">
+                  <label className="block text-[11px] uppercase text-[#E5A84B] font-bold">
+                    Select Target Product for Flash Deal *
+                  </label>
+                  <select
+                    value={selectedProductId}
+                    onChange={(e) => handleProductSelectChange(e.target.value)}
+                    className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2.5 text-xs font-sans focus:outline-none focus:border-[#E5A84B]"
+                  >
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} — Base Price: EGP {p.price} ({p.stockQuantity} in stock)
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Live Item Preview with Deal Price Calculator */}
+                  {modalProd && (
+                    <div className="flex items-center gap-3 bg-[#1F1F1F] p-2.5 rounded border border-[#333333]">
+                      <div className="relative w-12 h-16 bg-black rounded overflow-hidden shrink-0 border border-[#333333]">
+                        <Image
+                          src={modalProd.imageUrls[0] || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600'}
+                          alt={modalProd.name}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 text-xs">
+                        <p className="font-bold text-white truncate">{modalProd.name}</p>
+                        <p className="text-[11px] text-[#8E8A85]">
+                          Original: <span className="line-through">EGP {modalProd.price.toFixed(2)}</span>
+                        </p>
+                        <p className="text-xs text-[#E5A84B] font-bold">
+                          Flash Deal Price: EGP {calculatedDealPrice.toFixed(2)}{' '}
+                          <span className="text-[10px] text-emerald-400 font-normal">
+                            (Save EGP {(modalProd.price - calculatedDealPrice).toFixed(2)})
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Specific Category Selection (If targetType === 'category') */}
+              {targetType === 'category' && (
+                <div>
+                  <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1 font-semibold">
+                    Applicable Category *
+                  </label>
+                  <select
+                    value={applicableCategory}
+                    onChange={(e) => setApplicableCategory(e.target.value)}
+                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6]"
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.slug}>
+                        {c.name} ({c.nameArabic})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Titles */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1 font-semibold">
@@ -537,7 +740,7 @@ export default function AdminDiscountsPage() {
                     required
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. VIP 15% Auto Discount"
+                    placeholder="e.g. Flash Deal: 25% OFF Linen Set"
                     className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6]"
                   />
                 </div>
@@ -550,29 +753,12 @@ export default function AdminDiscountsPage() {
                     type="text"
                     value={titleArabic}
                     onChange={(e) => setTitleArabic(e.target.value)}
-                    placeholder="e.g. خصم مميز 15%"
+                    placeholder="e.g. عرض محدود: خصم 25%"
                     dir="rtl"
                     className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6]"
                   />
                 </div>
               </div>
-
-              {/* Coupon Code (Only if trigger === 'coupon') */}
-              {trigger === 'coupon' && (
-                <div>
-                  <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1 font-semibold">
-                    Promo Code Voucher *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    placeholder="e.g. ARMIA15, SUMMER20, VIP100"
-                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 font-mono uppercase font-bold text-sm tracking-wider focus:outline-none focus:border-[#DCC9A6]"
-                  />
-                </div>
-              )}
 
               {/* Discount Type & Value */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -587,93 +773,96 @@ export default function AdminDiscountsPage() {
                   >
                     <option value="percentage">Percentage (%)</option>
                     <option value="fixed_amount">Fixed Amount (EGP)</option>
-                    <option value="free_shipping">Free Shipping</option>
+                    {targetType !== 'product' && <option value="free_shipping">Free Shipping</option>}
                   </select>
                 </div>
 
-                {type !== 'free_shipping' && (
+                <div>
+                  <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1 font-semibold">
+                    Discount Value ({type === 'percentage' ? '%' : 'EGP'}) *
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={value}
+                    onChange={(e) => setValue(Number(e.target.value))}
+                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 font-bold focus:outline-none focus:border-[#DCC9A6]"
+                  />
+                </div>
+              </div>
+
+              {/* TIMING & COUNTDOWN CONTROLS */}
+              <div className="bg-[#141414] border border-[#333333] p-3.5 rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] uppercase text-[#DCC9A6] font-bold flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Duration & Live Countdown Schedule</span>
+                  </label>
+                  <span className="text-[10px] text-neutral-400">
+                    Quick Presets:
+                  </span>
+                </div>
+
+                {/* Duration Presets */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: '+6 Hours', hours: 6 },
+                    { label: '+12 Hours', hours: 12 },
+                    { label: '+24 Hours (1 Day)', hours: 24 },
+                    { label: '+48 Hours (2 Days)', hours: 48 },
+                    { label: '+3 Days', hours: 72 },
+                    { label: '+7 Days (1 Week)', hours: 168 },
+                  ].map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => applyDurationPreset(p.hours)}
+                      className="px-2 py-1 bg-[#222222] hover:bg-[#B67355] text-neutral-300 hover:text-white text-[10px] font-mono rounded border border-[#333333] transition-colors"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
-                    <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1 font-semibold">
-                      Discount Value ({type === 'percentage' ? '%' : 'EGP'}) *
+                    <label className="block text-[10px] uppercase text-neutral-400 mb-1">
+                      Start Date & Time
                     </label>
                     <input
-                      type="number"
-                      min={1}
-                      required
-                      value={value}
-                      onChange={(e) => setValue(Number(e.target.value))}
-                      className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 font-bold focus:outline-none focus:border-[#DCC9A6]"
+                      type="datetime-local"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2 text-xs focus:outline-none focus:border-[#DCC9A6]"
                     />
                   </div>
-                )}
-              </div>
 
-              {/* Minimum Spend & Category */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1 font-semibold">
-                    Minimum Cart Subtotal (EGP)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={50}
-                    value={minSubtotal}
-                    onChange={(e) => setMinSubtotal(Number(e.target.value))}
-                    placeholder="0 for no minimum"
-                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1 font-semibold">
-                    Applicable Category
-                  </label>
-                  <select
-                    value={applicableCategory}
-                    onChange={(e) => setApplicableCategory(e.target.value)}
-                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6]"
-                  >
-                    <option value="all">All Categories</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.slug}>
-                        {c.name} ({c.nameArabic})
-                      </option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block text-[10px] uppercase text-neutral-400 mb-1">
+                      End Date & Time (Countdown Expiration)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2 text-xs focus:outline-none focus:border-[#DCC9A6]"
+                    />
+                  </div>
                 </div>
               </div>
-
-              {/* Max Discount Cap (for percentage discounts) */}
-              {type === 'percentage' && (
-                <div>
-                  <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1 font-semibold">
-                    Maximum Discount Limit (EGP Cap - Optional)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={maxDiscountAmount || ''}
-                    onChange={(e) =>
-                      setMaxDiscountAmount(e.target.value ? Number(e.target.value) : undefined)
-                    }
-                    placeholder="e.g. 500 (Leaves uncapped if blank)"
-                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6]"
-                  />
-                </div>
-              )}
 
               {/* Status Switch */}
               <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
-                  id="active-disc"
+                  id="active-disc-modal"
                   checked={isActive}
                   onChange={(e) => setIsActive(e.target.checked)}
                   className="w-4 h-4 accent-[#DCC9A6]"
                 />
-                <label htmlFor="active-disc" className="text-xs text-neutral-300 font-medium">
-                  Rule is Active & Ready for Customers
+                <label htmlFor="active-disc-modal" className="text-xs text-neutral-300 font-medium">
+                  Flash Deal is Active & Customer Countdown is Live
                 </label>
               </div>
 
@@ -692,7 +881,7 @@ export default function AdminDiscountsPage() {
                   disabled={saving}
                   className="px-6 py-2 bg-[#DCC9A6] text-[#1F1F1F] font-bold uppercase tracking-wider hover:bg-white transition-colors"
                 >
-                  {saving ? 'Saving...' : editingDiscount ? 'Save Changes' : 'Create Promotion'}
+                  {saving ? 'Saving...' : editingDiscount ? 'Save Changes' : 'Launch Flash Deal'}
                 </button>
               </div>
             </form>

@@ -3,16 +3,18 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, ShoppingBag, Check } from 'lucide-react';
+import { Heart, ShoppingBag, Check, Zap } from 'lucide-react';
 import { Product, ProductColor } from '@/types';
 import { useCart } from '@/context/CartContext';
+import { getActiveFlashDealForProduct } from '@/lib/discountService';
+import FlashDealCountdown from './FlashDealCountdown';
 
 interface ProductCardProps {
   product: Product;
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addToCart, toggleWishlist, isWishlisted } = useCart();
+  const { addToCart, toggleWishlist, isWishlisted, discounts } = useCart();
   const [selectedColor, setSelectedColor] = useState<ProductColor>(
     product.colors && product.colors.length > 0
       ? product.colors[0]
@@ -23,6 +25,22 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const isFav = isWishlisted(product.id);
 
+  // Check if this product has an active Flash Deal with countdown
+  const flashDeal = getActiveFlashDealForProduct(product.id, discounts);
+
+  // Calculate effective price
+  let effectivePrice = product.discountPrice || product.price;
+  let hasFlashDeal = false;
+
+  if (flashDeal) {
+    hasFlashDeal = true;
+    if (flashDeal.type === 'percentage') {
+      effectivePrice = product.price - (product.price * flashDeal.value) / 100;
+    } else if (flashDeal.type === 'fixed_amount') {
+      effectivePrice = Math.max(0, product.price - flashDeal.value);
+    }
+  }
+
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -31,7 +49,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       {
         productId: product.id,
         name: product.name,
-        price: product.discountPrice || product.price,
+        price: effectivePrice,
         originalPrice: product.price,
         quantity: 1,
         selectedColor: selectedColor,
@@ -57,7 +75,9 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div
-      className="group flex flex-col bg-white border border-[#E8E2D8] hover:border-[#B67355] transition-all duration-300 shadow-sm hover:shadow-lg"
+      className={`group flex flex-col bg-white border transition-all duration-300 shadow-sm hover:shadow-lg ${
+        hasFlashDeal ? 'border-[#E5A84B] hover:border-[#B67355]' : 'border-[#E8E2D8] hover:border-[#B67355]'
+      }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -74,18 +94,24 @@ export default function ProductCard({ product }: ProductCardProps) {
           />
         </Link>
 
-        {/* Discount or New Tag */}
+        {/* Discount, Flash Deal, or New Tag */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10 pointer-events-none">
-          {product.discountPrice && (
+          {hasFlashDeal && flashDeal ? (
+            <span className="bg-[#141414] text-[#E5A84B] border border-[#E5A84B] text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-md flex items-center gap-1">
+              <Zap className="w-3 h-3 fill-current animate-pulse" />
+              <span>
+                {flashDeal.type === 'percentage' ? `${flashDeal.value}% FLASH DEAL` : `EGP ${flashDeal.value} OFF`}
+              </span>
+            </span>
+          ) : product.discountPrice ? (
             <span className="bg-[#B67355] text-white text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-sm">
               Sale
             </span>
-          )}
-          {product.isNewArrival && !product.discountPrice && (
+          ) : product.isNewArrival ? (
             <span className="bg-[#1F1F1F] text-[#DCC9A6] text-[9px] font-sans font-semibold uppercase tracking-wider px-2 py-0.5 shadow-sm">
               New In
             </span>
-          )}
+          ) : null}
         </div>
 
         {/* Wishlist Heart Button */}
@@ -156,12 +182,28 @@ export default function ProductCard({ product }: ProductCardProps) {
               {product.name}
             </h3>
           </Link>
+
+          {/* Compact Flash Deal Countdown on Card */}
+          {hasFlashDeal && flashDeal?.endTime && (
+            <div className="mt-2">
+              <FlashDealCountdown compact={true} endTime={flashDeal.endTime} />
+            </div>
+          )}
         </div>
 
         {/* Price in EGP */}
         <div className="mt-2.5 pt-2 border-t border-[#E8E2D8]/50 flex items-center justify-between">
           <div className="flex items-baseline gap-2">
-            {product.discountPrice ? (
+            {hasFlashDeal ? (
+              <>
+                <span className="font-serif text-sm font-bold text-[#B67355]">
+                  EGP {effectivePrice.toFixed(2)}
+                </span>
+                <span className="font-sans text-[11px] text-[#8E8A85] line-through">
+                  EGP {product.price.toFixed(2)}
+                </span>
+              </>
+            ) : product.discountPrice ? (
               <>
                 <span className="font-serif text-sm font-bold text-[#B67355]">
                   EGP {product.discountPrice.toFixed(2)}

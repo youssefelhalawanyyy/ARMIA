@@ -2,7 +2,27 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { Discount, CartItem } from '@/types';
 
+// Default countdown target set to 48 hours from now
+const defaultFlashEndTime = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+
 export const DEFAULT_DISCOUNTS: Discount[] = [
+  {
+    id: 'flash-linen-set-25',
+    title: 'Flash Deal: 25% OFF Linen Set',
+    titleArabic: 'عرض محدود: خصم 25% على طقم الكتان الفاخر',
+    type: 'percentage',
+    value: 25,
+    trigger: 'auto',
+    targetType: 'product',
+    applicableProductId: 'prod_1',
+    applicableProductName: 'TWO-PIECE TAILORED LINEN SET',
+    applicableProductImage: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&auto=format&fit=crop&q=85',
+    minSubtotal: 0,
+    startTime: new Date().toISOString(),
+    endTime: defaultFlashEndTime,
+    isActive: true,
+    usageCount: 15,
+  },
   {
     id: 'auto-vip-15',
     title: 'VIP Atelier 15% Auto-Discount',
@@ -10,6 +30,7 @@ export const DEFAULT_DISCOUNTS: Discount[] = [
     type: 'percentage',
     value: 15,
     trigger: 'auto',
+    targetType: 'all',
     minSubtotal: 2000,
     maxDiscountAmount: 600,
     applicableCategory: 'all',
@@ -24,6 +45,7 @@ export const DEFAULT_DISCOUNTS: Discount[] = [
     type: 'percentage',
     value: 10,
     trigger: 'coupon',
+    targetType: 'all',
     minSubtotal: 500,
     applicableCategory: 'all',
     isActive: true,
@@ -37,6 +59,7 @@ export const DEFAULT_DISCOUNTS: Discount[] = [
     type: 'fixed_amount',
     value: 200,
     trigger: 'coupon',
+    targetType: 'all',
     minSubtotal: 1800,
     applicableCategory: 'all',
     isActive: true,
@@ -140,6 +163,34 @@ export async function deleteDiscount(discountId: string): Promise<Discount[]> {
   return updated;
 }
 
+/**
+ * Find an active flash deal for a specific product ID
+ */
+export function getActiveFlashDealForProduct(
+  productId: string,
+  discounts: Discount[] = DEFAULT_DISCOUNTS
+): Discount | null {
+  const now = Date.now();
+
+  const match = discounts.find((d) => {
+    if (!d.isActive) return false;
+    if (d.targetType !== 'product' && !d.applicableProductId) return false;
+    if (d.applicableProductId !== productId) return false;
+
+    // Check time bounds
+    if (d.startTime && new Date(d.startTime).getTime() > now) {
+      return false; // Has not started yet
+    }
+    if (d.endTime && new Date(d.endTime).getTime() <= now) {
+      return false; // Expired
+    }
+
+    return true;
+  });
+
+  return match || null;
+}
+
 export interface DiscountEvaluationResult {
   discountAmount: number;
   freeShipping: boolean;
@@ -149,7 +200,7 @@ export interface DiscountEvaluationResult {
 
 /**
  * Calculate applicable discount dynamically:
- * Evaluates active auto discounts + entered promo code, returning the best savings.
+ * Evaluates active auto discounts + entered promo code + product flash deals, returning the best savings.
  */
 export function evaluateDiscounts({
   subtotal,
@@ -176,8 +227,14 @@ export function evaluateDiscounts({
   let maxSavings = 0;
   let freeShipping = false;
   let message = '';
+  const now = Date.now();
 
-  const activeDiscounts = discounts.filter((d) => d.isActive);
+  const activeDiscounts = discounts.filter((d) => {
+    if (!d.isActive) return false;
+    if (d.startTime && new Date(d.startTime).getTime() > now) return false;
+    if (d.endTime && new Date(d.endTime).getTime() <= now) return false;
+    return true;
+  });
 
   for (const disc of activeDiscounts) {
     // Check minimum subtotal requirement
@@ -185,7 +242,30 @@ export function evaluateDiscounts({
       continue;
     }
 
-    // Check applicable category
+    // Check Single Product Target Deal
+    if (disc.targetType === 'product' && disc.applicableProductId) {
+      const matchingItem = items.find((it) => it.productId === disc.applicableProductId);
+      if (!matchingItem) continue;
+
+      let itemSavings = 0;
+      if (disc.type === 'percentage') {
+        itemSavings = (matchingItem.price * disc.value * matchingItem.quantity) / 100;
+        if (disc.maxDiscountAmount && itemSavings > disc.maxDiscountAmount) {
+          itemSavings = disc.maxDiscountAmount;
+        }
+      } else if (disc.type === 'fixed_amount') {
+        itemSavings = Math.min(disc.value * matchingItem.quantity, matchingItem.price * matchingItem.quantity);
+      }
+
+      if (itemSavings > maxSavings) {
+        maxSavings = itemSavings;
+        bestDiscount = disc;
+        message = `⚡ Flash Deal Applied: ${disc.title} (-EGP ${itemSavings.toFixed(2)})`;
+      }
+      continue;
+    }
+
+    // Check category target
     let eligibleSubtotal = subtotal;
     if (disc.applicableCategory && disc.applicableCategory !== 'all') {
       const matchingItems = items.filter(
