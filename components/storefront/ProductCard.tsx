@@ -51,7 +51,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       {
         productId: product.id,
         name: product.name,
-        price: effectivePrice,
+        price: product.price,
         originalPrice: product.price,
         quantity: 1,
         selectedColor: selectedColor,

@@ -259,14 +259,15 @@ export function evaluateDiscounts({
       const matchingItem = items.find((it) => it.productId === disc.applicableProductId);
       if (!matchingItem) continue;
 
+      const itemBasePrice = matchingItem.originalPrice || matchingItem.price;
       let itemSavings = 0;
       if (disc.type === 'percentage') {
-        itemSavings = (matchingItem.price * disc.value * matchingItem.quantity) / 100;
+        itemSavings = (itemBasePrice * disc.value * matchingItem.quantity) / 100;
         if (disc.maxDiscountAmount && itemSavings > disc.maxDiscountAmount) {
           itemSavings = disc.maxDiscountAmount;
         }
       } else if (disc.type === 'fixed_amount') {
-        itemSavings = Math.min(disc.value * matchingItem.quantity, matchingItem.price * matchingItem.quantity);
+        itemSavings = Math.min(disc.value * matchingItem.quantity, itemBasePrice * matchingItem.quantity);
       }
 
       if (itemSavings > maxSavings) {
@@ -284,7 +285,10 @@ export function evaluateDiscounts({
         (it) => it.category.toLowerCase() === disc.applicableCategory?.toLowerCase()
       );
       if (matchingItems.length === 0) continue;
-      eligibleSubtotal = matchingItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
+      eligibleSubtotal = matchingItems.reduce(
+        (sum, it) => sum + (it.originalPrice || it.price) * it.quantity,
+        0
+      );
     }
 
     // Check Trigger Match (Auto vs Coupon)

@@ -146,7 +146,7 @@ export default function ProductDetailPage() {
       {
         productId: product.id,
         name: product.name,
-        price: effectivePrice,
+        price: product.price,
         originalPrice: product.price,
         quantity,
         selectedColor,

@@ -963,32 +963,35 @@ export default function CheckoutPage() {
 
                 {/* Items preview list */}
                 <div className="max-h-56 overflow-y-auto space-y-3 pr-1">
-                  {items.map((item, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 pb-3 border-b border-[#E8E2D8]/50 last:border-b-0"
-                    >
-                      <div className="relative w-12 h-14 bg-[#F6F3EE] shrink-0 border border-[#E8E2D8] overflow-hidden rounded">
-                        <Image
-                          src={item.imageUrl || ''}
-                          alt={item.name}
-                          fill
-                          className="object-cover"
-                        />
+                  {items.map((item, i) => {
+                    const itemBasePrice = item.originalPrice || item.price;
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 pb-3 border-b border-[#E8E2D8]/50 last:border-b-0"
+                      >
+                        <div className="relative w-12 h-14 bg-[#F6F3EE] shrink-0 border border-[#E8E2D8] overflow-hidden rounded">
+                          <Image
+                            src={item.imageUrl || ''}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-serif text-xs font-semibold text-[#1F1F1F] truncate">
+                            {item.name}
+                          </h5>
+                          <p className="text-[10px] text-[#8E8A85] font-sans">
+                            {item.selectedColor.name} • {t.product.selectSize}: {item.selectedSize} • {t.product.quantity}: {item.quantity}
+                          </p>
+                        </div>
+                        <span className="font-serif text-xs font-bold text-[#1F1F1F]">
+                          EGP {(itemBasePrice * item.quantity).toFixed(2)}
+                        </span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h5 className="font-serif text-xs font-semibold text-[#1F1F1F] truncate">
-                          {item.name}
-                        </h5>
-                        <p className="text-[10px] text-[#8E8A85] font-sans">
-                          {item.selectedColor.name} • {t.product.selectSize}: {item.selectedSize} • {t.product.quantity}: {item.quantity}
-                        </p>
-                      </div>
-                      <span className="font-serif text-xs font-bold text-[#1F1F1F]">
-                        EGP {(item.price * item.quantity).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* PROMO CODE VOUCHER INPUT BOX */}
@@ -1035,16 +1038,18 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                {/* Cost calculation Breakdown */}
+                {/* Cost calculation Breakdown: 1. Original Price -> 2. Discount -> 3. Shipping -> 4. Total */}
                 <div className="space-y-2 border-t border-[#E8E2D8] pt-4 text-xs font-sans text-[#8E8A85]">
+                  
+                  {/* 1. Original Price / Subtotal */}
                   <div className="flex justify-between">
-                    <span>{t.cart.subtotal}</span>
+                    <span>{isArabic ? 'السعر الأصلي (المجموع الفرعي)' : 'Original Price (Subtotal)'}</span>
                     <span className="text-[#1F1F1F] font-semibold font-mono">
                       EGP {subtotal.toFixed(2)}
                     </span>
                   </div>
 
-                  {/* Applied Discount Line */}
+                  {/* 2. Applied Discount Line (if active) */}
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1.5 border border-emerald-200 rounded">
                       <span className="flex items-center gap-1.5 text-[11px]">
@@ -1052,13 +1057,14 @@ export default function CheckoutPage() {
                         <span>
                           {isArabic && appliedDiscount?.titleArabic
                             ? appliedDiscount.titleArabic
-                            : appliedDiscount?.title || 'Discount Promotion'}
+                            : appliedDiscount?.title || (isArabic ? 'الخصم المطبق' : 'Applied Discount')}
                         </span>
                       </span>
-                      <span className="font-serif">-EGP {discountAmount.toFixed(2)}</span>
+                      <span className="font-mono font-bold">-EGP {discountAmount.toFixed(2)}</span>
                     </div>
                   )}
 
+                  {/* 3. Delivery / Shipping Fee */}
                   <div className="flex justify-between">
                     <span>
                       {t.checkout.shippingFee} ({formData.governorate.split('(')[0].trim()})
@@ -1072,6 +1078,7 @@ export default function CheckoutPage() {
                     </span>
                   </div>
 
+                  {/* 4. Final Total Due */}
                   <div className="border-t border-[#E8E2D8] pt-3 flex justify-between text-base font-bold text-[#1F1F1F]">
                     <span className="font-serif">{t.checkout.total}</span>
                     <span className="font-serif text-lg text-[#B67355]">

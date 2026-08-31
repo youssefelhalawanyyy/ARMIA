@@ -55,7 +55,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem(CART_STORAGE_KEY);
-        return saved ? JSON.parse(saved) : [];
+        if (saved) {
+          const parsed = JSON.parse(saved) as CartItem[];
+          return parsed.map((it) => {
+            const base = it.originalPrice || it.price;
+            return {
+              ...it,
+              price: base,
+              originalPrice: base,
+            };
+          });
+        }
+        return [];
       } catch (e) {
         console.error('Failed to parse cart storage:', e);
         return [];
@@ -206,24 +217,31 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [wishlist]);
 
   const addToCart = (newItem: CartItem, openDrawer: boolean = true) => {
+    const basePrice = newItem.originalPrice || newItem.price;
+    const normalizedItem: CartItem = {
+      ...newItem,
+      price: basePrice,
+      originalPrice: basePrice,
+    };
+
     setItems((prev) => {
       const existingIndex = prev.findIndex(
         (item) =>
-          item.productId === newItem.productId &&
-          item.selectedColor.name === newItem.selectedColor.name &&
-          item.selectedSize === newItem.selectedSize
+          item.productId === normalizedItem.productId &&
+          item.selectedColor.name === normalizedItem.selectedColor.name &&
+          item.selectedSize === normalizedItem.selectedSize
       );
 
       if (existingIndex > -1) {
         const updated = [...prev];
-        updated[existingIndex].quantity += newItem.quantity;
+        updated[existingIndex].quantity += normalizedItem.quantity;
         return updated;
       } else {
-        return [...prev, newItem];
+        return [...prev, normalizedItem];
       }
     });
 
-    success(`${newItem.name} added to your bag`, 'Added to Bag');
+    success(`${normalizedItem.name} added to your bag`, 'Added to Bag');
     if (openDrawer) {
       setIsCartOpen(true);
     }
@@ -290,7 +308,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const isWishlisted = (productId: string) => wishlist.includes(productId);
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = items.reduce((sum, item) => {
+    const basePrice = item.originalPrice || item.price;
+    return sum + basePrice * item.quantity;
+  }, 0);
 
   // AUTOMATIC & COUPON DISCOUNT EVALUATION
   const discountEval = evaluateDiscounts({
