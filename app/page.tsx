@@ -4,7 +4,6 @@ import HeroSection from '@/components/storefront/HeroSection';
 import ValueProps from '@/components/storefront/ValueProps';
 import CategorySection from '@/components/storefront/CategorySection';
 import NewArrivalsSection from '@/components/storefront/NewArrivalsSection';
-import PackagingSection from '@/components/storefront/PackagingSection';
 import Footer from '@/components/storefront/Footer';
 import { getProducts } from '@/lib/productService';
 
@@ -31,9 +30,6 @@ export default async function HomePage() {
 
         {/* 4. New Arrivals Grid with EGP Pricing & Wishlist Hearts */}
         <NewArrivalsSection products={products} />
-
-        {/* 5. Luxury Packaging & Brand Identity Showcase */}
-        <PackagingSection />
       </main>
 
       {/* Storefront Footer */}
