@@ -143,8 +143,21 @@ export default function ProductDetailPage() {
     savingsAmount = product.price - product.discountPrice;
   }
 
+  const getStockForCombination = (colorName?: string, sizeName?: string): number => {
+    if (!product) return 0;
+    if (!product.variants || product.variants.length === 0) {
+      return product.stockQuantity;
+    }
+    if (!colorName || !sizeName) return product.stockQuantity;
+    const match = product.variants.find((v) => v.color === colorName && v.size === sizeName);
+    return match !== undefined ? Number(match.quantity) : product.stockQuantity;
+  };
+
+  const currentCombinationStock = getStockForCombination(selectedColor?.name, selectedSize);
+  const isCombinationSoldOut = currentCombinationStock === 0;
+
   const handleAddToCart = () => {
-    if (!selectedColor) return;
+    if (!selectedColor || isCombinationSoldOut || product.stockQuantity === 0) return;
 
     addToCart(
       {
@@ -377,19 +390,31 @@ export default function ProductDetailPage() {
                       </button>
                     </div>
                     <div className="flex flex-wrap gap-2.5">
-                      {product.sizes.map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => setSelectedSize(s)}
-                          className={`px-4 py-2 text-xs font-sans font-medium uppercase tracking-wider transition-all rounded ${
-                            selectedSize === s
-                              ? 'bg-[#1F1F1F] text-[#DCC9A6] border border-[#1F1F1F] shadow-sm'
-                              : 'bg-white text-[#1F1F1F] border border-[#E8E2D8] hover:border-[#B67355]'
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      ))}
+                      {product.sizes.map((s) => {
+                        const stockForSize = getStockForCombination(selectedColor?.name, s);
+                        const isOutOfStock = stockForSize === 0;
+
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => setSelectedSize(s)}
+                            className={`px-4 py-2 text-xs font-sans font-medium uppercase tracking-wider transition-all rounded flex items-center gap-1.5 ${
+                              selectedSize === s
+                                ? 'bg-[#1F1F1F] text-[#DCC9A6] border border-[#1F1F1F] shadow-sm'
+                                : isOutOfStock
+                                ? 'bg-[#F2EFE9] text-[#A0A0A0] border border-[#E8E2D8] line-through opacity-60 hover:border-[#A0A0A0]'
+                                : 'bg-white text-[#1F1F1F] border border-[#E8E2D8] hover:border-[#B67355]'
+                            }`}
+                          >
+                            <span>{s}</span>
+                            {isOutOfStock && (
+                              <span className="text-[9px] text-red-500 font-bold no-underline inline-block">
+                                ({isArabic ? 'نفد' : 'Sold'})
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -401,7 +426,8 @@ export default function ProductDetailPage() {
                     <div className="flex items-center border border-[#E8E2D8] bg-white rounded">
                       <button
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="p-3 text-[#1F1F1F] hover:bg-[#F6F3EE] transition-colors"
+                        disabled={isCombinationSoldOut}
+                        className="p-3 text-[#1F1F1F] hover:bg-[#F6F3EE] transition-colors disabled:opacity-30"
                         aria-label="Decrease quantity"
                       >
                         <Minus className="w-3.5 h-3.5" />
@@ -411,9 +437,10 @@ export default function ProductDetailPage() {
                       </span>
                       <button
                         onClick={() =>
-                          setQuantity(Math.min(product.stockQuantity || 99, quantity + 1))
+                          setQuantity(Math.min(currentCombinationStock || 99, quantity + 1))
                         }
-                        className="p-3 text-[#1F1F1F] hover:bg-[#F6F3EE] transition-colors"
+                        disabled={isCombinationSoldOut}
+                        className="p-3 text-[#1F1F1F] hover:bg-[#F6F3EE] transition-colors disabled:opacity-30"
                         aria-label="Increase quantity"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -423,12 +450,16 @@ export default function ProductDetailPage() {
                     {/* Add to Cart CTA */}
                     <button
                       onClick={handleAddToCart}
-                      disabled={product.stockQuantity === 0}
-                      className="flex-1 bg-[#1F1F1F] text-[#DCC9A6] py-3.5 px-6 text-xs uppercase tracking-[0.2em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-[#B67355] hover:text-white transition-all shadow-lg active:scale-[0.99] disabled:opacity-40 rounded"
+                      disabled={isCombinationSoldOut || product.stockQuantity === 0}
+                      className="flex-1 bg-[#1F1F1F] text-[#DCC9A6] py-3.5 px-6 text-xs uppercase tracking-[0.2em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-[#B67355] hover:text-white transition-all shadow-lg active:scale-[0.99] disabled:opacity-40 disabled:hover:bg-[#1F1F1F] disabled:hover:text-[#DCC9A6] rounded"
                     >
                       <ShoppingBag className="w-4 h-4" />
                       <span>
-                        {product.stockQuantity === 0 ? t.product.outOfStock : t.product.addToCart}
+                        {isCombinationSoldOut
+                          ? (isArabic ? 'هذا المقاس غير متوفر بهذا اللون' : 'Sold Out in Selected Color')
+                          : product.stockQuantity === 0
+                          ? t.product.outOfStock
+                          : t.product.addToCart}
                       </span>
                     </button>
                   </div>

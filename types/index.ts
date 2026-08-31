@@ -52,6 +52,13 @@ export interface ProductSpecs {
   modelInfoArabic?: string;
 }
 
+export interface ProductVariant {
+  color: string; // Color name e.g. "Emerald Green"
+  size: string; // Size e.g. "M"
+  quantity: number; // In stock for this specific combination
+  sku?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -67,6 +74,7 @@ export interface Product {
   description: string;
   descriptionArabic?: string;
   imageUrls: string[];
+  variants?: ProductVariant[];
   featured?: boolean;
   isNewArrival?: boolean;
   createdAt?: unknown;
