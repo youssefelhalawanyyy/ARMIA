@@ -105,6 +105,7 @@ export interface Order {
   discountAmount?: number;
   discountCode?: string;
   discountTitle?: string;
+  appliedDiscount?: Discount;
   shippingFee: number;
   totalAmount: number;
   paymentMethod: 'COD'; // Strictly COD

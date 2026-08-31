@@ -7,7 +7,6 @@ import Image from 'next/image';
 import {
   CheckCircle2,
   Package,
-  Clock,
   MapPin,
   Phone,
   MessageCircle,
@@ -17,17 +16,10 @@ import {
 import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import PrintableInvoice from '@/components/admin/PrintableInvoice';
+import { useLanguage } from '@/context/LanguageContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Order, OrderStatus } from '@/types';
-
-const STATUS_STEPS: { status: OrderStatus; label: string; desc: string }[] = [
-  { status: 'pending', label: 'Order Placed', desc: 'Received & awaiting boutique verification' },
-  { status: 'confirmed', label: 'Confirmed', desc: 'Verified by atelier team' },
-  { status: 'processing', label: 'Processing & Packaging', desc: 'Steamed, inspected & boxed' },
-  { status: 'shipped', label: 'Out for Delivery', desc: 'With courier across Egypt' },
-  { status: 'delivered', label: 'Delivered', desc: 'Received & paid via COD' },
-];
 
 function OrderTrackingContent() {
   const params = useParams();
@@ -35,8 +27,38 @@ function OrderTrackingContent() {
   const docId = params.id as string;
   const urlOrderId = searchParams.get('orderId');
 
+  const { t, isArabic } = useLanguage();
+
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const statusSteps: { status: OrderStatus; label: string; desc: string }[] = [
+    {
+      status: 'pending',
+      label: isArabic ? 'تم استلام الطلب' : 'Order Placed',
+      desc: isArabic ? 'تم التسجيل وبانتظار التأكيد' : 'Received & awaiting boutique verification',
+    },
+    {
+      status: 'confirmed',
+      label: isArabic ? 'تم تأكيد الطلب' : 'Confirmed',
+      desc: isArabic ? 'تمت مراجعة الطلب مع الأتيليه' : 'Verified by atelier team',
+    },
+    {
+      status: 'processing',
+      label: isArabic ? 'التجهيز والتغليف' : 'Processing & Packaging',
+      desc: isArabic ? 'كي، فحص جودة وتغليف فاخر' : 'Steamed, inspected & boxed',
+    },
+    {
+      status: 'shipped',
+      label: isArabic ? 'خرج للتوصيل' : 'Out for Delivery',
+      desc: isArabic ? 'مع مندوب الشحن للمحافظة' : 'With courier across Egypt',
+    },
+    {
+      status: 'delivered',
+      label: isArabic ? 'تم التسليم' : 'Delivered',
+      desc: isArabic ? 'استلام ودفع عند الاستلام' : 'Received & paid via COD',
+    },
+  ];
 
   useEffect(() => {
     async function load() {
@@ -81,37 +103,37 @@ function OrderTrackingContent() {
           <div className="w-10 h-10 border-2 border-[#1F1F1F] border-t-[#DCC9A6] rounded-full animate-spin" />
         </div>
       ) : !order ? (
-        <div className="bg-white border border-[#E8E2D8] p-10 text-center">
+        <div className="bg-white border border-[#E8E2D8] p-10 text-center rounded-xl">
           <Package className="w-12 h-12 text-[#8E8A85] mx-auto mb-3" />
           <h2 className="font-serif text-2xl font-bold text-[#1F1F1F] mb-1">
-            Order Received
+            {t.orderConfirmation.title}
           </h2>
           <p className="text-xs text-[#8E8A85] font-sans mb-6">
-            Order Ref:{' '}
-            <strong className="text-[#1F1F1F]">{urlOrderId || docId}</strong>. Our team is
-            preparing your order confirmation.
+            {isArabic ? 'رقم الطلب:' : 'Order Ref:'}{' '}
+            <strong className="text-[#1F1F1F] font-mono">{urlOrderId || docId}</strong>.{' '}
+            {isArabic ? 'فريقنا يقوم بإعداد تأكيد طلبك الآن.' : 'Our team is preparing your order confirmation.'}
           </p>
           <Link
             href="/account"
-            className="bg-[#1F1F1F] text-[#DCC9A6] px-8 py-3 text-xs uppercase tracking-widest font-sans inline-block"
+            className="bg-[#1F1F1F] text-[#DCC9A6] px-8 py-3 text-xs uppercase tracking-widest font-sans inline-block rounded"
           >
-            View My Orders
+            {isArabic ? 'عرض طلباتي' : 'View My Orders'}
           </Link>
         </div>
       ) : (
         <div className="space-y-8">
           {/* Header Status Card */}
-          <div className="bg-white border border-[#E8E2D8] p-6 sm:p-8 shadow-sm">
+          <div className="bg-white border border-[#E8E2D8] p-6 sm:p-8 shadow-sm rounded-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2D8] pb-6">
               <div>
                 <span className="text-[10px] font-sans font-bold uppercase tracking-[0.25em] text-[#B67355]">
-                  Cash on Delivery Order Confirmed
+                  {t.orderConfirmation.badge}
                 </span>
                 <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1F1F1F] mt-1">
-                  Order #{order.orderId}
+                  {isArabic ? `طلب رقم #${order.orderId}` : `Order #${order.orderId}`}
                 </h1>
                 <p className="text-xs text-[#8E8A85] font-sans mt-1">
-                  Thank you for choosing ARMIA Boutique,{' '}
+                  {t.orderConfirmation.thankYou},{' '}
                   <strong className="text-[#1F1F1F]">{order.customerDetails?.fullName}</strong>.
                 </p>
               </div>
@@ -119,21 +141,21 @@ function OrderTrackingContent() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={handlePrint}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#E8E2D8] text-xs font-sans hover:bg-[#F6F3EE] transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#E8E2D8] text-xs font-sans hover:bg-[#F6F3EE] transition-colors rounded"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print Receipt</span>
+                  <span>{t.orderConfirmation.printReceipt}</span>
                 </button>
                 <a
                   href={`https://wa.me/201001234567?text=${encodeURIComponent(
-                    `Hello ARMIA Boutique, I am inquiring about my Order #${order.orderId}`
+                    `مرحباً أرميا بوتيك، أود الاستفسار عن طلبي رقم #${order.orderId}`
                   )}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#25D366] text-white text-xs font-sans font-semibold hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#25D366] text-white text-xs font-sans font-semibold hover:opacity-90 transition-opacity rounded"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  <span>WhatsApp Support</span>
+                  <span>{t.orderConfirmation.whatsappSupport}</span>
                 </a>
               </div>
             </div>
@@ -141,7 +163,7 @@ function OrderTrackingContent() {
             {/* Realtime Order Progress Timeline */}
             <div className="mt-8">
               <h3 className="font-serif text-sm font-bold uppercase tracking-wider text-[#1F1F1F] mb-6">
-                Live Delivery Tracking
+                {t.orderConfirmation.timelineTitle}
               </h3>
 
               <div className="relative">
@@ -150,12 +172,12 @@ function OrderTrackingContent() {
                 <div
                   className="hidden sm:block absolute top-1/2 left-4 h-0.5 bg-[#B67355] -translate-y-1/2 z-0 transition-all duration-500"
                   style={{
-                    width: `${Math.max(0, (currentStep / (STATUS_STEPS.length - 1)) * 100)}%`,
+                    width: `${Math.max(0, (currentStep / (statusSteps.length - 1)) * 100)}%`,
                   }}
                 />
 
                 <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 relative z-10">
-                  {STATUS_STEPS.map((step, idx) => {
+                  {statusSteps.map((step, idx) => {
                     const isCompleted = idx <= currentStep;
                     const isCurrent = idx === currentStep;
 
@@ -163,7 +185,7 @@ function OrderTrackingContent() {
                       <div
                         key={step.status}
                         className={`flex sm:flex-col items-center sm:items-center gap-3 sm:gap-2 text-left sm:text-center p-3 sm:p-0 ${
-                          isCurrent ? 'bg-[#F6F3EE] sm:bg-transparent' : ''
+                          isCurrent ? 'bg-[#F6F3EE] sm:bg-transparent rounded' : ''
                         }`}
                       >
                         <div
@@ -198,11 +220,11 @@ function OrderTrackingContent() {
           {/* Order Info & Delivery Address Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Shipping & Contact */}
-            <div className="bg-white border border-[#E8E2D8] p-6 space-y-3">
+            <div className="bg-white border border-[#E8E2D8] p-6 space-y-3 rounded-xl">
               <div className="flex items-center gap-2 border-b border-[#E8E2D8] pb-3 mb-3">
                 <MapPin className="w-4 h-4 text-[#B67355]" />
                 <h4 className="font-serif text-sm font-bold text-[#1F1F1F]">
-                  Delivery Destination
+                  {t.orderConfirmation.deliveryDestination}
                 </h4>
               </div>
               <div className="text-xs font-sans text-[#1F1F1F] space-y-1">
@@ -210,106 +232,95 @@ function OrderTrackingContent() {
                 <p className="text-[#8E8A85]">
                   {order.customerDetails?.address}, {order.customerDetails?.city}
                 </p>
-                <p className="text-[#8E8A85]">{order.customerDetails?.governorate}, Egypt</p>
+                <p className="text-[#8E8A85]">{order.customerDetails?.governorate}</p>
                 <p className="pt-1 flex items-center gap-1.5 font-medium text-[#1F1F1F]">
                   <Phone className="w-3.5 h-3.5 text-[#B67355]" />
-                  <span>{order.customerDetails?.phone}</span>
+                  <span dir="ltr">{order.customerDetails?.phone}</span>
                 </p>
                 {order.customerDetails?.notes && (
-                  <p className="pt-2 text-[11px] text-[#B67355] italic bg-[#F6F3EE] p-2 border border-[#E8E2D8]">
-                    Note: {order.customerDetails?.notes}
+                  <p className="pt-2 text-[11px] text-[#B67355] italic bg-[#F6F3EE] p-2 border border-[#E8E2D8] rounded">
+                    {isArabic ? 'ملاحظات:' : 'Note:'} {order.customerDetails?.notes}
                   </p>
                 )}
               </div>
             </div>
 
             {/* Payment Breakdown */}
-            <div className="bg-white border border-[#E8E2D8] p-6 space-y-3">
+            <div className="bg-white border border-[#E8E2D8] p-6 space-y-3 rounded-xl">
               <div className="flex items-center gap-2 border-b border-[#E8E2D8] pb-3 mb-3">
                 <ShoppingBag className="w-4 h-4 text-[#B67355]" />
                 <h4 className="font-serif text-sm font-bold text-[#1F1F1F]">
-                  Payment & COD Total
+                  {t.orderConfirmation.paymentSummary}
                 </h4>
               </div>
               <div className="text-xs font-sans space-y-2 text-[#8E8A85]">
                 <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span className="text-[#1F1F1F] font-semibold">
+                  <span>{t.cart.subtotal}:</span>
+                  <span className="text-[#1F1F1F] font-semibold font-mono">
                     EGP {order.subtotal?.toFixed(2)}
                   </span>
                 </div>
+                {order.discountAmount ? (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>{t.cart.autoDiscount}:</span>
+                    <span className="font-mono font-bold">-EGP {order.discountAmount.toFixed(2)}</span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between">
-                  <span>Shipping (Egypt):</span>
+                  <span>{t.checkout.shippingFee}:</span>
                   <span className="text-[#1F1F1F] font-semibold">
-                    {order.shippingFee === 0 ? 'Free' : `EGP ${order.shippingFee?.toFixed(2)}`}
+                    {order.shippingFee === 0 ? t.checkout.free : `EGP ${order.shippingFee?.toFixed(2)}`}
                   </span>
                 </div>
                 <div className="border-t border-[#E8E2D8] pt-2 flex justify-between text-sm font-bold text-[#1F1F1F]">
-                  <span className="font-serif">Cash on Delivery Due:</span>
+                  <span className="font-serif">{t.orderConfirmation.codDue}:</span>
                   <span className="font-serif text-base text-[#B67355]">
                     EGP {order.totalAmount?.toFixed(2)}
                   </span>
-                </div>
-                <div className="p-2 bg-[#F6F3EE] border border-[#E8E2D8] text-[11px] text-[#1F1F1F] flex items-center gap-2">
-                  <Clock className="w-3.5 h-3.5 text-[#B67355]" />
-                  <span>Please keep exact cash ready upon courier arrival.</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Items in Order */}
-          <div className="bg-white border border-[#E8E2D8] p-6 sm:p-8">
-            <h4 className="font-serif text-base font-bold text-[#1F1F1F] border-b border-[#E8E2D8] pb-4 mb-4">
-              Items in Package ({order.items?.length})
+          {/* Items In Order */}
+          <div className="bg-white border border-[#E8E2D8] p-6 shadow-sm rounded-xl">
+            <h4 className="font-serif text-sm font-bold uppercase tracking-wider text-[#1F1F1F] mb-4 border-b border-[#E8E2D8] pb-3">
+              {t.orderConfirmation.itemsOrdered} ({order.items?.length || 0})
             </h4>
 
-            <div className="divide-y divide-[#E8E2D8]/60">
-              {order.items?.map((item, i) => (
-                <div key={i} className="py-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="relative w-14 h-16 bg-[#F6F3EE] border border-[#E8E2D8] overflow-hidden shrink-0">
-                      <Image
-                        src={item.imageUrl || ''}
-                        alt={item.name}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div>
-                      <h5 className="font-serif text-sm font-semibold text-[#1F1F1F]">
+            <div className="divide-y divide-[#E8E2D8]">
+              {order.items?.map((item, idx) => (
+                <div key={idx} className="py-4 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {item.imageUrl && (
+                      <div className="relative w-14 h-16 bg-[#F6F3EE] shrink-0 border border-[#E8E2D8] overflow-hidden rounded">
+                        <Image
+                          src={item.imageUrl}
+                          alt={item.name}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <h5 className="font-serif text-xs font-semibold text-[#1F1F1F] truncate">
                         {item.name}
                       </h5>
-                      <div className="flex items-center gap-2 text-xs text-[#8E8A85] font-sans mt-0.5">
-                        <span className="flex items-center gap-1">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full border"
-                            style={{ backgroundColor: item.selectedColor?.hex }}
-                          />
-                          {item.selectedColor?.name}
-                        </span>
-                        <span>•</span>
-                        <span>Size: {item.selectedSize}</span>
-                        <span>•</span>
-                        <span>Qty: {item.quantity}</span>
-                      </div>
+                      <p className="text-[10px] text-[#8E8A85] font-sans">
+                        {item.selectedColor?.name} • {t.product.selectSize}: {item.selectedSize} • {t.product.quantity}: {item.quantity}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <span className="font-serif text-sm font-bold text-[#1F1F1F]">
-                      EGP {(item.price * item.quantity).toFixed(2)}
-                    </span>
-                    <p className="text-[10px] text-[#8E8A85] font-sans">
-                      EGP {item.price.toFixed(2)} each
-                    </p>
-                  </div>
+                  <span className="font-serif text-xs font-bold text-[#1F1F1F] shrink-0">
+                    EGP {(item.price * item.quantity).toFixed(2)}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Printable Invoice Container (Activates upon Print) */}
+          {/* Printable Invoice Hidden Component */}
           <div className="hidden print:block">
             <PrintableInvoice order={order} />
           </div>
@@ -319,15 +330,15 @@ function OrderTrackingContent() {
   );
 }
 
-export default function OrderTrackingPage() {
+export default function OrderPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F3EE]">
       <Navbar />
       <main className="flex-grow py-12">
         <Suspense
           fallback={
-            <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-              <div className="w-10 h-10 border-2 border-[#1F1F1F] border-t-[#DCC9A6] rounded-full animate-spin mx-auto" />
+            <div className="flex justify-center py-20">
+              <div className="w-10 h-10 border-2 border-[#1F1F1F] border-t-[#DCC9A6] rounded-full animate-spin" />
             </div>
           }
         >

@@ -9,6 +9,7 @@ import {
   ShoppingBag,
   ShieldCheck,
   ChevronRight,
+  ChevronLeft,
   Plus,
   Minus,
   Truck,
@@ -24,6 +25,7 @@ import { Product, ProductColor } from '@/types';
 import { getProductById, getProducts } from '@/lib/productService';
 import { getActiveFlashDealForProduct } from '@/lib/discountService';
 import { useCart } from '@/context/CartContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -41,6 +43,8 @@ export default function ProductDetailPage() {
   const [fallbackEndTime] = useState(() => new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString());
 
   const { addToCart, toggleWishlist, isWishlisted, discounts } = useCart();
+  const { t, isArabic } = useLanguage();
+  const ChevronIcon = isArabic ? ChevronLeft : ChevronRight;
 
   useEffect(() => {
     async function load() {
@@ -81,16 +85,18 @@ export default function ProductDetailPage() {
         <Navbar />
         <div className="max-w-xl mx-auto px-4 py-24 text-center flex-grow">
           <h2 className="font-serif text-2xl font-bold text-[#1F1F1F] mb-3">
-            Product Not Found
+            {isArabic ? 'المنتج غير متوفر' : 'Product Not Found'}
           </h2>
           <p className="text-xs text-[#8E8A85] font-sans mb-6">
-            The piece you are looking for may have been archived or removed from the catalog.
+            {isArabic
+              ? 'القطعة التي تبحثين عنها قد تم أرشفتها أو لم تعد متوفرة في التشكيلة الحالية.'
+              : 'The piece you are looking for may have been archived or removed from the catalog.'}
           </p>
           <Link
             href="/collections"
             className="bg-[#1F1F1F] text-[#DCC9A6] px-8 py-3 text-xs uppercase tracking-widest font-sans inline-block"
           >
-            Return to Collections
+            {t.cart.explorePieces}
           </Link>
         </div>
         <Footer />
@@ -108,7 +114,8 @@ export default function ProductDetailPage() {
   const countdownEndTime =
     flashDeal?.endTime || (product.discountPrice ? fallbackEndTime : null);
   const countdownTitle =
-    flashDeal?.title || `⚡ Special Offer: Limited Time Price on ${product.name}`;
+    (isArabic && flashDeal?.titleArabic ? flashDeal.titleArabic : flashDeal?.title) ||
+    (isArabic ? `عرض خاص لفترة محدودة على ${product.name}` : `⚡ Special Offer: Limited Time Price on ${product.name}`);
   const discountBadge = flashDeal
     ? flashDeal.type === 'percentage'
       ? `${flashDeal.value}% OFF`
@@ -161,20 +168,20 @@ export default function ProductDetailPage() {
           {/* Breadcrumb Navigation */}
           <nav className="flex items-center gap-2 text-xs font-sans text-[#8E8A85] mb-8">
             <Link href="/" className="hover:text-[#1F1F1F] transition-colors">
-              Home
+              {t.nav.home}
             </Link>
-            <ChevronRight className="w-3 h-3" />
+            <ChevronIcon className="w-3 h-3" />
             <Link href="/collections" className="hover:text-[#1F1F1F] transition-colors">
-              Collections
+              {t.nav.collections}
             </Link>
-            <ChevronRight className="w-3 h-3" />
+            <ChevronIcon className="w-3 h-3" />
             <Link
               href={`/collections/${product.category}`}
               className="hover:text-[#1F1F1F] uppercase transition-colors"
             >
               {product.category}
             </Link>
-            <ChevronRight className="w-3 h-3" />
+            <ChevronIcon className="w-3 h-3" />
             <span className="text-[#1F1F1F] font-medium truncate max-w-[200px]">
               {product.name}
             </span>
@@ -186,7 +193,7 @@ export default function ProductDetailPage() {
             {/* Left: Gallery (7 Cols) */}
             <div className="lg:col-span-7 space-y-4">
               {/* Main Image Display */}
-              <div className="relative aspect-[3/4] w-full bg-white border border-[#E8E2D8] overflow-hidden shadow-sm">
+              <div className="relative aspect-[3/4] w-full bg-white border border-[#E8E2D8] overflow-hidden shadow-sm rounded-sm">
                 <Image
                   src={mainImage}
                   alt={product.name}
@@ -198,17 +205,17 @@ export default function ProductDetailPage() {
                 {/* Floating Tags */}
                 <div className="absolute top-4 left-4 flex flex-col gap-1.5">
                   {flashDeal ? (
-                    <span className="bg-[#B67355] text-white text-[10px] font-sans font-bold uppercase tracking-widest px-3 py-1 shadow-md flex items-center gap-1.5">
+                    <span className="bg-[#B67355] text-white text-[10px] font-sans font-bold uppercase tracking-widest px-3 py-1 shadow-md flex items-center gap-1.5 rounded-sm">
                       <Zap className="w-3.5 h-3.5 fill-current animate-pulse" />
                       <span>{flashDeal.type === 'percentage' ? `${flashDeal.value}% FLASH DEAL` : `EGP ${flashDeal.value} OFF`}</span>
                     </span>
                   ) : product.discountPrice ? (
-                    <span className="bg-[#B67355] text-white text-[10px] font-sans font-bold uppercase tracking-widest px-3 py-1 shadow-md">
-                      Special Offer
+                    <span className="bg-[#B67355] text-white text-[10px] font-sans font-bold uppercase tracking-widest px-3 py-1 shadow-md rounded-sm">
+                      {t.product.sale}
                     </span>
                   ) : product.isNewArrival ? (
-                    <span className="bg-[#1F1F1F] text-[#DCC9A6] text-[10px] font-sans font-semibold uppercase tracking-widest px-3 py-1 shadow-md">
-                      New Arrival
+                    <span className="bg-[#1F1F1F] text-[#DCC9A6] text-[10px] font-sans font-semibold uppercase tracking-widest px-3 py-1 shadow-md rounded-sm">
+                      {t.product.newIn}
                     </span>
                   ) : null}
                 </div>
@@ -233,7 +240,7 @@ export default function ProductDetailPage() {
                     <button
                       key={idx}
                       onClick={() => setSelectedImageIndex(idx)}
-                      className={`relative w-20 aspect-[3/4] shrink-0 border-2 overflow-hidden transition-all ${
+                      className={`relative w-20 aspect-[3/4] shrink-0 border-2 overflow-hidden transition-all rounded-sm ${
                         selectedImageIndex === idx
                           ? 'border-[#B67355] opacity-100 shadow-md'
                           : 'border-[#E8E2D8] opacity-70 hover:opacity-100'
@@ -260,10 +267,10 @@ export default function ProductDetailPage() {
                   {product.stockQuantity > 0 ? (
                     <span className="text-emerald-700 font-semibold flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      In Stock ({product.stockQuantity} pieces)
+                      {t.product.inStock} ({product.stockQuantity} {isArabic ? 'قطعة' : 'pieces'})
                     </span>
                   ) : (
-                    <span className="text-red-600 font-semibold">Out of Stock</span>
+                    <span className="text-red-600 font-semibold">{t.product.outOfStock}</span>
                   )}
                 </div>
 
@@ -282,8 +289,8 @@ export default function ProductDetailPage() {
                       <span className="font-sans text-base text-[#8E8A85] line-through">
                         EGP {product.price.toFixed(2)}
                       </span>
-                      <span className="text-xs bg-[#EDE3CF] text-[#B67355] px-2 py-0.5 font-sans font-semibold">
-                        Save EGP {savingsAmount.toFixed(0)}
+                      <span className="text-xs bg-[#EDE3CF] text-[#B67355] px-2 py-0.5 font-sans font-semibold rounded">
+                        {t.product.save} EGP {savingsAmount.toFixed(0)}
                       </span>
                     </>
                   ) : (
@@ -314,9 +321,9 @@ export default function ProductDetailPage() {
                   <div className="mt-6 pt-6 border-t border-[#E8E2D8]">
                     <div className="flex justify-between items-center mb-2.5">
                       <label className="text-xs font-sans uppercase tracking-wider font-semibold text-[#1F1F1F]">
-                        Color:{' '}
+                        {t.product.selectColor}:{' '}
                         <span className="font-normal text-[#8E8A85]">
-                          {selectedColor?.name || 'Select a color'}
+                          {selectedColor?.name || (isArabic ? 'اختاري اللون' : 'Select a color')}
                         </span>
                       </label>
                     </div>
@@ -325,7 +332,7 @@ export default function ProductDetailPage() {
                         <button
                           key={c.name}
                           onClick={() => setSelectedColor(c)}
-                          className={`flex items-center gap-2 px-3 py-1.5 border text-xs font-sans transition-all ${
+                          className={`flex items-center gap-2 px-3 py-1.5 border text-xs font-sans transition-all rounded ${
                             selectedColor?.name === c.name
                               ? 'border-[#B67355] bg-white shadow-sm ring-1 ring-[#B67355]'
                               : 'border-[#E8E2D8] bg-white hover:border-[#8E8A85]'
@@ -347,9 +354,9 @@ export default function ProductDetailPage() {
                   <div className="mt-5">
                     <div className="flex justify-between items-center mb-2.5">
                       <label className="text-xs font-sans uppercase tracking-wider font-semibold text-[#1F1F1F]">
-                        Size:{' '}
+                        {t.product.selectSize}:{' '}
                         <span className="font-normal text-[#8E8A85]">
-                          {selectedSize || 'Select a size'}
+                          {selectedSize || (isArabic ? 'اختاري المقاس' : 'Select a size')}
                         </span>
                       </label>
                     </div>
@@ -358,7 +365,7 @@ export default function ProductDetailPage() {
                         <button
                           key={s}
                           onClick={() => setSelectedSize(s)}
-                          className={`px-4 py-2 text-xs font-sans font-medium uppercase tracking-wider transition-all ${
+                          className={`px-4 py-2 text-xs font-sans font-medium uppercase tracking-wider transition-all rounded ${
                             selectedSize === s
                               ? 'bg-[#1F1F1F] text-[#DCC9A6] border border-[#1F1F1F] shadow-sm'
                               : 'bg-white text-[#1F1F1F] border border-[#E8E2D8] hover:border-[#B67355]'
@@ -375,7 +382,7 @@ export default function ProductDetailPage() {
                 <div className="mt-8 pt-6 border-t border-[#E8E2D8] space-y-4">
                   <div className="flex items-center gap-4">
                     {/* Quantity Counter */}
-                    <div className="flex items-center border border-[#E8E2D8] bg-white">
+                    <div className="flex items-center border border-[#E8E2D8] bg-white rounded">
                       <button
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
                         className="p-3 text-[#1F1F1F] hover:bg-[#F6F3EE] transition-colors"
@@ -401,11 +408,11 @@ export default function ProductDetailPage() {
                     <button
                       onClick={handleAddToCart}
                       disabled={product.stockQuantity === 0}
-                      className="flex-1 bg-[#1F1F1F] text-[#DCC9A6] py-3.5 px-6 text-xs uppercase tracking-[0.25em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-[#B67355] hover:text-white transition-all shadow-lg active:scale-[0.99] disabled:opacity-40"
+                      className="flex-1 bg-[#1F1F1F] text-[#DCC9A6] py-3.5 px-6 text-xs uppercase tracking-[0.2em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-[#B67355] hover:text-white transition-all shadow-lg active:scale-[0.99] disabled:opacity-40 rounded"
                     >
                       <ShoppingBag className="w-4 h-4" />
                       <span>
-                        {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Shopping Bag'}
+                        {product.stockQuantity === 0 ? t.product.outOfStock : t.product.addToCart}
                       </span>
                     </button>
                   </div>
@@ -414,20 +421,20 @@ export default function ProductDetailPage() {
                 {/* Value Guarantees */}
                 <div className="mt-6 grid grid-cols-2 gap-3 pt-6 border-t border-[#E8E2D8] text-xs font-sans text-[#8E8A85]">
                   <div className="flex items-center gap-2.5">
-                    <Truck className="w-4 h-4 text-[#B67355]" />
-                    <span>Doorstep COD Delivery</span>
+                    <Truck className="w-4 h-4 text-[#B67355] shrink-0" />
+                    <span>{t.product.guarantees.cod}</span>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <ShieldCheck className="w-4 h-4 text-[#B67355]" />
-                    <span>Inspection before paying</span>
+                    <ShieldCheck className="w-4 h-4 text-[#B67355] shrink-0" />
+                    <span>{t.product.guarantees.inspect}</span>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <RotateCcw className="w-4 h-4 text-[#B67355]" />
-                    <span>14-day exchange policy</span>
+                    <RotateCcw className="w-4 h-4 text-[#B67355] shrink-0" />
+                    <span>{t.product.guarantees.exchange}</span>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <Sparkles className="w-4 h-4 text-[#B67355]" />
-                    <span>Handcrafted in Egypt</span>
+                    <Sparkles className="w-4 h-4 text-[#B67355] shrink-0" />
+                    <span>{t.product.guarantees.egyptCraft}</span>
                   </div>
                 </div>
               </div>
@@ -437,13 +444,13 @@ export default function ProductDetailPage() {
                 <div className="flex border-b border-[#E8E2D8] text-xs font-sans uppercase tracking-wider font-semibold">
                   <button
                     onClick={() => setActiveTab('specs')}
-                    className={`pb-3 pr-6 transition-colors relative ${
+                    className={`pb-3 pr-6 rtl:pr-0 rtl:pl-6 transition-colors relative ${
                       activeTab === 'specs' ? 'text-[#B67355]' : 'text-[#8E8A85] hover:text-[#1F1F1F]'
                     }`}
                   >
-                    Fabric & Fit
+                    {t.product.tabs.fabricAndFit}
                     {activeTab === 'specs' && (
-                      <span className="absolute bottom-0 left-0 right-6 h-[2px] bg-[#B67355]" />
+                      <span className="absolute bottom-0 left-0 right-6 rtl:right-0 rtl:left-6 h-[2px] bg-[#B67355]" />
                     )}
                   </button>
                   <button
@@ -452,7 +459,7 @@ export default function ProductDetailPage() {
                       activeTab === 'shipping' ? 'text-[#B67355]' : 'text-[#8E8A85] hover:text-[#1F1F1F]'
                     }`}
                   >
-                    Delivery & COD
+                    {t.product.tabs.delivery}
                     {activeTab === 'shipping' && (
                       <span className="absolute bottom-0 left-6 right-6 h-[2px] bg-[#B67355]" />
                     )}
@@ -463,7 +470,7 @@ export default function ProductDetailPage() {
                       activeTab === 'wholesale' ? 'text-[#B67355]' : 'text-[#8E8A85] hover:text-[#1F1F1F]'
                     }`}
                   >
-                    Wholesale
+                    {t.product.tabs.wholesale}
                     {activeTab === 'wholesale' && (
                       <span className="absolute bottom-0 left-6 right-6 h-[2px] bg-[#B67355]" />
                     )}
@@ -474,20 +481,20 @@ export default function ProductDetailPage() {
                   {activeTab === 'specs' && (
                     <div className="space-y-1.5">
                       <p>
-                        <strong className="text-[#1F1F1F]">Fabric:</strong>{' '}
-                        {product.specs?.fabric || '100% Premium Organic Linen & Cotton Blend'}
+                        <strong className="text-[#1F1F1F]">{isArabic ? 'الخامة:' : 'Fabric:'}</strong>{' '}
+                        {product.specs?.fabric || (isArabic ? 'كتان فرنسي طبيعي 100% مع معالجة فاخرة' : '100% Premium Organic Linen & Cotton Blend')}
                       </p>
                       <p>
-                        <strong className="text-[#1F1F1F]">Fit:</strong>{' '}
-                        {product.specs?.fit || 'Relaxed Tailored Silhouette'}
+                        <strong className="text-[#1F1F1F]">{isArabic ? 'القصّة:' : 'Fit:'}</strong>{' '}
+                        {product.specs?.fit || (isArabic ? 'قصّة عصرية مريحة وأنيقة' : 'Relaxed Tailored Silhouette')}
                       </p>
                       <p>
-                        <strong className="text-[#1F1F1F]">Care:</strong>{' '}
-                        {product.specs?.care || 'Dry clean or gentle hand wash cold. Do not tumble dry.'}
+                        <strong className="text-[#1F1F1F]">{isArabic ? 'العناية بالقطعة:' : 'Care:'}</strong>{' '}
+                        {product.specs?.care || (isArabic ? 'تنظيف جاف أو غسيل يدوي بماء بارد' : 'Dry clean or gentle hand wash cold. Do not tumble dry.')}
                       </p>
                       {product.specs?.origin && (
                         <p>
-                          <strong className="text-[#1F1F1F]">Origin:</strong> {product.specs.origin}
+                          <strong className="text-[#1F1F1F]">{isArabic ? 'بلد الصنع:' : 'Origin:'}</strong> {product.specs.origin}
                         </p>
                       )}
                     </div>
@@ -496,16 +503,19 @@ export default function ProductDetailPage() {
                   {activeTab === 'shipping' && (
                     <div className="space-y-1.5">
                       <p>
-                        <strong className="text-[#1F1F1F]">Cairo & Giza:</strong> Delivered within 24–48 hours (EGP 50).
+                        <strong className="text-[#1F1F1F]">{isArabic ? 'القاهرة والجيزة:' : 'Cairo & Giza:'}</strong>{' '}
+                        {isArabic ? 'توصيل خلال 24–48 ساعة (50 ج.م).' : 'Delivered within 24–48 hours (EGP 50).'}
                       </p>
                       <p>
-                        <strong className="text-[#1F1F1F]">Alexandria & Delta:</strong> 2–3 business days (EGP 65).
+                        <strong className="text-[#1F1F1F]">{isArabic ? 'الإسكندرية ومحافظات الدلتا:' : 'Alexandria & Delta:'}</strong>{' '}
+                        {isArabic ? 'توصيل خلال 2–3 أيام عمل (65 ج.م).' : '2–3 business days (EGP 65).'}
                       </p>
                       <p>
-                        <strong className="text-[#1F1F1F]">Upper Egypt & Coast:</strong> 3–4 business days (EGP 80).
+                        <strong className="text-[#1F1F1F]">{isArabic ? 'الصعيد والقناة والساحل:' : 'Upper Egypt & Coast:'}</strong>{' '}
+                        {isArabic ? 'توصيل خلال 3–4 أيام عمل (80 ج.م).' : '3–4 business days (EGP 80).'}
                       </p>
                       <p className="text-emerald-700 font-medium">
-                        * Free shipping across Egypt for orders over EGP 1,500.
+                        {isArabic ? '* شحن مجاني لكافة محافظات مصر للطلبات التي تتجاوز 1,500 ج.م.' : '* Free shipping across Egypt for orders over EGP 1,500.'}
                       </p>
                     </div>
                   )}
@@ -513,16 +523,20 @@ export default function ProductDetailPage() {
                   {activeTab === 'wholesale' && (
                     <div className="space-y-2">
                       <p>
-                        Looking to stock ARMIA Boutique collections in your store or boutique?
+                        {isArabic
+                          ? 'هل ترغبين في تزويد بوتيكك أو متجرك بأحدث تشكيلات أرميا بوتيك؟'
+                          : 'Looking to stock ARMIA Boutique collections in your store or boutique?'}
                       </p>
                       <p>
-                        We offer specialized wholesale pricing for orders of 10+ pieces across Egypt and the Gulf.
+                        {isArabic
+                          ? 'نوفر أسعار جملة حصرية للطلبات التي تزيد عن 10 قطع في مصر والخليج العربي.'
+                          : 'We offer specialized wholesale pricing for orders of 10+ pieces across Egypt and the Gulf.'}
                       </p>
                       <Link
                         href="/contact"
                         className="inline-block text-[#B67355] font-semibold underline underline-offset-4"
                       >
-                        Contact our wholesale concierge →
+                        {isArabic ? 'تواصلي مع فريق خدمة الجملة ←' : 'Contact our wholesale concierge →'}
                       </Link>
                     </div>
                   )}
@@ -536,10 +550,10 @@ export default function ProductDetailPage() {
             <div className="mt-20 pt-12 border-t border-[#E8E2D8]">
               <div className="text-center max-w-xl mx-auto mb-10">
                 <span className="text-[11px] font-sans font-semibold tracking-[0.25em] text-[#B67355] uppercase block mb-1">
-                  Complete Your Look
+                  {t.product.relatedSubtitle}
                 </span>
                 <h2 className="font-serif text-2xl font-bold tracking-tight text-[#1F1F1F]">
-                  YOU MAY ALSO ADORE
+                  {t.product.relatedTitle}
                 </h2>
                 <div className="w-12 h-[1px] bg-[#DCC9A6] mx-auto mt-2" />
               </div>

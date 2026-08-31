@@ -9,10 +9,10 @@ import {
   Truck,
   Lock,
   ArrowRight,
+  ArrowLeft,
   AlertCircle,
   UserCheck,
   ShoppingBag,
-  ArrowLeft,
   Sparkles,
   Ticket,
   X,
@@ -21,6 +21,7 @@ import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { useToast } from '@/context/ToastContext';
 import { createOrderInFirestore, generateOrderId } from '@/lib/productService';
 import {
@@ -45,8 +46,12 @@ export default function CheckoutPage() {
   } = useCart();
 
   const { user, loginWithGoogle, loginWithEmail, signupWithEmail } = useAuth();
+  const { t, isArabic } = useLanguage();
   const { success, error } = useToast();
   const mounted = useIsMounted();
+
+  const ArrowIcon = isArabic ? ArrowLeft : ArrowRight;
+  const BackIcon = isArabic ? ArrowRight : ArrowLeft;
 
   const [shippingSettings, setShippingSettings] = useState<ShippingSettings>(DEFAULT_SHIPPING_SETTINGS);
   const [couponInput, setCouponInput] = useState('');
@@ -98,56 +103,57 @@ export default function CheckoutPage() {
   // Total Due calculation (Subtotal - Discount + Shipping)
   const dynamicTotalAmount = Math.max(0, subtotal - discountAmount) + dynamicShippingFee;
 
-  const handleCouponSubmit = (e: React.FormEvent) => {
+  const handleCouponSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!couponInput.trim()) return;
+
     setApplyingCoupon(true);
-    const res = applyCoupon(couponInput);
-    if (res.success) {
-      setCouponInput('');
-    }
+    const result = await applyCoupon(couponInput.trim());
     setApplyingCoupon(false);
+
+    if (result.success) {
+      success(result.message, isArabic ? 'تم تطبيق الخصم' : 'Coupon Applied');
+      setCouponInput('');
+    } else {
+      error(result.message, isArabic ? 'خطأ في الكوبون' : 'Invalid Code');
+    }
   };
 
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError('');
-    setAuthLoading(true);
-
+  const handleGoogleSignIn = async () => {
     try {
-      if (authMode === 'signin') {
-        await loginWithEmail(authEmail.trim(), authPassword);
-        success('Signed in successfully', 'Welcome');
-      } else {
-        if (!authName.trim()) throw new Error('Please enter your full name');
-        await signupWithEmail(authEmail.trim(), authPassword, authName.trim());
-        success('Account created successfully', 'Welcome');
-      }
+      setAuthLoading(true);
+      setAuthError('');
+      await loginWithGoogle();
+      success(isArabic ? 'تم تسجيل الدخول بنجاح' : 'Signed in successfully with Google!');
     } catch (err: unknown) {
       console.error(err);
-      const authErr = err as { code?: string; message?: string };
-      let msg = authErr.message || 'Authentication error';
-      if (authErr.code === 'auth/invalid-credential') msg = 'Invalid email or password.';
-      if (authErr.code === 'auth/email-already-in-use') msg = 'Email already registered. Please sign in.';
-      setAuthError(msg);
-      error(msg);
+      setAuthError(isArabic ? 'فشل تسجيل الدخول عبر Google' : 'Google sign-in failed. Please try again.');
     } finally {
       setAuthLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setAuthError('');
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setAuthLoading(true);
+    setAuthError('');
+
     try {
-      await loginWithGoogle();
-      success('Signed in with Google', 'Welcome');
+      if (authMode === 'signup') {
+        if (!authName.trim()) {
+          setAuthError(isArabic ? 'الاسم مطلوب' : 'Full name is required');
+          setAuthLoading(false);
+          return;
+        }
+        await signupWithEmail(authEmail, authPassword, authName.trim());
+        success(isArabic ? 'تم إنشاء الحساب بنجاح!' : 'Account created successfully!');
+      } else {
+        await loginWithEmail(authEmail, authPassword);
+        success(isArabic ? 'تم تسجيل الدخول بنجاح!' : 'Signed in successfully!');
+      }
     } catch (err: unknown) {
       console.error(err);
-      const authErr = err as { code?: string; message?: string };
-      if (authErr.code !== 'auth/popup-closed-by-user') {
-        setAuthError(authErr.message || 'Google sign-in error');
-      }
+      setAuthError((err as Error).message || (isArabic ? 'فشل التحقق من البيانات' : 'Authentication failed. Please check credentials.'));
     } finally {
       setAuthLoading(false);
     }
@@ -157,24 +163,27 @@ export default function CheckoutPage() {
     e.preventDefault();
 
     if (!user) {
-      error('Please sign in or create an account to place your order', 'Authentication Required');
+      error(isArabic ? 'يرجى تسجيل الدخول أولاً' : 'Please sign in or create an account to place your order.');
       return;
     }
 
-    if (items.length === 0) {
-      error('Your shopping bag is empty', 'Empty Bag');
+    if (!effectiveFullName.trim()) {
+      error(isArabic ? 'الاسم الكامل مطلوب' : 'Full Name is required.');
       return;
     }
 
-    // Egyptian phone validation
-    const cleanedPhone = formData.phone.replace(/\s+/g, '');
-    if (!/^01[0125][0-9]{8}$/.test(cleanedPhone)) {
-      error('Please enter a valid 11-digit Egyptian phone number (e.g. 01012345678)', 'Invalid Phone');
+    if (!formData.phone.trim()) {
+      error(isArabic ? 'رقم الهاتف مطلوب للتوصيل' : 'Primary phone number is required for courier delivery.');
       return;
     }
 
-    if (!formData.city.trim() || !formData.address.trim()) {
-      error('Please fill in complete street, building, and apartment address', 'Address Required');
+    if (!formData.city.trim()) {
+      error(isArabic ? 'يرجى تحديد المدينة أو المنطقة' : 'City / District is required for courier delivery.');
+      return;
+    }
+
+    if (!formData.address.trim()) {
+      error(isArabic ? 'يرجى كتابة العنوان بالتفصيل' : 'Detailed street address is required.');
       return;
     }
 
@@ -183,20 +192,32 @@ export default function CheckoutPage() {
     try {
       const generatedOrderId = generateOrderId();
 
-      const orderPayload: Omit<Order, 'id'> = {
+      const orderPayload: Order = {
         orderId: generatedOrderId,
         customerUid: user.uid,
         customerDetails: {
-          ...formData,
-          fullName: effectiveFullName,
-          email: effectiveEmail,
-          phone: cleanedPhone,
+          fullName: effectiveFullName.trim(),
+          email: effectiveEmail.trim() || user.email || 'client@armiaboutique.com',
+          phone: formData.phone.trim(),
+          alternatePhone: formData.alternatePhone?.trim() || '',
+          governorate: formData.governorate,
+          city: formData.city.trim(),
+          address: formData.address.trim(),
+          notes: formData.notes?.trim() || '',
         },
-        items,
+        items: items.map((it) => ({
+          productId: it.productId,
+          name: it.name,
+          price: it.price,
+          quantity: it.quantity,
+          selectedColor: it.selectedColor,
+          selectedSize: it.selectedSize,
+          imageUrl: it.imageUrl,
+          category: it.category,
+        })),
         subtotal,
-        discountAmount: discountAmount > 0 ? discountAmount : undefined,
-        discountCode: appliedDiscount?.code || (discountAmount > 0 ? 'AUTO_PROMO' : undefined),
-        discountTitle: appliedDiscount?.title,
+        discountAmount: discountAmount || 0,
+        appliedDiscount: appliedDiscount || undefined,
         shippingFee: dynamicShippingFee,
         totalAmount: dynamicTotalAmount,
         paymentMethod: 'COD',
@@ -215,11 +236,11 @@ export default function CheckoutPage() {
       });
 
       clearCart();
-      success('Your order has been placed successfully!', 'Order Confirmed');
+      success(isArabic ? 'تم تأكيد طلبك بنجاح!' : 'Your order has been placed successfully!', isArabic ? 'تم الطلب' : 'Order Confirmed');
       router.push(`/order/${docId}?orderId=${generatedOrderId}`);
     } catch (err: unknown) {
       console.error('Order placement failed:', err);
-      error('Failed to submit order. Please try again or contact support.');
+      error(isArabic ? 'حدث خطأ في تسجيل الطلب، يرجى المحاولة مرة أخرى' : 'Failed to submit order. Please try again or contact support.');
     } finally {
       setPlacingOrder(false);
     }
@@ -232,7 +253,7 @@ export default function CheckoutPage() {
         <div className="max-w-md mx-auto my-28 p-8 text-center flex-grow">
           <div className="w-10 h-10 border-2 border-[#B67355] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-xs font-sans tracking-widest text-[#8E8A85] uppercase">
-            Loading Checkout...
+            {isArabic ? 'جاري التحميل...' : 'Loading Checkout...'}
           </p>
         </div>
         <Footer />
@@ -247,16 +268,16 @@ export default function CheckoutPage() {
         <div className="max-w-md mx-auto my-20 p-8 bg-white border border-[#E8E2D8] text-center flex-grow">
           <ShoppingBag className="w-12 h-12 text-[#8E8A85] mx-auto mb-3" />
           <h2 className="font-serif text-xl font-bold text-[#1F1F1F] mb-1">
-            Your shopping bag is empty
+            {t.cart.emptyTitle}
           </h2>
           <p className="text-xs text-[#8E8A85] font-sans mb-6">
-            Add your desired pieces from our boutique catalog before proceeding to checkout.
+            {t.cart.emptySubtitle}
           </p>
           <Link
             href="/collections"
             className="inline-block bg-[#1F1F1F] text-[#DCC9A6] px-8 py-3 text-xs uppercase tracking-widest font-sans font-bold hover:bg-[#B67355] transition-colors"
           >
-            Explore Collections
+            {t.cart.explorePieces}
           </Link>
         </div>
         <Footer />
@@ -278,14 +299,14 @@ export default function CheckoutPage() {
               href="/collections"
               className="inline-flex items-center gap-2 text-xs font-sans uppercase tracking-wider text-[#8E8A85] hover:text-[#B67355] transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to shopping</span>
+              <BackIcon className="w-4 h-4" />
+              <span>{t.checkout.backToCart}</span>
             </Link>
             <h1 className="font-serif text-3xl font-bold text-[#1F1F1F] mt-3">
-              CHECKOUT & ORDER
+              {t.checkout.title}
             </h1>
             <p className="text-xs text-[#8E8A85] font-sans mt-1">
-              Cash on Delivery (COD) across Egypt. Inspect your order before paying courier.
+              {t.checkout.subtitle}
             </p>
           </div>
 
@@ -296,17 +317,19 @@ export default function CheckoutPage() {
               
               {/* CHECKOUT GUARD: If User is Not Authenticated */}
               {!user ? (
-                <div className="bg-white border-2 border-[#DCC9A6] p-6 sm:p-8 shadow-sm">
+                <div className="bg-white border-2 border-[#DCC9A6] p-6 sm:p-8 shadow-sm rounded-xl">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-[#EDE3CF] flex items-center justify-center text-[#B67355]">
                       <Lock className="w-5 h-5" />
                     </div>
                     <div>
                       <h3 className="font-serif text-lg font-bold text-[#1F1F1F]">
-                        Sign In to Complete Your Order
+                        {isArabic ? 'تسجيل الدخول لإتمام طلبك' : 'Sign In to Complete Your Order'}
                       </h3>
                       <p className="text-xs text-[#8E8A85] font-sans">
-                        Quick sign in saves your order tracking details to your account.
+                        {isArabic
+                          ? 'تسجيل الدخول يحفظ تفاصيل تتبع شحنتك وطلباتك السابقة في حسابك.'
+                          : 'Quick sign in saves your order tracking details to your account.'}
                       </p>
                     </div>
                   </div>
@@ -316,7 +339,7 @@ export default function CheckoutPage() {
                     type="button"
                     onClick={handleGoogleSignIn}
                     disabled={authLoading}
-                    className="w-full flex items-center justify-center gap-3 bg-white border border-[#E8E2D8] py-3 text-xs font-sans font-medium text-[#1F1F1F] hover:bg-[#FAF8F5] hover:border-[#DCC9A6] transition-all shadow-sm mb-4"
+                    className="w-full flex items-center justify-center gap-3 bg-white border border-[#E8E2D8] py-3 text-xs font-sans font-medium text-[#1F1F1F] hover:bg-[#FAF8F5] hover:border-[#DCC9A6] transition-all shadow-sm mb-4 rounded"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24">
                       <path
@@ -336,13 +359,13 @@ export default function CheckoutPage() {
                         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                       />
                     </svg>
-                    <span>Instant Google Sign In</span>
+                    <span>{isArabic ? 'تسجيل الدخول السريع عبر Google' : 'Instant Google Sign In'}</span>
                   </button>
 
                   <div className="flex items-center gap-3 my-4">
                     <div className="flex-1 h-[1px] bg-[#E8E2D8]" />
                     <span className="text-[10px] text-[#8E8A85] uppercase tracking-widest font-sans">
-                      or with email
+                      {isArabic ? 'أو بالبريد الإلكتروني' : 'or with email'}
                     </span>
                     <div className="flex-1 h-[1px] bg-[#E8E2D8]" />
                   </div>
@@ -359,14 +382,14 @@ export default function CheckoutPage() {
                     {authMode === 'signup' && (
                       <div>
                         <label className="block text-[11px] font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-medium">
-                          Full Name
+                          {t.checkout.fullName}
                         </label>
                         <input
                           type="text"
                           required
                           value={authName}
                           onChange={(e) => setAuthName(e.target.value)}
-                          placeholder="Mariam El-Sayed"
+                          placeholder={t.checkout.fullNamePlaceholder}
                           className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
                         />
                       </div>
@@ -374,21 +397,21 @@ export default function CheckoutPage() {
 
                     <div>
                       <label className="block text-[11px] font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-medium">
-                        Email Address
+                        {isArabic ? 'البريد الإلكتروني *' : 'Email Address *'}
                       </label>
                       <input
                         type="email"
                         required
                         value={authEmail}
                         onChange={(e) => setAuthEmail(e.target.value)}
-                        placeholder="client@domain.com"
+                        placeholder="name@example.com"
                         className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
                       />
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-medium">
-                        Password
+                        {isArabic ? 'كلمة المرور *' : 'Password *'}
                       </label>
                       <input
                         type="password"
@@ -396,7 +419,6 @@ export default function CheckoutPage() {
                         value={authPassword}
                         onChange={(e) => setAuthPassword(e.target.value)}
                         placeholder="••••••••"
-                        minLength={6}
                         className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
                       />
                     </div>
@@ -406,31 +428,37 @@ export default function CheckoutPage() {
                       disabled={authLoading}
                       className="w-full bg-[#1F1F1F] text-[#DCC9A6] py-3 text-xs uppercase tracking-[0.2em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-[#B67355] hover:text-white transition-all shadow-md mt-2 disabled:opacity-50"
                     >
-                      <span>{authLoading ? 'Signing in...' : authMode === 'signin' ? 'Sign In & Continue' : 'Create Account & Continue'}</span>
+                      <span>
+                        {authLoading
+                          ? t.checkout.processing
+                          : authMode === 'signin'
+                          ? isArabic ? 'تسجيل الدخول والمتابعة' : 'Sign In & Continue'
+                          : isArabic ? 'إنشاء الحساب والمتابعة' : 'Create Account & Continue'}
+                      </span>
                     </button>
                   </form>
 
                   <div className="mt-4 text-center text-xs font-sans text-[#8E8A85]">
                     {authMode === 'signin' ? (
                       <p>
-                        New customer?{' '}
+                        {isArabic ? 'عميل جديد؟ ' : 'New customer? '}
                         <button
                           type="button"
                           onClick={() => setAuthMode('signup')}
                           className="text-[#B67355] font-semibold underline underline-offset-4"
                         >
-                          Create account
+                          {isArabic ? 'إنشاء حساب جديد' : 'Create account'}
                         </button>
                       </p>
                     ) : (
                       <p>
-                        Already registered?{' '}
+                        {isArabic ? 'لديك حساب بالفعل؟ ' : 'Already registered? '}
                         <button
                           type="button"
                           onClick={() => setAuthMode('signin')}
                           className="text-[#B67355] font-semibold underline underline-offset-4"
                         >
-                          Sign in
+                          {isArabic ? 'تسجيل الدخول' : 'Sign in'}
                         </button>
                       </p>
                     )}
@@ -438,74 +466,78 @@ export default function CheckoutPage() {
                 </div>
               ) : (
                 /* Authenticated User Status */
-                <div className="bg-white border border-[#E8E2D8] p-4 flex items-center justify-between">
+                <div className="bg-white border border-[#E8E2D8] p-4 flex items-center justify-between rounded-xl">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
                       <UserCheck className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-xs font-sans text-[#8E8A85]">Ordering as:</p>
+                      <p className="text-xs font-sans text-[#8E8A85]">
+                        {isArabic ? 'تم الطلب بحساب:' : 'Ordering as:'}
+                      </p>
                       <p className="font-serif text-sm font-semibold text-[#1F1F1F]">
                         {user.displayName || user.email}
                       </p>
                     </div>
                   </div>
-                  <span className="text-[11px] font-sans text-emerald-700 bg-emerald-50 px-2.5 py-1 border border-emerald-200 font-semibold">
-                    ✓ Authenticated
+                  <span className="text-[11px] font-sans text-emerald-700 bg-emerald-50 px-2.5 py-1 border border-emerald-200 font-semibold rounded">
+                    {isArabic ? '✓ تم التحقق' : '✓ Authenticated'}
                   </span>
                 </div>
               )}
 
               {/* SHIPPING DETAILS FORM */}
-              <form id="checkout-form" onSubmit={handlePlaceOrder} className="bg-white border border-[#E8E2D8] p-6 sm:p-8 space-y-6">
+              <form id="checkout-form" onSubmit={handlePlaceOrder} className="bg-white border border-[#E8E2D8] p-6 sm:p-8 space-y-6 rounded-xl">
                 <div className="flex items-center gap-2 border-b border-[#E8E2D8] pb-4">
                   <Truck className="w-5 h-5 text-[#B67355]" />
                   <h3 className="font-serif text-lg font-bold text-[#1F1F1F]">
-                    Egyptian Shipping Address
+                    {t.checkout.customerInfo}
                   </h3>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
-                      Full Name *
+                      {t.checkout.fullName}
                     </label>
                     <input
                       type="text"
                       required
                       value={effectiveFullName}
                       onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                      placeholder="e.g. Farida Mahmoud"
+                      placeholder={t.checkout.fullNamePlaceholder}
                       className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
-                      Primary Phone Number (Egypt) *
+                      {t.checkout.phone}
                     </label>
                     <input
                       type="tel"
                       required
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="01012345678"
+                      placeholder={t.checkout.phonePlaceholder}
+                      dir="ltr"
                       className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
                     />
                     <span className="text-[10px] text-[#8E8A85] font-sans mt-0.5 block">
-                      Required for courier delivery coordination
+                      {isArabic ? 'ضروري لتنسيق وتأكيد موعد التوصيل' : 'Required for courier delivery coordination'}
                     </span>
                   </div>
 
                   <div>
                     <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
-                      Secondary Phone (Optional)
+                      {t.checkout.alternatePhone}
                     </label>
                     <input
                       type="tel"
                       value={formData.alternatePhone}
                       onChange={(e) => setFormData({ ...formData, alternatePhone: e.target.value })}
-                      placeholder="01187654321"
+                      placeholder={t.checkout.alternatePhonePlaceholder}
+                      dir="ltr"
                       className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
                     />
                   </div>
@@ -513,10 +545,10 @@ export default function CheckoutPage() {
                   <div className="sm:col-span-2">
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] font-semibold">
-                        Governorate / City *
+                        {t.checkout.governorate}
                       </label>
                       <span className="text-[11px] text-[#B67355] font-semibold">
-                        Delivery Rate: {dynamicShippingFee === 0 ? 'FREE' : `EGP ${dynamicShippingFee.toFixed(2)}`}
+                        {t.checkout.shippingFee}: {dynamicShippingFee === 0 ? t.checkout.free : `EGP ${dynamicShippingFee.toFixed(2)}`}
                       </span>
                     </div>
                     <select
@@ -526,7 +558,7 @@ export default function CheckoutPage() {
                     >
                       {activeZones.map((zone) => (
                         <option key={zone.id} value={`${zone.governorate} (${zone.governorateArabic})`}>
-                          {zone.governorate} ({zone.governorateArabic}) — EGP {zone.rate} ({zone.estimatedDays})
+                          {isArabic ? `${zone.governorateArabic} (${zone.governorate})` : `${zone.governorate} (${zone.governorateArabic})`} — EGP {zone.rate} ({zone.estimatedDays})
                         </option>
                       ))}
                     </select>
@@ -534,41 +566,41 @@ export default function CheckoutPage() {
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
-                      City / Area / District *
+                      {t.checkout.city}
                     </label>
                     <input
                       type="text"
                       required
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      placeholder="e.g. New Cairo (Tagamoa), Maadi, Sheikh Zayed, Smouha..."
+                      placeholder={t.checkout.selectCity}
                       className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
-                      Detailed Street Address *
+                      {t.checkout.address}
                     </label>
                     <textarea
                       required
                       rows={2}
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      placeholder="Street name, Building number, Floor, Apartment number, Landmark"
+                      placeholder={t.checkout.addressPlaceholder}
                       className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold">
-                      Delivery Instructions & Notes (Optional)
+                      {t.checkout.orderNotes}
                     </label>
                     <input
                       type="text"
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="e.g. Call 1 hour prior, or leave at boutique reception"
+                      placeholder={t.checkout.orderNotesPlaceholder}
                       className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355]"
                     />
                   </div>
@@ -577,24 +609,24 @@ export default function CheckoutPage() {
                 {/* Payment Option: Cash on Delivery (COD) */}
                 <div className="pt-6 border-t border-[#E8E2D8]">
                   <h4 className="text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-3 font-semibold">
-                    Payment Method
+                    {t.checkout.paymentMethod}
                   </h4>
-                  <div className="p-4 border-2 border-[#B67355] bg-[#F6F3EE] flex items-center justify-between">
+                  <div className="p-4 border-2 border-[#B67355] bg-[#F6F3EE] flex items-center justify-between rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="w-4 h-4 rounded-full bg-[#B67355] flex items-center justify-center text-white">
                         <div className="w-1.5 h-1.5 rounded-full bg-white" />
                       </div>
                       <div>
                         <span className="font-serif text-sm font-bold text-[#1F1F1F]">
-                          Cash on Delivery (COD)
+                          {t.checkout.cashOnDelivery}
                         </span>
                         <p className="text-[11px] text-[#8E8A85] font-sans">
-                          Pay cash to courier upon inspecting your package. No credit cards needed.
+                          {t.checkout.cashOnDeliveryDesc}
                         </p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-sans font-bold text-[#B67355] uppercase tracking-wider bg-white px-2 py-1 border border-[#DCC9A6]">
-                      COD Only
+                    <span className="text-[10px] font-sans font-bold text-[#B67355] uppercase tracking-wider bg-white px-2 py-1 border border-[#DCC9A6] rounded">
+                      COD
                     </span>
                   </div>
                 </div>
@@ -603,9 +635,9 @@ export default function CheckoutPage() {
 
             {/* Right Column: Order Summary & Place Order (5 Cols) */}
             <div className="lg:col-span-5 space-y-6">
-              <div className="bg-white border border-[#E8E2D8] p-6 shadow-sm sticky top-28 space-y-4">
+              <div className="bg-white border border-[#E8E2D8] p-6 shadow-sm sticky top-28 space-y-4 rounded-xl">
                 <h3 className="font-serif text-lg font-bold text-[#1F1F1F] border-b border-[#E8E2D8] pb-3">
-                  Order Summary ({items.length} {items.length === 1 ? 'item' : 'items'})
+                  {t.checkout.orderSummary} ({items.length} {t.cart.itemsCount})
                 </h3>
 
                 {/* Items preview list */}
@@ -615,7 +647,7 @@ export default function CheckoutPage() {
                       key={i}
                       className="flex items-center gap-3 pb-3 border-b border-[#E8E2D8]/50 last:border-b-0"
                     >
-                      <div className="relative w-12 h-14 bg-[#F6F3EE] shrink-0 border border-[#E8E2D8] overflow-hidden">
+                      <div className="relative w-12 h-14 bg-[#F6F3EE] shrink-0 border border-[#E8E2D8] overflow-hidden rounded">
                         <Image
                           src={item.imageUrl || ''}
                           alt={item.name}
@@ -628,7 +660,7 @@ export default function CheckoutPage() {
                           {item.name}
                         </h5>
                         <p className="text-[10px] text-[#8E8A85] font-sans">
-                          {item.selectedColor.name} • Size: {item.selectedSize} • Qty: {item.quantity}
+                          {item.selectedColor.name} • {t.product.selectSize}: {item.selectedSize} • {t.product.quantity}: {item.quantity}
                         </p>
                       </div>
                       <span className="font-serif text-xs font-bold text-[#1F1F1F]">
@@ -649,7 +681,7 @@ export default function CheckoutPage() {
                             {couponCode}
                           </span>
                           <span className="text-[10px] text-emerald-600 block">
-                            Promo code applied
+                            {isArabic ? 'تم تطبيق كود الخصم' : 'Promo code applied'}
                           </span>
                         </div>
                       </div>
@@ -668,7 +700,7 @@ export default function CheckoutPage() {
                         type="text"
                         value={couponInput}
                         onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                        placeholder="Promo Code (e.g. WELCOME10)"
+                        placeholder={t.checkout.promoPlaceholder}
                         className="flex-1 bg-[#F6F3EE] border border-[#E8E2D8] px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:border-[#B67355]"
                       />
                       <button
@@ -676,7 +708,7 @@ export default function CheckoutPage() {
                         disabled={applyingCoupon || !couponInput.trim()}
                         className="bg-[#1F1F1F] text-[#DCC9A6] px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-[#B67355] hover:text-white transition-colors disabled:opacity-40"
                       >
-                        Apply
+                        {t.checkout.applyCode}
                       </button>
                     </form>
                   )}
@@ -685,8 +717,8 @@ export default function CheckoutPage() {
                 {/* Cost calculation Breakdown */}
                 <div className="space-y-2 border-t border-[#E8E2D8] pt-4 text-xs font-sans text-[#8E8A85]">
                   <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span className="text-[#1F1F1F] font-semibold">
+                    <span>{t.cart.subtotal}</span>
+                    <span className="text-[#1F1F1F] font-semibold font-mono">
                       EGP {subtotal.toFixed(2)}
                     </span>
                   </div>
@@ -696,7 +728,11 @@ export default function CheckoutPage() {
                     <div className="flex justify-between text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1.5 border border-emerald-200 rounded">
                       <span className="flex items-center gap-1.5 text-[11px]">
                         <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>{appliedDiscount?.title || 'Discount Promotion'}</span>
+                        <span>
+                          {isArabic && appliedDiscount?.titleArabic
+                            ? appliedDiscount.titleArabic
+                            : appliedDiscount?.title || 'Discount Promotion'}
+                        </span>
                       </span>
                       <span className="font-serif">-EGP {discountAmount.toFixed(2)}</span>
                     </div>
@@ -704,11 +740,11 @@ export default function CheckoutPage() {
 
                   <div className="flex justify-between">
                     <span>
-                      Shipping ({formData.governorate.split('(')[0].trim()})
+                      {t.checkout.shippingFee} ({formData.governorate.split('(')[0].trim()})
                     </span>
                     <span className="text-[#1F1F1F] font-semibold">
                       {dynamicShippingFee === 0 ? (
-                        <span className="text-emerald-700 uppercase font-bold">Free</span>
+                        <span className="text-emerald-700 uppercase font-bold">{t.checkout.free}</span>
                       ) : (
                         `EGP ${dynamicShippingFee.toFixed(2)}`
                       )}
@@ -716,7 +752,7 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className="border-t border-[#E8E2D8] pt-3 flex justify-between text-base font-bold text-[#1F1F1F]">
-                    <span className="font-serif">Total Due (COD)</span>
+                    <span className="font-serif">{t.checkout.total}</span>
                     <span className="font-serif text-lg text-[#B67355]">
                       EGP {dynamicTotalAmount.toFixed(2)}
                     </span>
@@ -729,19 +765,19 @@ export default function CheckoutPage() {
                     type="submit"
                     form="checkout-form"
                     disabled={placingOrder || !user}
-                    className="w-full bg-[#1F1F1F] text-[#DCC9A6] py-4 text-xs uppercase tracking-[0.25em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-[#B67355] hover:text-white transition-all shadow-lg active:scale-[0.99] disabled:opacity-40"
+                    className="w-full bg-[#1F1F1F] text-[#DCC9A6] py-4 text-xs uppercase tracking-[0.2em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-[#B67355] hover:text-white transition-all shadow-lg active:scale-[0.99] disabled:opacity-40 rounded"
                   >
                     <span>
                       {placingOrder
-                        ? 'Placing Order...'
+                        ? t.checkout.processing
                         : !user
-                        ? 'Sign In Required Above'
-                        : 'Confirm & Place Order (COD)'}
+                        ? isArabic ? 'يرجى تسجيل الدخول أعلاه أولاً' : 'Sign In Required Above'
+                        : t.checkout.placeOrderBtn}
                     </span>
-                    {!placingOrder && <ArrowRight className="w-4 h-4" />}
+                    {!placingOrder && <ArrowIcon className="w-4 h-4" />}
                   </button>
                   <p className="text-[10px] text-[#8E8A85] text-center font-sans mt-2">
-                    By confirming, you agree to pay upon doorstep delivery in Egypt.
+                    {t.checkout.codNote}
                   </p>
                 </div>
               </div>

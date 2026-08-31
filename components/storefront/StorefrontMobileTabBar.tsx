@@ -11,11 +11,13 @@ import {
   User,
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
 export default function StorefrontMobileTabBar() {
   const pathname = usePathname();
   const { itemCount, wishlist, setIsCartOpen } = useCart();
+  const { t, isArabic } = useLanguage();
   const mounted = useIsMounted();
 
   // Hide mobile tab bar on admin pages (admin has its own AdminMobileTabBar)
@@ -25,24 +27,21 @@ export default function StorefrontMobileTabBar() {
 
   const navTabs = [
     {
-      name: 'Home',
-      nameArabic: 'الرئيسية',
+      name: t.tabBar.home,
       href: '/',
       icon: Home,
       isActive: pathname === '/',
       action: null,
     },
     {
-      name: 'Shop',
-      nameArabic: 'المجموعات',
+      name: t.tabBar.shop,
       href: '/collections',
       icon: Sparkles,
       isActive: pathname.startsWith('/collections') || pathname.startsWith('/product'),
       action: null,
     },
     {
-      name: 'Bag',
-      nameArabic: 'الحقيبة',
+      name: t.tabBar.bag,
       href: '#',
       icon: ShoppingBag,
       isActive: false,
@@ -50,8 +49,7 @@ export default function StorefrontMobileTabBar() {
       action: () => setIsCartOpen(true),
     },
     {
-      name: 'Wishlist',
-      nameArabic: 'المفضلة',
+      name: t.tabBar.wishlist,
       href: '/wishlist',
       icon: Heart,
       isActive: pathname === '/wishlist',
@@ -59,8 +57,7 @@ export default function StorefrontMobileTabBar() {
       action: null,
     },
     {
-      name: 'Account',
-      nameArabic: 'حسابي',
+      name: t.tabBar.account,
       href: '/account',
       icon: User,
       isActive: pathname === '/account',

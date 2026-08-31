@@ -18,6 +18,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import BrandLogo from '@/components/common/BrandLogo';
+import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { useAuth } from '@/context/AuthContext';
 import { usePWA } from '@/context/PWAContext';
 import AdminPWAInstallModal from './AdminPWAInstallModal';
@@ -204,11 +205,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Language Switcher */}
+            <LanguageSwitcher variant="compact" />
+
             {/* Quick PWA App Button in Header */}
             {!isInstalled && (
               <button
                 onClick={() => setShowInstallModal(true)}
-                className="flex items-center gap-1.5 bg-[#000000] border border-[#DCC9A6]/50 text-[#DCC9A6] px-3 py-1.5 text-xs font-semibold hover:border-[#DCC9A6] hover:bg-[#2A2A2A] transition-all"
+                className="flex items-center gap-1.5 bg-[#000000] border border-[#DCC9A6]/50 text-[#DCC9A6] px-3 py-1.5 text-xs font-semibold hover:border-[#DCC9A6] hover:bg-[#2A2A2A] transition-all rounded"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">Download App</span>

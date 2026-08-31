@@ -4,10 +4,13 @@ import React from 'react';
 import Link from 'next/link';
 import { Mail, Phone, MapPin, ShieldCheck, Smartphone } from 'lucide-react';
 import BrandLogo from '@/components/common/BrandLogo';
+import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { usePWA } from '@/context/PWAContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function Footer() {
   const { promptInstall, isInstalled } = usePWA();
+  const { t, isArabic } = useLanguage();
 
   return (
     <footer className="bg-[#1F1F1F] text-[#F6F3EE] border-t border-[#333333] pt-16 pb-24 lg:pb-10">
@@ -17,8 +20,7 @@ export default function Footer() {
           <div className="lg:col-span-2 space-y-4">
             <BrandLogo variant="gold" size="lg" showTagline={true} />
             <p className="text-xs text-[#8E8A85] font-sans leading-relaxed max-w-sm mt-4">
-              ARMIA Boutique is dedicated to creating timeless, elegant, and versatile feminine
-              fashion. Carefully selected fabrics and tailored silhouettes designed to elevate your everyday style.
+              {t.footer.aboutText}
             </p>
             
             {/* Install PWA Button */}
@@ -30,10 +32,11 @@ export default function Footer() {
                   className="inline-flex items-center gap-2 px-3 py-2 bg-[#141414] border border-[#DCC9A6]/50 text-[#DCC9A6] text-xs font-sans font-bold uppercase tracking-wider rounded hover:bg-[#DCC9A6] hover:text-[#1F1F1F] transition-all"
                 >
                   <Smartphone className="w-3.5 h-3.5" />
-                  <span>Install Mobile App (PWA)</span>
+                  <span>{t.nav.installApp} (PWA)</span>
                 </button>
               </div>
             )}
+
             <div className="flex items-center gap-3 pt-2">
               <a
                 href="https://instagram.com"
@@ -70,37 +73,32 @@ export default function Footer() {
           {/* Shop Categories */}
           <div>
             <h4 className="font-serif text-sm font-semibold tracking-wider text-[#DCC9A6] uppercase mb-4">
-              Collections
+              {t.footer.collections}
             </h4>
             <ul className="space-y-2.5 text-xs font-sans text-[#8E8A85]">
               <li>
                 <Link href="/collections/dresses" className="hover:text-[#DCC9A6] transition-colors">
-                  Dresses
+                  {isArabic ? 'فساتين' : 'Dresses'}
                 </Link>
               </li>
               <li>
                 <Link href="/collections/sets" className="hover:text-[#DCC9A6] transition-colors">
-                  Linen & Co-ord Sets
+                  {isArabic ? 'أطقم كتان وسيتات' : 'Linen & Co-ord Sets'}
                 </Link>
               </li>
               <li>
                 <Link href="/collections/tops" className="hover:text-[#DCC9A6] transition-colors">
-                  Tops & Blouses
+                  {isArabic ? 'بلوزات وتوبات' : 'Tops & Blouses'}
                 </Link>
               </li>
               <li>
                 <Link href="/collections/bottoms" className="hover:text-[#DCC9A6] transition-colors">
-                  Pants & Skirts
+                  {isArabic ? 'بناطيل وتنانير' : 'Pants & Skirts'}
                 </Link>
               </li>
               <li>
                 <Link href="/collections/outerwear" className="hover:text-[#DCC9A6] transition-colors">
-                  Blazers & Outerwear
-                </Link>
-              </li>
-              <li>
-                <Link href="/collections/new-in" className="hover:text-[#DCC9A6] transition-colors">
-                  New In
+                  {isArabic ? 'بليزر وعبايات' : 'Blazers & Outerwear'}
                 </Link>
               </li>
             </ul>
@@ -109,32 +107,27 @@ export default function Footer() {
           {/* Customer Care */}
           <div>
             <h4 className="font-serif text-sm font-semibold tracking-wider text-[#DCC9A6] uppercase mb-4">
-              Customer Care
+              {t.footer.customerCare}
             </h4>
             <ul className="space-y-2.5 text-xs font-sans text-[#8E8A85]">
               <li>
-                <Link href="/account" className="hover:text-[#DCC9A6] transition-colors">
-                  Track My Order
-                </Link>
-              </li>
-              <li>
                 <Link href="/about" className="hover:text-[#DCC9A6] transition-colors">
-                  About ARMIA
+                  {t.nav.aboutUs}
                 </Link>
               </li>
               <li>
                 <Link href="/contact" className="hover:text-[#DCC9A6] transition-colors">
-                  Wholesale Inquiries
+                  {isArabic ? 'طلبات الجملة' : 'Wholesale Inquiries'}
                 </Link>
               </li>
               <li>
                 <Link href="/shipping" className="hover:text-[#DCC9A6] transition-colors">
-                  Cash on Delivery Info
+                  {t.footer.shippingPolicy}
                 </Link>
               </li>
               <li>
                 <Link href="/returns" className="hover:text-[#DCC9A6] transition-colors">
-                  Exchange & Returns
+                  {t.footer.returnPolicy}
                 </Link>
               </li>
             </ul>
@@ -143,16 +136,16 @@ export default function Footer() {
           {/* Boutique Contact */}
           <div>
             <h4 className="font-serif text-sm font-semibold tracking-wider text-[#DCC9A6] uppercase mb-4">
-              Contact & Boutique
+              {t.footer.contactUs}
             </h4>
             <div className="space-y-3 text-xs font-sans text-[#8E8A85]">
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-[#DCC9A6] shrink-0 mt-0.5" />
-                <span>Cairo & Alexandria, Egypt</span>
+                <span>{isArabic ? 'القاهرة والإسكندرية، مصر' : 'Cairo & Alexandria, Egypt'}</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Phone className="w-4 h-4 text-[#DCC9A6] shrink-0" />
-                <span>+20 100 123 4567</span>
+                <span dir="ltr">+20 100 123 4567</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 text-[#DCC9A6] shrink-0" />
@@ -161,21 +154,24 @@ export default function Footer() {
               <div className="pt-2">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#000000] border border-[#333333] text-[10px] text-[#DCC9A6]">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Verified Egyptian Boutique</span>
+                  <span>{isArabic ? 'بوتيك مصري معتمد' : 'Verified Egyptian Boutique'}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Bar */}
+        {/* Bottom Bar with Language Switcher */}
         <div className="border-t border-[#333333] pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] font-sans text-[#8E8A85]">
-          <p>© {new Date().getFullYear()} ARMIA BOUTIQUE. All rights reserved.</p>
-          <div className="flex items-center gap-6">
-            <span>Designed for Your Style</span>
+          <p>© {new Date().getFullYear()} ARMIA BOUTIQUE. {t.footer.rights}</p>
+          
+          <div className="flex items-center gap-6 flex-wrap justify-center">
+            <LanguageSwitcher variant="footer" />
+            <span>•</span>
+            <span>{t.footer.madeInEgypt}</span>
             <span>•</span>
             <Link href="/admin" className="text-[#DCC9A6] hover:underline">
-              Admin Portal
+              {t.nav.adminPortal}
             </Link>
           </div>
         </div>

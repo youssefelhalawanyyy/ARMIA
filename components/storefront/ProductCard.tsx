@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Heart, ShoppingBag, Check, Zap } from 'lucide-react';
 import { Product, ProductColor } from '@/types';
 import { useCart } from '@/context/CartContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { getActiveFlashDealForProduct } from '@/lib/discountService';
 import FlashDealCountdown from './FlashDealCountdown';
 
@@ -15,6 +16,7 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const { addToCart, toggleWishlist, isWishlisted, discounts } = useCart();
+  const { t, isArabic } = useLanguage();
   const [selectedColor, setSelectedColor] = useState<ProductColor>(
     product.colors && product.colors.length > 0
       ? product.colors[0]
@@ -75,7 +77,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div
-      className={`group flex flex-col bg-white border transition-all duration-300 shadow-sm hover:shadow-lg ${
+      className={`group flex flex-col bg-white border transition-all duration-300 shadow-sm hover:shadow-lg rounded-sm ${
         hasFlashDeal ? 'border-[#E5A84B] hover:border-[#B67355]' : 'border-[#E8E2D8] hover:border-[#B67355]'
       }`}
       onMouseEnter={() => setIsHovered(true)}
@@ -95,21 +97,21 @@ export default function ProductCard({ product }: ProductCardProps) {
         </Link>
 
         {/* Discount, Flash Deal, or New Tag */}
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10 pointer-events-none">
+        <div className="absolute top-2.5 left-2.5 rtl:left-auto rtl:right-2.5 flex flex-col gap-1 z-10 pointer-events-none">
           {hasFlashDeal && flashDeal ? (
-            <span className="bg-[#B67355] text-white text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1">
+            <span className="bg-[#B67355] text-white text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-sm flex items-center gap-1 rounded-sm">
               <Zap className="w-3 h-3 fill-current animate-pulse" />
               <span>
                 {flashDeal.type === 'percentage' ? `${flashDeal.value}% FLASH DEAL` : `EGP ${flashDeal.value} OFF`}
               </span>
             </span>
           ) : product.discountPrice ? (
-            <span className="bg-[#B67355] text-white text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-sm">
-              Sale
+            <span className="bg-[#B67355] text-white text-[9px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 shadow-sm rounded-sm">
+              {t.product.sale}
             </span>
           ) : product.isNewArrival ? (
-            <span className="bg-[#1F1F1F] text-[#DCC9A6] text-[9px] font-sans font-semibold uppercase tracking-wider px-2 py-0.5 shadow-sm">
-              New In
+            <span className="bg-[#1F1F1F] text-[#DCC9A6] text-[9px] font-sans font-semibold uppercase tracking-wider px-2 py-0.5 shadow-sm rounded-sm">
+              {t.product.newIn}
             </span>
           ) : null}
         </div>
@@ -118,7 +120,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         <button
           onClick={handleToggleWishlist}
           aria-label="Add to wishlist"
-          className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm border border-[#E8E2D8] flex items-center justify-center text-[#1F1F1F] hover:text-[#B67355] hover:border-[#B67355] transition-all shadow-sm z-10"
+          className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm border border-[#E8E2D8] flex items-center justify-center text-[#1F1F1F] hover:text-[#B67355] hover:border-[#B67355] transition-all shadow-sm z-10"
         >
           <Heart
             className={`w-4 h-4 transition-transform active:scale-125 ${
@@ -136,12 +138,12 @@ export default function ProductCard({ product }: ProductCardProps) {
             {quickAddSuccess ? (
               <>
                 <Check className="w-3.5 h-3.5 text-green-600" />
-                <span>Added</span>
+                <span>{t.product.added}</span>
               </>
             ) : (
               <>
                 <ShoppingBag className="w-3.5 h-3.5" />
-                <span>Quick Add</span>
+                <span>{t.product.quickAdd}</span>
               </>
             )}
           </button>
@@ -170,8 +172,8 @@ export default function ProductCard({ product }: ProductCardProps) {
                   style={{ backgroundColor: c.hex }}
                 />
               ))}
-              <span className="text-[10px] text-[#8E8A85] font-sans ml-1">
-                {product.colors.length} {product.colors.length === 1 ? 'color' : 'colors'}
+              <span className="text-[10px] text-[#8E8A85] font-sans ml-1 rtl:ml-0 rtl:mr-1">
+                {product.colors.length} {isArabic ? 'ألوان' : product.colors.length === 1 ? 'color' : 'colors'}
               </span>
             </div>
           )}

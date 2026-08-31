@@ -5,6 +5,7 @@ import { ToastProvider } from "@/context/ToastContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { PWAProvider } from "@/context/PWAContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 import StorefrontMobileTabBar from "@/components/storefront/StorefrontMobileTabBar";
 import StorefrontPWAInstallModal from "@/components/storefront/StorefrontPWAInstallModal";
 
@@ -62,19 +63,21 @@ export default function RootLayout({
       className={`${playfair.variable} ${montserrat.variable} h-full antialiased scroll-smooth`}
     >
       <body className="min-h-full flex flex-col bg-[#F6F3EE] text-[#1F1F1F] font-sans selection:bg-[#DCC9A6] selection:text-[#1F1F1F]">
-        <PWAProvider>
-          <ToastProvider>
-            <AuthProvider>
-              <CartProvider>
-                {children}
-                {/* Client Storefront Mobile Bottom Tab Bar */}
-                <StorefrontMobileTabBar />
-                {/* Client Storefront PWA Install Modal & Floating Banner */}
-                <StorefrontPWAInstallModal />
-              </CartProvider>
-            </AuthProvider>
-          </ToastProvider>
-        </PWAProvider>
+        <LanguageProvider>
+          <PWAProvider>
+            <ToastProvider>
+              <AuthProvider>
+                <CartProvider>
+                  {children}
+                  {/* Client Storefront Mobile Bottom Tab Bar */}
+                  <StorefrontMobileTabBar />
+                  {/* Client Storefront PWA Install Modal & Floating Banner */}
+                  <StorefrontPWAInstallModal />
+                </CartProvider>
+              </AuthProvider>
+            </ToastProvider>
+          </PWAProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

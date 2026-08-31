@@ -4,8 +4,9 @@ import React from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, ShieldCheck, Truck, Sparkles } from 'lucide-react';
+import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, ArrowLeft, ShieldCheck, Truck, Sparkles } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function CartDrawer() {
   const router = useRouter();
@@ -15,7 +16,6 @@ export default function CartDrawer() {
     subtotal,
     discountAmount,
     appliedDiscount,
-    shippingFee,
     totalAmount,
     shippingSettings,
     isCartOpen,
@@ -23,6 +23,9 @@ export default function CartDrawer() {
     removeFromCart,
     updateQuantity,
   } = useCart();
+
+  const { t, isArabic, direction } = useLanguage();
+  const ArrowIcon = isArabic ? ArrowLeft : ArrowRight;
 
   const handleProceedToCheckout = () => {
     setIsCartOpen(false);
@@ -46,11 +49,11 @@ export default function CartDrawer() {
             className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
           />
 
-          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+          <div className={`fixed inset-y-0 ${isArabic ? 'left-0 pr-10' : 'right-0 pl-10'} max-w-full flex`}>
             <motion.div
-              initial={{ x: '100%' }}
+              initial={{ x: isArabic ? '-100%' : '100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '100%' }}
+              exit={{ x: isArabic ? '-100%' : '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="w-screen max-w-md bg-[#F6F3EE] shadow-2xl flex flex-col justify-between border-l border-[#E8E2D8]"
             >
@@ -60,10 +63,10 @@ export default function CartDrawer() {
                   <div className="flex items-center gap-2">
                     <ShoppingBag className="w-5 h-5 text-[#B67355]" />
                     <h2 className="font-serif text-lg font-bold tracking-wider text-[#1F1F1F]">
-                      YOUR SHOPPING BAG
+                      {t.cart.title}
                     </h2>
                     <span className="text-xs bg-[#EDE3CF] text-[#1F1F1F] px-2 py-0.5 rounded-full font-sans font-medium">
-                      {itemCount}
+                      {itemCount} {t.cart.itemsCount}
                     </span>
                   </div>
                   <button
@@ -81,11 +84,15 @@ export default function CartDrawer() {
                       <Truck className="w-3.5 h-3.5 text-[#B67355]" />
                       {remainingForFreeShipping === 0 ? (
                         <span className="text-emerald-700 font-semibold">
-                          🎉 You unlocked Free Delivery across Egypt!
+                          {isArabic ? '🎉 مبروك! حصلتِ على شحن مجاني لكافة محافظات مصر!' : '🎉 You unlocked Free Delivery across Egypt!'}
                         </span>
                       ) : (
                         <span>
-                          Add <strong>EGP {remainingForFreeShipping.toFixed(2)}</strong> for Free Shipping
+                          {isArabic ? (
+                            <>أضيفي بقيمة <strong>{remainingForFreeShipping.toFixed(2)} ج.م</strong> للحصول على شحن مجاني</>
+                          ) : (
+                            <>Add <strong>EGP {remainingForFreeShipping.toFixed(2)}</strong> for Free Shipping</>
+                          )}
                         </span>
                       )}
                     </span>
@@ -105,81 +112,77 @@ export default function CartDrawer() {
               {/* Items List */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {items.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-12">
-                    <div className="w-16 h-16 rounded-full bg-[#EDE3CF] flex items-center justify-center mb-4 text-[#B67355]">
-                      <ShoppingBag className="w-8 h-8 stroke-1" />
+                  <div className="text-center py-16 space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-[#EDE3CF] flex items-center justify-center mx-auto text-[#B67355]">
+                      <ShoppingBag className="w-8 h-8" />
                     </div>
-                    <h3 className="font-serif text-lg font-bold text-[#1F1F1F] mb-1">
-                      Your bag is currently empty
+                    <h3 className="font-serif text-lg font-bold text-[#1F1F1F]">
+                      {t.cart.emptyTitle}
                     </h3>
-                    <p className="text-xs text-[#8E8A85] max-w-xs font-sans mb-6">
-                      Explore our handcrafted pieces designed for your timeless elegance.
+                    <p className="text-xs text-[#8E8A85] font-sans max-w-xs mx-auto">
+                      {t.cart.emptySubtitle}
                     </p>
                     <button
-                      onClick={() => {
-                        setIsCartOpen(false);
-                        router.push('/collections');
-                      }}
-                      className="bg-[#1F1F1F] text-[#DCC9A6] px-6 py-3 text-xs uppercase tracking-[0.2em] font-sans hover:bg-[#B67355] hover:text-white transition-colors"
+                      onClick={() => setIsCartOpen(false)}
+                      className="bg-[#1F1F1F] text-[#DCC9A6] px-6 py-2.5 text-xs font-sans uppercase tracking-wider hover:bg-[#B67355] hover:text-white transition-colors mt-2"
                     >
-                      Shop Collections
+                      {t.cart.explorePieces}
                     </button>
                   </div>
                 ) : (
-                  items.map((item, idx) => (
+                  items.map((item, index) => (
                     <div
-                      key={`${item.productId}-${item.selectedColor.name}-${item.selectedSize}-${idx}`}
-                      className="flex gap-4 p-3.5 bg-white border border-[#E8E2D8] transition-all hover:border-[#DCC9A6]"
+                      key={`${item.productId}-${item.selectedColor.name}-${item.selectedSize}-${index}`}
+                      className="flex gap-4 bg-white p-3.5 border border-[#E8E2D8] shadow-sm relative group"
                     >
                       {/* Product Thumbnail */}
-                      <div className="relative w-20 h-24 bg-[#F6F3EE] shrink-0 overflow-hidden">
+                      <div className="relative w-20 aspect-[3/4] bg-[#F6F3EE] shrink-0 overflow-hidden">
                         <Image
-                          src={item.imageUrl || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&auto=format&fit=crop'}
+                          src={item.imageUrl || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600'}
                           alt={item.name}
                           fill
                           className="object-cover"
                         />
                       </div>
 
-                      {/* Details */}
+                      {/* Item Details */}
                       <div className="flex-1 flex flex-col justify-between min-w-0">
                         <div>
-                          <div className="flex justify-between items-start gap-2">
-                            <h4 className="font-serif text-sm font-semibold text-[#1F1F1F] truncate">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-serif text-sm font-semibold text-[#1F1F1F] truncate pr-4">
                               {item.name}
                             </h4>
                             <button
                               onClick={() =>
-                                removeFromCart(
-                                  item.productId,
-                                  item.selectedColor.name,
-                                  item.selectedSize
-                                )
+                                removeFromCart(item.productId, item.selectedColor.name, item.selectedSize)
                               }
-                              className="text-[#8E8A85] hover:text-[#B67355] transition-colors p-1"
-                              title="Remove item"
+                              className="text-neutral-400 hover:text-red-600 transition-colors p-1"
+                              aria-label="Remove item"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
 
-                          {/* Color & Size Specs */}
-                          <div className="flex items-center gap-3 text-[11px] text-[#8E8A85] font-sans mt-1">
-                            <span className="flex items-center gap-1">
+                          <div className="flex items-center gap-3 text-xs text-[#8E8A85] font-sans mt-1">
+                            <div className="flex items-center gap-1">
                               <span
-                                className="w-2.5 h-2.5 rounded-full border border-[#DCC9A6]"
+                                className="w-2.5 h-2.5 rounded-full border border-black/20"
                                 style={{ backgroundColor: item.selectedColor.hex }}
                               />
-                              {item.selectedColor.name}
-                            </span>
+                              <span>{item.selectedColor.name}</span>
+                            </div>
                             <span>•</span>
-                            <span className="font-medium text-[#1F1F1F]">Size: {item.selectedSize}</span>
+                            <span>{t.product.selectSize}: {item.selectedSize}</span>
                           </div>
                         </div>
 
                         {/* Price & Quantity Controls */}
-                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-[#E8E2D8]/40">
-                          <div className="flex items-center border border-[#E8E2D8] bg-[#F6F3EE]">
+                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-[#E8E2D8]/50">
+                          <span className="font-serif text-sm font-bold text-[#1F1F1F]">
+                            EGP {(item.price * item.quantity).toFixed(2)}
+                          </span>
+
+                          <div className="flex items-center border border-[#E8E2D8] bg-white">
                             <button
                               onClick={() =>
                                 updateQuantity(
@@ -189,12 +192,11 @@ export default function CartDrawer() {
                                   item.quantity - 1
                                 )
                               }
-                              className="p-1 text-[#1F1F1F] hover:bg-[#E8E2D8] transition-colors"
-                              aria-label="Decrease quantity"
+                              className="p-1 text-[#1F1F1F] hover:bg-[#F6F3EE] transition-colors"
                             >
                               <Minus className="w-3 h-3" />
                             </button>
-                            <span className="px-3 text-xs font-medium font-mono text-[#1F1F1F]">
+                            <span className="px-2.5 text-xs font-mono font-bold text-[#1F1F1F]">
                               {item.quantity}
                             </span>
                             <button
@@ -206,22 +208,10 @@ export default function CartDrawer() {
                                   item.quantity + 1
                                 )
                               }
-                              className="p-1 text-[#1F1F1F] hover:bg-[#E8E2D8] transition-colors"
-                              aria-label="Increase quantity"
+                              className="p-1 text-[#1F1F1F] hover:bg-[#F6F3EE] transition-colors"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
-                          </div>
-
-                          <div className="text-right">
-                            <span className="font-serif text-sm font-bold text-[#1F1F1F]">
-                              EGP {(item.price * item.quantity).toFixed(2)}
-                            </span>
-                            {item.originalPrice && item.originalPrice > item.price && (
-                              <span className="text-[10px] text-[#8E8A85] line-through block font-mono">
-                                EGP {(item.originalPrice * item.quantity).toFixed(2)}
-                              </span>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -230,60 +220,60 @@ export default function CartDrawer() {
                 )}
               </div>
 
-              {/* Drawer Footer */}
+              {/* Drawer Footer & Checkout Action */}
               {items.length > 0 && (
                 <div className="p-6 bg-white border-t border-[#E8E2D8] space-y-4">
-                  <div className="space-y-1.5 text-xs font-sans">
-                    <div className="flex justify-between text-[#8E8A85]">
-                      <span>Subtotal</span>
-                      <span className="text-[#1F1F1F] font-semibold">
-                        EGP {subtotal.toFixed(2)}
-                      </span>
-                    </div>
-
-                    {/* Auto Discount line */}
-                    {discountAmount > 0 && (
-                      <div className="flex justify-between text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1.5 border border-emerald-200 rounded">
-                        <span className="flex items-center gap-1 text-[11px]">
-                          <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span className="truncate">{appliedDiscount?.title || 'Discount'}</span>
+                  {/* Applied Discount Notification */}
+                  {appliedDiscount && discountAmount > 0 && (
+                    <div className="bg-[#FAF7F2] border border-[#DCC9A6] p-2.5 rounded flex items-center justify-between text-xs text-[#B67355]">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>
+                          {isArabic && appliedDiscount.titleArabic
+                            ? appliedDiscount.titleArabic
+                            : appliedDiscount.title}
                         </span>
-                        <span className="font-serif">-EGP {discountAmount.toFixed(2)}</span>
+                      </div>
+                      <span className="font-bold font-mono">-EGP {discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {/* Summary Breakdown */}
+                  <div className="space-y-1.5 text-xs font-sans text-[#8E8A85]">
+                    <div className="flex justify-between">
+                      <span>{t.cart.subtotal}</span>
+                      <span className="font-mono text-[#1F1F1F]">EGP {subtotal.toFixed(2)}</span>
+                    </div>
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-[#B67355] font-semibold">
+                        <span>{t.cart.autoDiscount}</span>
+                        <span className="font-mono">-EGP {discountAmount.toFixed(2)}</span>
                       </div>
                     )}
-
-                    <div className="flex justify-between text-[#8E8A85]">
-                      <span>Shipping</span>
-                      <span className="text-[#1F1F1F] font-semibold">
-                        {shippingFee === 0 ? (
-                          <span className="text-[#B67355] uppercase font-bold">Free</span>
-                        ) : (
-                          `EGP ${shippingFee.toFixed(2)}`
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="border-t border-[#E8E2D8] pt-2 flex justify-between text-sm font-bold text-[#1F1F1F]">
-                      <span className="font-serif">Estimated Total</span>
+                    <div className="flex justify-between text-sm font-bold text-[#1F1F1F] pt-2 border-t border-[#E8E2D8]">
+                      <span>{t.cart.estimatedTotal}</span>
                       <span className="font-serif text-base text-[#B67355]">
                         EGP {totalAmount.toFixed(2)}
                       </span>
                     </div>
+                    <p className="text-[10px] text-[#8E8A85] text-center pt-1">
+                      {t.cart.shippingNote}
+                    </p>
                   </div>
 
-                  {/* Payment Guarantee Notice */}
-                  <div className="flex items-center gap-2 text-[10px] text-[#8E8A85] bg-[#F6F3EE] p-2 border border-[#E8E2D8]">
-                    <ShieldCheck className="w-4 h-4 text-[#B67355] shrink-0" />
-                    <span>Cash on Delivery (COD) across Egypt. Inspect before payment.</span>
-                  </div>
-
+                  {/* Checkout CTA */}
                   <button
                     onClick={handleProceedToCheckout}
-                    className="w-full bg-[#1F1F1F] text-[#DCC9A6] py-3.5 text-xs uppercase tracking-[0.2em] font-sans font-bold flex items-center justify-center gap-2 hover:bg-[#B67355] hover:text-white transition-all shadow-md active:scale-[0.99]"
+                    className="w-full bg-[#1F1F1F] text-[#DCC9A6] py-3.5 px-6 text-xs uppercase font-sans font-bold tracking-[0.2em] hover:bg-[#B67355] hover:text-white transition-all shadow-lg flex items-center justify-center gap-2 active:scale-[0.99]"
                   >
-                    <span>Proceed to Checkout</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <span>{t.cart.checkoutBtn}</span>
+                    <ArrowIcon className="w-4 h-4" />
                   </button>
+
+                  <div className="flex items-center justify-center gap-1.5 text-[10px] text-[#8E8A85] font-sans">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#B67355]" />
+                    <span>{t.product.guarantees.cod}</span>
+                  </div>
                 </div>
               )}
             </motion.div>
