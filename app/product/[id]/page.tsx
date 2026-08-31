@@ -415,11 +415,29 @@ export default function ProductDetailPage() {
                             }`}
                           >
                             <span>{s}</span>
-                            {isOutOfStock && (
+                            {isOutOfStock ? (
                               <span className="text-[9px] text-red-500 font-bold no-underline inline-block">
                                 ({isArabic ? 'نفد' : 'Sold'})
                               </span>
-                            )}
+                            ) : stockForSize === 1 ? (
+                              <span className={`text-[9px] font-bold no-underline inline-block px-1.5 py-0.5 rounded ${
+                                selectedSize === s ? 'bg-[#B67355] text-white' : 'bg-amber-100 text-[#B67355]'
+                              }`}>
+                                {isArabic ? 'باقي 1 فقط' : '1 left only'}
+                              </span>
+                            ) : stockForSize === 2 ? (
+                              <span className={`text-[9px] font-bold no-underline inline-block px-1.5 py-0.5 rounded ${
+                                selectedSize === s ? 'bg-[#B67355] text-white' : 'bg-amber-100 text-[#B67355]'
+                              }`}>
+                                {isArabic ? 'باقي 2' : '2 left'}
+                              </span>
+                            ) : stockForSize === 3 ? (
+                              <span className={`text-[9px] font-bold no-underline inline-block px-1.5 py-0.5 rounded ${
+                                selectedSize === s ? 'bg-[#B67355] text-white' : 'bg-amber-100 text-[#B67355]'
+                              }`}>
+                                {isArabic ? 'باقي 3' : '3 left'}
+                              </span>
+                            ) : null}
                           </button>
                         );
                       })}
