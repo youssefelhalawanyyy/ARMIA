@@ -19,8 +19,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   
   const [products, allCategories] = await Promise.all([
     getProducts(categoryParam),
-    getCategories(),
+    getCategories(true),
   ]);
+
+  // STRICTLY filter for available products (stock > 0)
+  const availableProducts = products.filter((p) => (p.stockQuantity ?? 0) > 0);
 
   const matchedCat = allCategories.find(
     (c) => c.slug.toLowerCase() === categoryParam || c.id.toLowerCase() === categoryParam
@@ -66,22 +69,22 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             </p>
           </div>
 
-          {/* Product Grid */}
-          {products.length === 0 ? (
-            <div className="text-center py-16 bg-white border border-[#E8E2D8] p-8">
+          {/* Product Grid - ONLY Available Products */}
+          {availableProducts.length === 0 ? (
+            <div className="text-center py-16 bg-white border border-[#E8E2D8] p-8 rounded">
               <p className="font-serif text-base text-[#1F1F1F] mb-4">
-                No items currently available in this category.
+                No pieces are currently available in this collection.
               </p>
               <Link
                 href="/collections"
-                className="bg-[#1F1F1F] text-[#DCC9A6] px-6 py-2.5 text-xs font-sans uppercase tracking-widest hover:bg-[#B67355] transition-colors"
+                className="bg-[#1F1F1F] text-[#DCC9A6] px-6 py-2.5 text-xs font-sans uppercase tracking-widest hover:bg-[#B67355] transition-colors inline-block"
               >
-                Browse All Pieces
+                Browse All Available Pieces
               </Link>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {products.map((prod) => (
+              {availableProducts.map((prod) => (
                 <ProductCard key={prod.id} product={prod} />
               ))}
             </div>

@@ -25,7 +25,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { getProducts, saveProduct, deleteProduct } from '@/lib/productService';
 import { compressImage } from '@/lib/imageUtils';
-import { getCategories, DEFAULT_CATEGORIES } from '@/lib/categoryService';
+import { getCategories, saveCategory } from '@/lib/categoryService';
 import { Product, ProductColor, CategoryType, Category, ProductVariant } from '@/types';
 import { useToast } from '@/context/ToastContext';
 
@@ -68,7 +68,7 @@ export const PRESET_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size
 export default function AdminProductsPage() {
   const { success, error, info } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
-  const [availableCategories, setAvailableCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,9 +81,15 @@ export default function AdminProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Quick Inline Category Creator in Product Modal
+  const [showQuickAddCategory, setShowQuickAddCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatNameAr, setNewCatNameAr] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+
   // Form State (English & Common)
   const [formName, setFormName] = useState('');
-  const [formCategory, setFormCategory] = useState<CategoryType>('dresses');
+  const [formCategory, setFormCategory] = useState<string>('dresses');
   const [formPrice, setFormPrice] = useState<number>(450);
   const [formDiscountPrice, setFormDiscountPrice] = useState<number | undefined>(undefined);
   const [formDescription, setFormDescription] = useState('');
@@ -142,13 +148,64 @@ export default function AdminProductsPage() {
     }
   }, []);
 
+  const handleQuickAddCategory = async () => {
+    if (!newCatName.trim()) return;
+    setSavingCategory(true);
+    try {
+      const slug = newCatName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const newCat: Category = {
+        id: slug,
+        slug,
+        name: newCatName.trim(),
+        nameArabic: newCatNameAr.trim() || newCatName.trim(),
+        description: '',
+        imageUrl: '',
+        featured: true,
+        orderIndex: availableCategories.length + 1,
+      };
+      await saveCategory(newCat);
+      setAvailableCategories((prev) => {
+        const exists = prev.some((c) => c.slug === slug || c.id === slug);
+        return exists ? prev : [...prev, newCat];
+      });
+      setFormCategory(slug);
+      setNewCatName('');
+      setNewCatNameAr('');
+      setShowQuickAddCategory(false);
+      success(`Collection "${newCat.name}" created and selected!`, 'Collection Added');
+    } catch (err) {
+      console.error(err);
+      error('Failed to create collection');
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
-    Promise.all([getProducts('all'), getCategories()])
+    Promise.all([getProducts('all'), getCategories(true)])
       .then(([prods, cats]) => {
         if (isMounted) {
           setProducts(prods);
-          if (cats && cats.length > 0) setAvailableCategories(cats);
+          const configCats = cats || [];
+          const productCatSlugs = Array.from(new Set(prods.map((p) => p.category).filter(Boolean)));
+          const extraCats: Category[] = [];
+          for (const slug of productCatSlugs) {
+            if (!configCats.some((c) => c.slug === slug || c.id === slug)) {
+              extraCats.push({
+                id: slug,
+                slug,
+                name: slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+                nameArabic: slug,
+                description: '',
+                imageUrl: '',
+                featured: false,
+                orderIndex: 0,
+              });
+            }
+          }
+          const combined = [...configCats, ...extraCats];
+          setAvailableCategories(combined);
           setLoading(false);
         }
       })
@@ -188,7 +245,11 @@ export default function AdminProductsPage() {
     setEditingProduct(null);
     setModalLangTab('en');
     setFormName('');
-    setFormCategory('dresses');
+    const firstCat = availableCategories[0]?.slug || '';
+    setFormCategory(firstCat);
+    setShowQuickAddCategory(false);
+    setNewCatName('');
+    setNewCatNameAr('');
     setFormPrice(450);
     setFormDiscountPrice(undefined);
     setFormDescription('An exquisite silhouette crafted with precision and timeless elegance.');
@@ -923,19 +984,68 @@ export default function AdminProductsPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-sans uppercase tracking-wider text-[#DCC9A6] mb-1 font-semibold">
-                        Category *
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-sans uppercase tracking-wider text-[#DCC9A6] font-semibold">
+                          Collection / Category *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowQuickAddCategory(!showQuickAddCategory)}
+                          className="text-[11px] text-[#DCC9A6] hover:text-white underline font-sans flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{showQuickAddCategory ? 'Close' : '+ Add Collection'}</span>
+                        </button>
+                      </div>
+
+                      {showQuickAddCategory && (
+                        <div className="mb-2.5 p-3 bg-[#141414] border border-[#DCC9A6]/40 rounded-lg space-y-2">
+                          <span className="text-[10px] text-[#DCC9A6] uppercase tracking-wider font-semibold block">
+                            Quick Add New Collection
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={newCatName}
+                              onChange={(e) => setNewCatName(e.target.value)}
+                              placeholder="Name (e.g. Linen Sets)"
+                              className="bg-[#1F1F1F] border border-[#333333] text-white px-2.5 py-1.5 text-xs rounded focus:outline-none focus:border-[#DCC9A6]"
+                            />
+                            <input
+                              type="text"
+                              value={newCatNameAr}
+                              onChange={(e) => setNewCatNameAr(e.target.value)}
+                              placeholder="الاسم بالعربي (اختياري)"
+                              dir="rtl"
+                              className="bg-[#1F1F1F] border border-[#333333] text-white px-2.5 py-1.5 text-xs rounded focus:outline-none focus:border-[#DCC9A6]"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            disabled={savingCategory || !newCatName.trim()}
+                            onClick={handleQuickAddCategory}
+                            className="w-full bg-[#B67355] hover:bg-[#DCC9A6] hover:text-[#1F1F1F] text-white py-1.5 text-xs font-bold uppercase tracking-wider transition-colors rounded disabled:opacity-50 cursor-pointer"
+                          >
+                            {savingCategory ? 'Saving Collection...' : 'Create & Select Collection'}
+                          </button>
+                        </div>
+                      )}
+
                       <select
+                        required
                         value={formCategory}
                         onChange={(e) => setFormCategory(e.target.value)}
                         className="w-full bg-[#141414] border border-[#333333] text-white px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#DCC9A6] rounded"
                       >
-                        {availableCategories.map((cat) => (
-                          <option key={cat.id} value={cat.slug}>
-                            {cat.name} ({cat.nameArabic})
-                          </option>
-                        ))}
+                        {availableCategories.length === 0 ? (
+                          <option value="">No collections found - click + Add Collection above</option>
+                        ) : (
+                          availableCategories.map((cat) => (
+                            <option key={cat.id || cat.slug} value={cat.slug}>
+                              {cat.name} {cat.nameArabic ? `(${cat.nameArabic})` : ''}
+                            </option>
+                          ))
+                        )}
                       </select>
                     </div>
 

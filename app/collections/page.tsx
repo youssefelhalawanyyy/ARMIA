@@ -24,21 +24,23 @@ function CollectionsContent() {
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'name'>('featured');
 
   useEffect(() => {
+    let isMounted = true;
+
     async function load() {
       setLoading(true);
       const [data, cats] = await Promise.all([
         getProducts('all'),
         getCategories(true),
       ]);
+      if (!isMounted) return;
       setProducts(data);
-      if (cats && cats.length > 0) {
-        setAvailableCategories(cats);
-      } else {
-        // Extract distinct categories only from actual available products
-        const activeProds = data.filter((p) => (p.stockQuantity ?? 0) > 0);
-        const distinctSlugs = Array.from(new Set(activeProds.map((p) => p.category).filter(Boolean)));
-        if (distinctSlugs.length > 0) {
-          const derivedCats: Category[] = distinctSlugs.map((slug) => ({
+
+      const combined: Category[] = [...(cats || [])];
+      const activeProds = data.filter((p) => (p.stockQuantity ?? 0) > 0);
+      const distinctSlugs = Array.from(new Set(activeProds.map((p) => p.category).filter(Boolean)));
+      for (const slug of distinctSlugs) {
+        if (!combined.some((c) => c.slug === slug || c.id === slug)) {
+          combined.push({
             id: slug,
             slug,
             name: slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
@@ -46,16 +48,30 @@ function CollectionsContent() {
             description: '',
             imageUrl: '',
             featured: false,
-            orderIndex: 0,
-          }));
-          setAvailableCategories(derivedCats);
-        } else {
-          setAvailableCategories([]);
+            orderIndex: combined.length + 1,
+          });
         }
       }
+      setAvailableCategories(combined);
       setLoading(false);
     }
+
     load();
+
+    const handleUpdate = () => {
+      load();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('armia_categories_updated', handleUpdate);
+    }
+
+    return () => {
+      isMounted = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('armia_categories_updated', handleUpdate);
+      }
+    };
   }, []);
 
   const activeCategory = selectedCategory || categoryFromUrl;
