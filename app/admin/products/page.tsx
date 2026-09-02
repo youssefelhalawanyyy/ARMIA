@@ -20,6 +20,8 @@ import {
   Sliders,
   CheckCheck,
   Star,
+  PackageX,
+  RefreshCw,
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
@@ -86,6 +88,12 @@ export default function AdminProductsPage() {
   const [newCatName, setNewCatName] = useState('');
   const [newCatNameAr, setNewCatNameAr] = useState('');
   const [savingCategory, setSavingCategory] = useState(false);
+
+  // Temporary Out of Stock Override Modal State
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const [stockProduct, setStockProduct] = useState<Product | null>(null);
+  const [stockVariants, setStockVariants] = useState<ProductVariant[]>([]);
+  const [savingStock, setSavingStock] = useState(false);
 
   // Form State (English & Common)
   const [formName, setFormName] = useState('');
@@ -592,6 +600,123 @@ export default function AdminProductsPage() {
     }
   };
 
+  const openStockOverrideModal = (prod: Product) => {
+    setStockProduct(prod);
+    const colors = prod.colors && prod.colors.length > 0 ? prod.colors : [PRESET_COLORS[0]];
+    const sizes = prod.sizes && prod.sizes.length > 0 ? prod.sizes : ['Standard'];
+    const vars = prod.variants && prod.variants.length > 0 ? prod.variants : syncVariants(colors, sizes, []);
+    setStockVariants(JSON.parse(JSON.stringify(vars)));
+    setStockModalOpen(true);
+  };
+
+  const handleToggleEntireProductStock = () => {
+    if (!stockProduct) return;
+    const isCurrentlyEmpty = stockVariants.every((v) => Number(v.quantity) <= 0);
+
+    if (isCurrentlyEmpty) {
+      // Restore all to their real saved quantities
+      const restored = stockVariants.map((v) => ({
+        ...v,
+        quantity: v.savedQuantity !== undefined && v.savedQuantity > 0 ? v.savedQuantity : 5,
+        isTempOutOfStock: false,
+      }));
+      setStockVariants(restored);
+    } else {
+      // Mark all out of stock, preserving real quantities in savedQuantity
+      const markedOut = stockVariants.map((v) => ({
+        ...v,
+        savedQuantity: Number(v.quantity) > 0 ? Number(v.quantity) : (v.savedQuantity || 5),
+        quantity: 0,
+        isTempOutOfStock: true,
+      }));
+      setStockVariants(markedOut);
+    }
+  };
+
+  const handleToggleColorStock = (colorName: string) => {
+    const colorVars = stockVariants.filter((v) => v.color === colorName);
+    const isColorCurrentlyEmpty = colorVars.every((v) => Number(v.quantity) <= 0);
+
+    const updated = stockVariants.map((v) => {
+      if (v.color !== colorName) return v;
+      if (isColorCurrentlyEmpty) {
+        return {
+          ...v,
+          quantity: v.savedQuantity !== undefined && v.savedQuantity > 0 ? v.savedQuantity : 5,
+          isTempOutOfStock: false,
+        };
+      } else {
+        return {
+          ...v,
+          savedQuantity: Number(v.quantity) > 0 ? Number(v.quantity) : (v.savedQuantity || 5),
+          quantity: 0,
+          isTempOutOfStock: true,
+        };
+      }
+    });
+    setStockVariants(updated);
+  };
+
+  const handleToggleSingleVariant = (colorName: string, sizeName: string) => {
+    const updated = stockVariants.map((v) => {
+      if (v.color === colorName && v.size === sizeName) {
+        const isOut = Number(v.quantity) <= 0;
+        if (isOut) {
+          // Restore
+          return {
+            ...v,
+            quantity: v.savedQuantity !== undefined && v.savedQuantity > 0 ? v.savedQuantity : 5,
+            isTempOutOfStock: false,
+          };
+        } else {
+          // Mark out of stock
+          return {
+            ...v,
+            savedQuantity: Number(v.quantity) > 0 ? Number(v.quantity) : (v.savedQuantity || 5),
+            quantity: 0,
+            isTempOutOfStock: true,
+          };
+        }
+      }
+      return v;
+    });
+    setStockVariants(updated);
+  };
+
+  const handleSaveStockOverride = async () => {
+    if (!stockProduct) return;
+    setSavingStock(true);
+    try {
+      const newTotalStock = stockVariants.reduce((sum, v) => sum + (Number(v.quantity) || 0), 0);
+      const isEntireOut = newTotalStock === 0;
+
+      const payload: Product = {
+        ...stockProduct,
+        variants: stockVariants,
+        stockQuantity: newTotalStock,
+        isTemporarilyOutOfStock: isEntireOut,
+        savedStockQuantity: isEntireOut
+          ? (stockProduct.savedStockQuantity || stockProduct.stockQuantity || 30)
+          : undefined,
+      };
+
+      await saveProduct(payload);
+      setProducts((prev) => prev.map((p) => (p.id === payload.id ? payload : p)));
+      setStockModalOpen(false);
+      success(
+        isEntireOut
+          ? `"${payload.name}" marked temporarily Out of Stock. Real quantities preserved!`
+          : `"${payload.name}" stock updated: ${newTotalStock} active pcs available!`,
+        'Inventory Status'
+      );
+    } catch (err) {
+      console.error('Failed to update stock override:', err);
+      error('Failed to save stock status changes');
+    } finally {
+      setSavingStock(false);
+    }
+  };
+
   const getProductStock = useCallback((p: Product): number => {
     if (typeof p.stockQuantity === 'number') return p.stockQuantity;
     if (p.variants && p.variants.length > 0) {
@@ -889,6 +1014,27 @@ export default function AdminProductsPage() {
 
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openStockOverrideModal(prod)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-sans font-bold uppercase tracking-wider rounded border transition-all cursor-pointer ${
+                            prod.isTemporarilyOutOfStock || (prod.stockQuantity ?? 0) <= 0
+                              ? 'bg-amber-950/50 text-amber-300 border-amber-600/70 hover:bg-amber-900/60 shadow-sm'
+                              : 'bg-[#141414] text-[#DCC9A6] border-[#333333] hover:border-[#DCC9A6] hover:text-white'
+                          }`}
+                          title={
+                            prod.isTemporarilyOutOfStock || (prod.stockQuantity ?? 0) <= 0
+                              ? 'Currently Out of Stock. Click to manage or restore real quantities'
+                              : 'Click to mark this piece or specific colors/sizes out of stock temporarily'
+                          }
+                        >
+                          <PackageX className="w-3 h-3" />
+                          <span>
+                            {prod.isTemporarilyOutOfStock || (prod.stockQuantity ?? 0) <= 0
+                              ? 'Out of Stock'
+                              : 'Mark Out of Stock'}
+                          </span>
+                        </button>
                         <button
                           onClick={() => openEditModal(prod)}
                           className="p-1.5 text-[#DCC9A6] hover:text-white bg-[#141414] border border-[#333333] hover:border-[#DCC9A6] transition-colors rounded"
@@ -1648,6 +1794,172 @@ export default function AdminProductsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* STOCK OVERRIDE & TEMPORARY OUT-OF-STOCK MODAL */}
+      {stockModalOpen && stockProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-[#1F1F1F] border border-[#333333] w-full max-w-2xl p-6 rounded-lg space-y-6 shadow-2xl my-8">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-[#333333] pb-4">
+              <div>
+                <span className="text-[10px] font-sans uppercase tracking-[0.25em] text-[#DCC9A6] font-bold block">
+                  Inventory Availability Control
+                </span>
+                <h3 className="font-serif text-2xl font-bold text-white mt-1">
+                  Manage Stock Status: {stockProduct.name}
+                </h3>
+                <p className="text-xs text-[#8E8A85] mt-1 font-sans">
+                  Temporarily mark this piece or specific colors and sizes as out of stock. Original real quantities are preserved and restored instantly when you turn it back on.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStockModalOpen(false)}
+                className="p-1.5 text-[#8E8A85] hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick Master Toggle: Entire Product */}
+            <div className="p-4 bg-[#141414] border border-[#333333] rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-white block">
+                  Entire Product Availability
+                </span>
+                <span className="text-[11px] text-[#8E8A85]">
+                  Active Available Stock: <strong className="text-[#DCC9A6]">{stockVariants.reduce((sum, v) => sum + (Number(v.quantity) || 0), 0)} pcs</strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleEntireProductStock}
+                className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded transition-all cursor-pointer flex items-center gap-2 ${
+                  stockVariants.every((v) => Number(v.quantity) <= 0)
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg'
+                    : 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg'
+                }`}
+              >
+                {stockVariants.every((v) => Number(v.quantity) <= 0) ? (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    <span>✓ Restore ENTIRE Product In Stock</span>
+                  </>
+                ) : (
+                  <>
+                    <PackageX className="w-4 h-4" />
+                    <span>⏸ Mark ENTIRE Product Out of Stock</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Granular Matrix by Color & Size */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#DCC9A6]">
+                  Filter Availability By Color & Size
+                </h4>
+                <span className="text-[10px] text-[#8E8A85] uppercase tracking-wider">
+                  Click any size or color to toggle in/out of stock
+                </span>
+              </div>
+
+              <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                {(stockProduct.colors || [PRESET_COLORS[0]]).map((color) => {
+                  const colorVars = stockVariants.filter((v) => v.color === color.name);
+                  const isColorAllOut = colorVars.length > 0 && colorVars.every((v) => Number(v.quantity) <= 0);
+
+                  return (
+                    <div
+                      key={color.name}
+                      className="p-3.5 bg-[#141414] border border-[#2B2B2B] rounded-lg space-y-3"
+                    >
+                      {/* Color Row Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-4 h-4 rounded-full border border-black/40 shadow-sm inline-block"
+                            style={{ backgroundColor: color.hex }}
+                          />
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">
+                            {color.name} {color.nameArabic ? `(${color.nameArabic})` : ''}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleColorStock(color.name)}
+                          className={`text-[11px] font-sans px-2.5 py-1 rounded border transition-colors cursor-pointer ${
+                            isColorAllOut
+                              ? 'bg-emerald-950/40 text-emerald-300 border-emerald-700/60 hover:bg-emerald-900/50'
+                              : 'bg-neutral-800 text-[#DCC9A6] border-[#3E3E3E] hover:border-[#DCC9A6]'
+                          }`}
+                        >
+                          {isColorAllOut ? '✓ Restore Color' : '⏸ Mark Color Out of Stock'}
+                        </button>
+                      </div>
+
+                      {/* Sizes for this color */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {colorVars.map((v) => {
+                          const isOut = Number(v.quantity) <= 0;
+                          const realQty = v.savedQuantity !== undefined && v.savedQuantity > 0 ? v.savedQuantity : (v.quantity > 0 ? v.quantity : 5);
+
+                          return (
+                            <button
+                              key={`${v.color}-${v.size}`}
+                              type="button"
+                              onClick={() => handleToggleSingleVariant(v.color, v.size)}
+                              className={`p-2.5 rounded border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                                isOut
+                                  ? 'bg-red-950/30 border-red-900/50 text-neutral-400 hover:border-red-700'
+                                  : 'bg-[#1F1F1F] border-emerald-600/40 text-white hover:border-emerald-500'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between w-full mb-1">
+                                <span className="font-bold text-xs uppercase">{v.size}</span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                                  isOut ? 'bg-red-900/60 text-red-300' : 'bg-emerald-900/60 text-emerald-300'
+                                }`}>
+                                  {isOut ? 'Out of Stock' : 'In Stock'}
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-[#A0A0A0]">
+                                {isOut ? `Real Qty: ${realQty} pcs` : `Available: ${v.quantity} pcs`}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="flex items-center justify-end gap-3 border-t border-[#333333] pt-4">
+              <button
+                type="button"
+                onClick={() => setStockModalOpen(false)}
+                className="px-4 py-2 text-xs font-sans uppercase tracking-wider text-[#8E8A85] hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingStock}
+                onClick={handleSaveStockOverride}
+                className="bg-[#B67355] hover:bg-[#DCC9A6] hover:text-[#1F1F1F] text-white px-6 py-2 text-xs font-bold uppercase tracking-wider rounded transition-colors disabled:opacity-50 cursor-pointer shadow-lg"
+              >
+                {savingStock ? 'Saving Changes...' : 'Save Stock Status'}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

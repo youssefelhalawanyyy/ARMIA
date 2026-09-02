@@ -57,6 +57,8 @@ export interface ProductVariant {
   size: string; // Size e.g. "M"
   quantity: number; // In stock for this specific combination
   sku?: string;
+  savedQuantity?: number; // Preserved real quantity when marked out of stock
+  isTempOutOfStock?: boolean;
 }
 
 export interface Product {
@@ -77,6 +79,8 @@ export interface Product {
   variants?: ProductVariant[];
   featured?: boolean;
   isNewArrival?: boolean;
+  isTemporarilyOutOfStock?: boolean;
+  savedStockQuantity?: number; // Preserved real stock when temporarily marked out of stock
   createdAt?: unknown;
 }
 
