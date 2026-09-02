@@ -71,6 +71,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -501,13 +502,33 @@ export default function AdminProductsPage() {
     }
   };
 
+  const getProductStock = useCallback((p: Product): number => {
+    if (typeof p.stockQuantity === 'number') return p.stockQuantity;
+    if (p.variants && p.variants.length > 0) {
+      return p.variants.reduce((sum, v) => sum + (Number(v.quantity) || 0), 0);
+    }
+    return 0;
+  }, []);
+
+  const inStockCount = useMemo(() => {
+    return products.filter((p) => getProductStock(p) > 0).length;
+  }, [products, getProductStock]);
+
+  const outOfStockCount = useMemo(() => {
+    return products.filter((p) => getProductStock(p) <= 0).length;
+  }, [products, getProductStock]);
+
   const filteredProducts = products.filter((p) => {
     const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
     const matchSearch =
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.nameArabic && p.nameArabic.includes(searchQuery)) ||
       p.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchSearch;
+    
+    const stock = getProductStock(p);
+    const matchStock = showOutOfStock ? stock <= 0 : stock > 0;
+
+    return matchCat && matchSearch && matchStock;
   });
 
   const allAvailableColors = useMemo(() => {
@@ -543,8 +564,8 @@ export default function AdminProductsPage() {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#1F1F1F] border border-[#333333] p-4 rounded-xl">
-        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-[#1F1F1F] border border-[#333333] p-4 rounded-xl">
+        <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0">
           <button
             onClick={() => setSelectedCategory('all')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
@@ -553,7 +574,7 @@ export default function AdminProductsPage() {
                 : 'text-[#8E8A85] hover:text-white bg-[#141414]'
             }`}
           >
-            All Products ({products.length})
+            All Products ({showOutOfStock ? outOfStockCount : inStockCount})
           </button>
           {availableCategories.map((cat) => (
             <button
@@ -570,15 +591,52 @@ export default function AdminProductsPage() {
           ))}
         </div>
 
-        <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8E8A85]" />
-          <input
-            type="text"
-            placeholder="Search products or colors..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#141414] border border-[#333333] text-white pl-9 pr-3 py-1.5 text-xs rounded focus:outline-none focus:border-[#DCC9A6]"
-          />
+        <div className="flex items-center gap-3 w-full lg:w-auto justify-end flex-wrap">
+          {/* Out of Stock Check Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowOutOfStock(!showOutOfStock)}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer select-none ${
+              showOutOfStock
+                ? 'bg-red-950/70 border-red-700 text-red-200 shadow-sm'
+                : 'bg-[#141414] border-[#333333] text-[#DCC9A6] hover:border-[#DCC9A6]/60 hover:text-white'
+            }`}
+            title="Check to show out of stock items, uncheck to show items with available quantities as normal"
+          >
+            <div
+              className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                showOutOfStock
+                  ? 'bg-red-500 border-red-400 text-white'
+                  : 'border-[#666666] bg-[#1F1F1F]'
+              }`}
+            >
+              {showOutOfStock && <Check className="w-3 h-3 stroke-[3]" />}
+            </div>
+            <span>
+              {showOutOfStock ? 'Showing Out of Stock' : 'Show Out of Stock'}
+            </span>
+            <span
+              className={`px-1.5 py-0.2 rounded text-[10px] font-bold font-mono ${
+                showOutOfStock
+                  ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                  : 'bg-black text-[#8E8A85] border border-[#333333]'
+              }`}
+            >
+              {showOutOfStock ? `${outOfStockCount} items` : `${inStockCount} in stock`}
+            </span>
+          </button>
+
+          {/* Search Bar */}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8E8A85]" />
+            <input
+              type="text"
+              placeholder="Search products or colors..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#141414] border border-[#333333] text-white pl-9 pr-3 py-1.5 text-xs rounded focus:outline-none focus:border-[#DCC9A6]"
+            />
+          </div>
         </div>
       </div>
 
@@ -592,7 +650,20 @@ export default function AdminProductsPage() {
         ) : filteredProducts.length === 0 ? (
           <div className="p-12 text-center text-[#8E8A85] space-y-2">
             <Package className="w-8 h-8 mx-auto text-[#555555]" />
-            <p className="text-xs font-serif text-white">No products found matching criteria.</p>
+            <p className="text-xs font-serif text-white">
+              {showOutOfStock
+                ? 'No out-of-stock products found. All items currently have inventory available!'
+                : 'No products found matching criteria.'}
+            </p>
+            {showOutOfStock && (
+              <button
+                type="button"
+                onClick={() => setShowOutOfStock(false)}
+                className="mt-2 text-xs text-[#DCC9A6] underline hover:text-white"
+              >
+                Uncheck to show products with available quantities ({inStockCount} in stock)
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
