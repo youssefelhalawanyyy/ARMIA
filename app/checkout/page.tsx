@@ -27,6 +27,15 @@ import {
   Navigation,
   Loader2,
   MapPin,
+  Gift,
+  Plus,
+  Flame,
+  Zap,
+  CheckCircle2,
+  Building,
+  User,
+  Tag,
+  RefreshCw,
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
@@ -37,7 +46,7 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useToast } from '@/context/ToastContext';
-import { createOrderInFirestore, generateOrderId } from '@/lib/productService';
+import { createOrderInFirestore, generateOrderId, getProducts } from '@/lib/productService';
 import {
   getShippingSettings,
   calculateDeliveryFee,
@@ -47,7 +56,7 @@ import {
   saveAbandonedCheckout,
   markAbandonedCheckoutRecovered,
 } from '@/lib/abandonedService';
-import { CustomerDetails, Order, ShippingSettings, ShippingZone, PaymentMethodType } from '@/types';
+import { CustomerDetails, Order, ShippingSettings, ShippingZone, PaymentMethodType, Product, ProductColor, CartItem } from '@/types';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
 export default function CheckoutPage() {
@@ -61,6 +70,7 @@ export default function CheckoutPage() {
     applyCoupon,
     removeCoupon,
     clearCart,
+    addToCart,
   } = useCart();
 
   const { user, loginWithGoogle, loginWithEmail, signupWithEmail } = useAuth();
@@ -95,6 +105,70 @@ export default function CheckoutPage() {
       isMounted = false;
     };
   }, []);
+
+  // Checkout Pre-Purchase Upsell States (Active Offers Only)
+  const [upsellCandidates, setUpsellCandidates] = useState<Product[]>([]);
+  const [selectedUpsellSizes, setSelectedUpsellSizes] = useState<Record<string, string>>({});
+  const [addingUpsellId, setAddingUpsellId] = useState<string | null>(null);
+
+  // Complimentary Boutique Gift Packaging
+  const [giftPackaging, setGiftPackaging] = useState(false);
+  const [giftNote, setGiftNote] = useState('');
+
+  // Fetch products with active discounts for checkout upselling
+  useEffect(() => {
+    let isMounted = true;
+    getProducts('all')
+      .then((prods) => {
+        if (!isMounted) return;
+        const withOffers = prods.filter((p) => p.discountPrice && p.discountPrice < p.price);
+        setUpsellCandidates(withOffers);
+      })
+      .catch((err) => console.warn('Checkout upsell load notice:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleAddCheckoutUpsell = (prod: Product) => {
+    setAddingUpsellId(prod.id);
+    try {
+      const chosenColor = prod.colors?.[0] || { name: 'Standard', hex: '#1F1F1F' };
+      const chosenSize = selectedUpsellSizes[prod.id] || prod.sizes?.[0] || 'Standard';
+
+      const newItem: CartItem = {
+        productId: prod.id,
+        name: prod.name,
+        price: prod.discountPrice || prod.price,
+        originalPrice: prod.price,
+        quantity: 1,
+        selectedColor: chosenColor,
+        selectedSize: chosenSize,
+        imageUrl: prod.imageUrls[0] || '',
+        category: prod.category,
+      };
+
+      addToCart(newItem, false);
+      confetti({
+        particleCount: 60,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#DCC9A6', '#B67355', '#1F1F1F'],
+      });
+
+      success(
+        isArabic
+          ? `تمت إضافة "${prod.name}" إلى طلبكِ بنجاح!`
+          : `"${prod.name}" added to your order!`,
+        isArabic ? 'تمت الإضافة' : 'Added to Order'
+      );
+    } catch (err) {
+      console.warn('Upsell add error:', err);
+    } finally {
+      setTimeout(() => setAddingUpsellId(null), 500);
+    }
+  };
 
   // Auth Guard States if user is unauthenticated
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -598,6 +672,18 @@ export default function CheckoutPage() {
         ? `${formData.buildingNumber.trim()}، ${formData.address.trim()}`
         : formData.address.trim();
 
+      const finalNotes = [
+        formData.notes?.trim() || '',
+        giftPackaging
+          ? isArabic
+            ? '🎁 طلب تغليف هدايا فاخر مع شريطة حرير'
+            : '🎁 Complimentary Haute Couture Gift Wrapping Requested'
+          : '',
+        giftNote?.trim()
+          ? `${isArabic ? 'إهداء:' : 'Gift Dedication:'} "${giftNote.trim()}"`
+          : '',
+      ].filter(Boolean).join(' | ');
+
       const orderPayload: Order = {
         orderId: generatedOrderId,
         customerUid: user.uid,
@@ -610,7 +696,7 @@ export default function CheckoutPage() {
           city: formData.city.trim(),
           address: combinedAddress,
           buildingNumber: formData.buildingNumber?.trim() || '',
-          notes: formData.notes?.trim() || '',
+          notes: finalNotes,
         },
         items: items.map((it) => ({
           productId: it.productId,
@@ -884,34 +970,49 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               ) : (
-                /* Authenticated User Status */
-                <div className="bg-white border border-[#E8E2D8] p-4 flex items-center justify-between rounded-xl shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
-                      <UserCheck className="w-5 h-5" />
+                /* Authenticated User Status - Luxury Atelier Client Badge */
+                <div className="bg-gradient-to-r from-[#FAF7F2] via-white to-[#FAF7F2] border border-[#DCC9A6] p-4.5 rounded-2xl shadow-xs flex items-center justify-between">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-full bg-[#1F1F1F] text-[#DCC9A6] flex items-center justify-center font-serif text-sm font-bold shadow-sm border border-[#DCC9A6]/40">
+                      {(user.displayName || user.email || 'A').charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p className="text-xs font-sans text-[#8E8A85]">
-                        {isArabic ? 'تم الطلب بحساب:' : 'Ordering as:'}
-                      </p>
-                      <p className="font-serif text-sm font-semibold text-[#1F1F1F]">
-                        {user.displayName || user.email}
+                      <div className="flex items-center gap-2">
+                        <p className="font-serif text-sm font-bold text-[#1F1F1F]">
+                          {user.displayName || user.email?.split('@')[0]}
+                        </p>
+                        <span className="text-[10px] uppercase font-sans font-extrabold bg-[#FAF0E6] text-[#B67355] px-2 py-0.5 rounded border border-[#DCC9A6]">
+                          ARMIA VIP Client
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-sans text-[#8E8A85] mt-0.5">
+                        {user.email}
                       </p>
                     </div>
                   </div>
-                  <span className="text-[11px] font-sans text-emerald-700 bg-emerald-50 px-2.5 py-1 border border-emerald-200 font-semibold rounded">
-                    {isArabic ? '✓ تم التحقق' : '✓ Authenticated'}
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-sans text-emerald-800 bg-emerald-50 px-3 py-1 border border-emerald-200 font-bold rounded-full shadow-2xs">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{isArabic ? 'حساب موثق' : 'Verified Client'}</span>
                   </span>
                 </div>
               )}
 
               {/* SHIPPING DETAILS FORM */}
-              <form id="checkout-form" onSubmit={handlePlaceOrder} className="bg-white border border-[#E8E2D8] p-6 sm:p-8 space-y-6 rounded-xl shadow-sm">
-                <div className="flex items-center gap-2 border-b border-[#E8E2D8] pb-4">
-                  <Truck className="w-5 h-5 text-[#B67355]" />
-                  <h3 className="font-serif text-lg font-bold text-[#1F1F1F]">
-                    {t.checkout.customerInfo}
-                  </h3>
+              <form id="checkout-form" onSubmit={handlePlaceOrder} className="bg-white border border-[#E8E2D8] p-6 sm:p-8 space-y-6 rounded-2xl shadow-sm">
+                <div className="flex items-center justify-between border-b border-[#E8E2D8] pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#FAF7F2] border border-[#DCC9A6] flex items-center justify-center text-[#B67355] shrink-0 shadow-2xs">
+                      <Truck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-serif text-lg font-bold text-[#1F1F1F]">
+                        {isArabic ? '١. بيانات الشحن وتوصيل الطلب' : '1. Delivery & Recipient Details'}
+                      </h3>
+                      <p className="text-[11px] font-sans text-[#8E8A85]">
+                        {isArabic ? 'توصيل سريع لكافة المحافظات مع المعاينة عند الاستلام' : 'Express courier delivery with free doorstep inspection'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1333,23 +1434,62 @@ export default function CheckoutPage() {
               </form>
             </div>
 
-            {/* Right Column: Order Summary & Place Order (5 Cols) */}
+            {/* Right Column: Order Summary, Free Shipping Meter & Pre-Purchase Upsell (5 Cols) */}
             <div className="lg:col-span-5 space-y-6">
-              <div className="bg-white border border-[#E8E2D8] p-6 shadow-sm sticky top-28 space-y-4 rounded-xl">
-                <h3 className="font-serif text-lg font-bold text-[#1F1F1F] border-b border-[#E8E2D8] pb-3">
-                  {t.checkout.orderSummary} ({items.length} {t.cart.itemsCount})
-                </h3>
+              <div className="bg-white border border-[#E8E2D8] p-6 sm:p-7 shadow-sm sticky top-28 space-y-5 rounded-2xl">
+                
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-[#E8E2D8] pb-3.5">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-[#B67355]" />
+                    <h3 className="font-serif text-lg font-bold text-[#1F1F1F]">
+                      {t.checkout.orderSummary}
+                    </h3>
+                  </div>
+                  <span className="text-xs font-sans text-[#8E8A85] font-semibold">
+                    {items.length} {t.cart.itemsCount}
+                  </span>
+                </div>
+
+                {/* Free Shipping Progress Meter */}
+                {shippingSettings.freeShippingThreshold > 0 && (
+                  <div className="bg-gradient-to-r from-[#FAF7F2] to-white border border-[#DCC9A6] p-3.5 rounded-xl space-y-2 shadow-2xs">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-serif font-bold text-[#1F1F1F] flex items-center gap-1.5">
+                        <Truck className="w-4 h-4 text-[#B67355]" />
+                        <span>
+                          {subtotal >= shippingSettings.freeShippingThreshold
+                            ? isArabic ? '🎉 مبروك! شحن مجاني مفعل لطلبكِ!' : '🎉 Free Express Delivery Unlocked!'
+                            : isArabic
+                            ? `أضيفي ${(shippingSettings.freeShippingThreshold - subtotal).toFixed(0)} ج.م لشحن مجاني`
+                            : `Add EGP ${(shippingSettings.freeShippingThreshold - subtotal).toFixed(0)} for Free Shipping`}
+                        </span>
+                      </span>
+                      <span className="font-mono text-[11px] font-bold text-[#B67355]">
+                        {Math.min(100, Math.round((subtotal / shippingSettings.freeShippingThreshold) * 100))}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-[#E8E2D8] h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-[#B67355] to-[#DCC9A6] h-full transition-all duration-500 rounded-full"
+                        style={{
+                          width: `${Math.min(100, (subtotal / shippingSettings.freeShippingThreshold) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Items preview list */}
-                <div className="max-h-56 overflow-y-auto space-y-3 pr-1">
+                <div className="max-h-56 overflow-y-auto space-y-3 pr-1 divide-y divide-[#E8E2D8]/60">
                   {items.map((item, i) => {
                     const itemBasePrice = item.originalPrice || item.price;
                     return (
                       <div
                         key={i}
-                        className="flex items-center gap-3 pb-3 border-b border-[#E8E2D8]/50 last:border-b-0"
+                        className="flex items-center gap-3 pt-3 first:pt-0"
                       >
-                        <div className="relative w-12 h-14 bg-[#F6F3EE] shrink-0 border border-[#E8E2D8] overflow-hidden rounded">
+                        <div className="relative w-12 h-16 bg-[#F6F3EE] shrink-0 border border-[#E8E2D8] overflow-hidden rounded-lg shadow-2xs">
                           <Image
                             src={item.imageUrl || ''}
                             alt={item.name}
@@ -1358,10 +1498,10 @@ export default function CheckoutPage() {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h5 className="font-serif text-xs font-semibold text-[#1F1F1F] truncate">
+                          <h5 className="font-serif text-xs font-bold text-[#1F1F1F] truncate">
                             {item.name}
                           </h5>
-                          <p className="text-[10px] text-[#8E8A85] font-sans">
+                          <p className="text-[11px] text-[#8E8A85] font-sans mt-0.5">
                             {item.selectedColor.name} • {t.product.selectSize}: {item.selectedSize} • {t.product.quantity}: {item.quantity}
                           </p>
                         </div>
@@ -1373,10 +1513,116 @@ export default function CheckoutPage() {
                   })}
                 </div>
 
+                {/* PRE-PURCHASE CHECKOUT UPSELL (ONLY PRODUCTS WITH ACTIVE OFFERS) */}
+                {upsellCandidates.filter((p) => !items.some((it) => it.productId === p.id)).length > 0 && (
+                  <div className="pt-3 border-t border-[#E8E2D8]">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#B67355]" />
+                        <span className="font-serif text-xs font-bold text-[#1F1F1F]">
+                          {isArabic ? 'اكملي إطلالتكِ بعروض خاصة' : 'Complete Your Look • Active Deals'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-[#B67355] bg-[#FAF0E6] px-2 py-0.5 rounded font-extrabold border border-[#DCC9A6]">
+                        {isArabic ? 'حصرية الدفع' : 'Checkout Special'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {upsellCandidates
+                        .filter((p) => !items.some((it) => it.productId === p.id))
+                        .slice(0, 2)
+                        .map((prod) => {
+                          const discountSavings = (prod.price - (prod.discountPrice || prod.price)).toFixed(0);
+                          const isAdding = addingUpsellId === prod.id;
+
+                          return (
+                            <div
+                              key={prod.id}
+                              className="p-3 bg-gradient-to-r from-[#FAF7F2] to-white border border-[#DCC9A6] rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-[#B67355] transition-all"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className="relative w-12 h-16 bg-black rounded-lg overflow-hidden border border-[#DCC9A6]/60 shrink-0 shadow-2xs">
+                                  <Image
+                                    src={prod.imageUrls[0] || ''}
+                                    alt={prod.name}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h6 className="font-serif text-xs font-bold text-[#1F1F1F] truncate">
+                                    {isArabic && prod.nameArabic ? prod.nameArabic : prod.name}
+                                  </h6>
+                                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                                    <span className="font-serif text-xs font-bold text-[#B67355]">
+                                      EGP {prod.discountPrice}
+                                    </span>
+                                    <span className="text-[10px] text-[#8E8A85] line-through font-mono">
+                                      EGP {prod.price}
+                                    </span>
+                                    <span className="text-[9px] text-emerald-700 font-extrabold bg-emerald-100/70 px-1 py-0.2 rounded">
+                                      {isArabic ? `وفر ${discountSavings}` : `Save ${discountSavings}`}
+                                    </span>
+                                  </div>
+
+                                  {/* Quick Size selection if product has sizes */}
+                                  {prod.sizes && prod.sizes.length > 0 && (
+                                    <div className="flex items-center gap-1 mt-1">
+                                      <span className="text-[9px] text-[#8E8A85] font-sans">
+                                        {isArabic ? 'المقاس:' : 'Size:'}
+                                      </span>
+                                      <div className="flex gap-1">
+                                        {prod.sizes.slice(0, 4).map((sz) => {
+                                          const selected = (selectedUpsellSizes[prod.id] || prod.sizes[0]) === sz;
+                                          return (
+                                            <button
+                                              key={sz}
+                                              type="button"
+                                              onClick={() =>
+                                                setSelectedUpsellSizes((prev) => ({ ...prev, [prod.id]: sz }))
+                                              }
+                                              className={`px-1.5 py-0.5 text-[9px] font-bold rounded border transition-all ${
+                                                selected
+                                                  ? 'bg-[#1F1F1F] text-[#DCC9A6] border-[#1F1F1F]'
+                                                  : 'bg-white text-[#1F1F1F] border-[#E8E2D8] hover:border-[#B67355]'
+                                              }`}
+                                            >
+                                              {sz}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* 1-Click Add Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleAddCheckoutUpsell(prod)}
+                                disabled={isAdding}
+                                className="bg-[#1F1F1F] hover:bg-[#B67355] text-[#DCC9A6] hover:text-white px-3 py-2 rounded-lg text-[11px] font-sans font-bold transition-all shadow-sm active:scale-95 shrink-0 flex items-center gap-1 disabled:opacity-50"
+                              >
+                                {isAdding ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Plus className="w-3.5 h-3.5" />
+                                )}
+                                <span>{isArabic ? 'أضيفي' : 'Add'}</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
                 {/* PROMO CODE VOUCHER INPUT BOX */}
-                <div className="pt-3 border-t border-[#E8E2D8]/80">
+                <div className="pt-2 border-t border-[#E8E2D8]/80">
                   {couponCode ? (
-                    <div className="bg-emerald-50 border border-emerald-300 p-2.5 rounded flex items-center justify-between text-xs">
+                    <div className="bg-emerald-50 border border-emerald-300 p-2.5 rounded-xl flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <Ticket className="w-4 h-4 text-emerald-700" />
                         <div>
@@ -1404,12 +1650,12 @@ export default function CheckoutPage() {
                         value={couponInput}
                         onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                         placeholder={t.checkout.promoPlaceholder}
-                        className="flex-1 bg-[#F6F3EE] border border-[#E8E2D8] px-3 py-2 text-xs font-mono uppercase focus:outline-none focus:border-[#B67355] rounded"
+                        className="flex-1 bg-[#FAF7F2] border border-[#E8E2D8] px-3 py-2.5 text-xs font-mono uppercase focus:outline-none focus:border-[#B67355] rounded-xl"
                       />
                       <button
                         type="submit"
                         disabled={applyingCoupon || !couponInput.trim()}
-                        className="bg-[#1F1F1F] text-[#DCC9A6] px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-[#B67355] hover:text-white transition-colors disabled:opacity-40 rounded"
+                        className="bg-[#1F1F1F] text-[#DCC9A6] px-4 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-[#B67355] hover:text-white transition-all disabled:opacity-40 rounded-xl shadow-sm active:scale-95"
                       >
                         {t.checkout.applyCode}
                       </button>
@@ -1417,10 +1663,8 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                {/* Cost calculation Breakdown: 1. Original Price -> 2. Discount -> 3. Shipping -> 4. Total */}
-                <div className="space-y-2 border-t border-[#E8E2D8] pt-4 text-xs font-sans text-[#8E8A85]">
-                  
-                  {/* 1. Original Price / Subtotal */}
+                {/* Cost calculation Breakdown */}
+                <div className="space-y-2.5 border-t border-[#E8E2D8] pt-4 text-xs font-sans text-[#8E8A85]">
                   <div className="flex justify-between">
                     <span>{isArabic ? 'السعر الأصلي (المجموع الفرعي)' : 'Original Price (Subtotal)'}</span>
                     <span className="text-[#1F1F1F] font-semibold font-mono">
@@ -1428,9 +1672,8 @@ export default function CheckoutPage() {
                     </span>
                   </div>
 
-                  {/* 2. Applied Discount Line (if active) */}
                   {discountAmount > 0 && (
-                    <div className="flex justify-between text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1.5 border border-emerald-200 rounded">
+                    <div className="flex justify-between text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1.5 border border-emerald-200 rounded-lg">
                       <span className="flex items-center gap-1.5 text-[11px]">
                         <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span>
@@ -1443,7 +1686,6 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  {/* 3. Delivery / Shipping Fee */}
                   <div className="flex justify-between">
                     <span>
                       {t.checkout.shippingFee} ({formData.governorate.split('(')[0].trim()})
@@ -1457,17 +1699,16 @@ export default function CheckoutPage() {
                     </span>
                   </div>
 
-                  {/* 4. Final Total Due */}
                   <div className="border-t border-[#E8E2D8] pt-3 flex justify-between text-base font-bold text-[#1F1F1F]">
                     <span className="font-serif">{t.checkout.total}</span>
-                    <span className="font-serif text-lg text-[#B67355]">
+                    <span className="font-serif text-xl text-[#B67355] font-extrabold">
                       EGP {dynamicTotalAmount.toFixed(2)}
                     </span>
                   </div>
                 </div>
 
                 {/* Selected Payment Method Badge Note */}
-                <div className="p-3 bg-[#FAF7F2] border border-[#E8E2D8] rounded-lg text-xs space-y-1">
+                <div className="p-3 bg-[#FAF7F2] border border-[#DCC9A6] rounded-xl text-xs space-y-1">
                   <div className="flex items-center justify-between font-semibold text-[#1F1F1F]">
                     <span>{isArabic ? 'طريقة الدفع المختارة:' : 'Selected Payment:'}</span>
                     <span className="text-[#B67355] font-bold">
@@ -1479,12 +1720,48 @@ export default function CheckoutPage() {
                   </p>
                 </div>
 
-                {/* Submit Order Button */}
+                {/* Complimentary Gift Packaging Toggle */}
+                <div className="p-3 bg-[#FAF7F2] border border-[#DCC9A6] rounded-xl space-y-2">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={giftPackaging}
+                      onChange={(e) => setGiftPackaging(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#B67355] focus:ring-[#B67355] accent-[#B67355]"
+                    />
+                    <div className="flex-1">
+                      <span className="font-serif text-xs font-bold text-[#1F1F1F] flex items-center gap-1.5">
+                        <Gift className="w-3.5 h-3.5 text-[#B67355]" />
+                        <span>{isArabic ? 'تغليف هدايا فاخر مع شريطة حرير' : 'Complimentary Haute Couture Gift Box'}</span>
+                      </span>
+                      <span className="text-[10px] text-[#8E8A85] block mt-0.5">
+                        {isArabic ? 'مجاناً مع صندوق أرميا الفاخر' : '100% Free with luxury silk ribbon'}
+                      </span>
+                    </div>
+                  </label>
+
+                  {giftPackaging && (
+                    <div className="pt-2 border-t border-[#E8E2D8] space-y-1 animate-fadeIn">
+                      <label className="block text-[10px] uppercase font-sans tracking-wider text-[#8E8A85] font-semibold">
+                        {isArabic ? 'رسالة إهداء مخصصة (اختياري):' : 'Gift Dedication Message (Optional):'}
+                      </label>
+                      <input
+                        type="text"
+                        value={giftNote}
+                        onChange={(e) => setGiftNote(e.target.value)}
+                        placeholder={isArabic ? 'اكتبي رسالتكِ للمهدى إليه...' : 'Write your gift message...'}
+                        className="w-full bg-white border border-[#E8E2D8] px-3 py-1.5 text-xs font-sans rounded-lg focus:outline-none focus:border-[#B67355]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Grand Confirm Order Button */}
                 <button
                   type="submit"
                   form="checkout-form"
                   disabled={placingOrder || (paymentMethod === 'INSTAPAY' && !receiptUrl)}
-                  className="w-full bg-[#1F1F1F] text-[#DCC9A6] py-4 text-xs font-sans uppercase tracking-[0.2em] font-bold hover:bg-[#B67355] hover:text-white transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 rounded disabled:opacity-50"
+                  className="w-full bg-gradient-to-r from-[#1F1F1F] via-[#2D241E] to-[#1F1F1F] hover:from-[#B67355] hover:to-[#8E523A] text-[#DCC9A6] hover:text-white py-4 text-xs font-sans uppercase tracking-[0.2em] font-extrabold transition-all shadow-lg active:scale-[0.99] flex items-center justify-center gap-2 rounded-xl disabled:opacity-50"
                 >
                   {placingOrder ? (
                     <>
@@ -1495,8 +1772,12 @@ export default function CheckoutPage() {
                     <>
                       <span>
                         {paymentMethod === 'COD'
-                          ? t.checkout.placeOrderCodBtn
-                          : t.checkout.placeOrderInstapayBtn}
+                          ? isArabic
+                            ? `تأكيد الطلب (دفع عند الاستلام • ${dynamicTotalAmount.toFixed(2)} ج.م)`
+                            : `CONFIRM ORDER (COD • EGP ${dynamicTotalAmount.toFixed(2)})`
+                          : isArabic
+                          ? `تأكيد طلب إنستاباي (${dynamicTotalAmount.toFixed(2)} ج.م)`
+                          : `CONFIRM INSTAPAY ORDER (EGP ${dynamicTotalAmount.toFixed(2)})`}
                       </span>
                       <ArrowIcon className="w-4 h-4" />
                     </>
@@ -1505,10 +1786,32 @@ export default function CheckoutPage() {
 
                 {/* Instapay Receipt Warning if Missing */}
                 {paymentMethod === 'INSTAPAY' && !receiptUrl && (
-                  <p className="text-[11px] text-amber-700 bg-amber-50 p-2 border border-amber-200 rounded text-center font-medium">
+                  <p className="text-[11px] text-amber-700 bg-amber-50 p-2.5 border border-amber-200 rounded-xl text-center font-medium">
                     ⚠️ {t.checkout.receiptRequired}
                   </p>
                 )}
+
+                {/* Trust Badges Strip */}
+                <div className="pt-3 border-t border-[#E8E2D8] grid grid-cols-3 gap-2 text-center">
+                  <div className="space-y-1">
+                    <ShieldCheck className="w-4 h-4 text-[#B67355] mx-auto" />
+                    <span className="text-[9px] text-[#8E8A85] block leading-tight font-sans">
+                      {isArabic ? 'معاينة عند الباب' : 'Doorstep Inspection'}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <RefreshCw className="w-4 h-4 text-[#B67355] mx-auto" />
+                    <span className="text-[9px] text-[#8E8A85] block leading-tight font-sans">
+                      {isArabic ? 'استبدال ١٤ يوم' : '14-Day Easy Swap'}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <Sparkles className="w-4 h-4 text-[#B67355] mx-auto" />
+                    <span className="text-[9px] text-[#8E8A85] block leading-tight font-sans">
+                      {isArabic ? 'أقمشة أرميا الأصلية' : 'Atelier Quality'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
