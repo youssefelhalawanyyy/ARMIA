@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Zap, Clock, Flame, Sparkles, Timer } from 'lucide-react';
+import { Zap, Flame, Sparkles, Timer } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
