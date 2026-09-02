@@ -24,6 +24,9 @@ import {
   Banknote,
   ShieldCheck,
   Info,
+  Navigation,
+  Loader2,
+  MapPin,
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
@@ -177,6 +180,107 @@ export default function CheckoutPage() {
     } else {
       error(result.message, isArabic ? 'خطأ في الكوبون' : 'Invalid Code');
     }
+  };
+
+  const [locatingAddress, setLocatingAddress] = useState(false);
+
+  const handleGetLocation = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      error(isArabic ? 'خاصية تحديد الموقع غير مدعومة في متصفحكِ' : 'Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setLocatingAddress(true);
+    info(
+      isArabic ? 'جاري تحديد موقعكِ بدقة عبر GPS...' : 'Detecting your GPS location...',
+      isArabic ? 'تحديد الموقع' : 'Location'
+    );
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=${isArabic ? 'ar' : 'en'}`
+          );
+
+          if (!res.ok) throw new Error('Geocoding service unavailable');
+          const data = await res.json();
+          const addr = data.address || {};
+
+          const detectedCity =
+            addr.suburb ||
+            addr.neighbourhood ||
+            addr.city_district ||
+            addr.quarter ||
+            addr.town ||
+            addr.city ||
+            '';
+
+          const detectedStreet = [
+            addr.road,
+            addr.house_number ? `#${addr.house_number}` : '',
+            addr.building || '',
+          ].filter(Boolean).join(', ') || data.display_name?.split(',').slice(0, 2).join(',') || '';
+
+          const stateOrGov = (addr.state || addr.province || addr.county || '').toLowerCase();
+          const matchedZone = activeZones.find((z) => {
+            const govEn = z.governorate.toLowerCase();
+            const govAr = z.governorateArabic;
+            return (
+              stateOrGov.includes(govEn) ||
+              (govAr && (addr.state || '').includes(govAr)) ||
+              (govEn.includes('cairo') && (stateOrGov.includes('cairo') || stateOrGov.includes('القاهرة'))) ||
+              (govEn.includes('giza') && (stateOrGov.includes('giza') || stateOrGov.includes('الجيزة'))) ||
+              (govEn.includes('alexandria') && (stateOrGov.includes('alex') || stateOrGov.includes('الإسكندرية')))
+            );
+          });
+
+          setFormData((prev) => ({
+            ...prev,
+            ...(matchedZone ? { governorate: `${matchedZone.governorate} (${matchedZone.governorateArabic})` } : {}),
+            city: detectedCity || prev.city,
+            address: detectedStreet || prev.address,
+          }));
+
+          success(
+            isArabic
+              ? 'تم تحديد عنوانكِ بنجاح! يرجى مراجعة رقم المبنى أو الشقة.'
+              : 'Location detected successfully! Please verify building/apt number.',
+            isArabic ? 'تم التحديد' : 'Location Detected'
+          );
+        } catch (err) {
+          console.warn('Location detection notice:', err);
+          error(
+            isArabic
+              ? 'تعذر جلب تفاصيل الشارع، يرجى كتابة العنوان يدوياً'
+              : 'Could not fetch detailed street address. Please type it manually.'
+          );
+        } finally {
+          setLocatingAddress(false);
+        }
+      },
+      (err) => {
+        console.warn('Geolocation error:', err);
+        setLocatingAddress(false);
+        if (err.code === err.PERMISSION_DENIED) {
+          error(
+            isArabic
+              ? 'يرجى السماح بالوصول للموقع في متصفحكِ لتحديد العنوان تلقائياً'
+              : 'Please allow location permission in browser to detect your address.'
+          );
+        } else {
+          error(
+            isArabic
+              ? 'تعذر الوصول لإحداثيات GPS، يرجى كتابة العنوان'
+              : 'GPS unavailable. Please enter address manually.'
+          );
+        }
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
   };
 
   const handleCopyInstapay = () => {
@@ -679,6 +783,41 @@ export default function CheckoutPage() {
                       dir="ltr"
                       className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
                     />
+                  </div>
+
+                  {/* 1-TAP GPS LOCATION FINDER */}
+                  <div className="sm:col-span-2 bg-[#FAF7F2] border border-[#DCC9A6] p-3 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-[#B67355] text-white flex items-center justify-center shrink-0 shadow-sm">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-[#1F1F1F] block">
+                          {isArabic ? 'تحديد العنوان تلقائياً بنقرة واحدة (GPS)' : '1-Tap Fast GPS Address Finder'}
+                        </span>
+                        <span className="text-[10px] text-[#8E8A85] block">
+                          {isArabic ? 'يحدد المحافظة والحي والشارع فوراً لتسهيل وصول المندوب' : 'Auto-detects governorate, city and street for courier accuracy'}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGetLocation}
+                      disabled={locatingAddress}
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-[#1F1F1F] hover:bg-[#B67355] text-[#DCC9A6] hover:text-white rounded text-xs font-sans font-bold transition-all active:scale-95 disabled:opacity-50 shadow-sm shrink-0"
+                    >
+                      {locatingAddress ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#DCC9A6]" />
+                          <span>{isArabic ? 'جاري تحديد موقعكِ...' : 'Locating GPS...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Navigation className="w-3.5 h-3.5 text-[#DCC9A6]" />
+                          <span>{isArabic ? '📍 تحديد موقعي الآن' : '📍 Use My Current Location'}</span>
+                        </>
+                      )}
+                    </button>
                   </div>
 
                   <div className="sm:col-span-2">

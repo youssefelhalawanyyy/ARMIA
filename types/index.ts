@@ -157,6 +157,22 @@ export interface Discount {
   createdAt?: unknown;
 }
 
+export interface ExchangeRequest {
+  id?: string;
+  itemIndex: number;
+  productId: string;
+  productName: string;
+  currentSize: string;
+  currentColor: string;
+  type: 'exchange_size' | 'return_refund';
+  requestedSize?: string;
+  requestedColor?: string;
+  reason: string;
+  notes?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  requestedAt: string;
+}
+
 export interface Order {
   id?: string;
   orderId: string;
@@ -175,6 +191,7 @@ export interface Order {
   instapaySenderAccount?: string; // Optional sender name or mobile
   paymentStatus?: PaymentStatus;
   status: OrderStatus;
+  exchangeRequest?: ExchangeRequest;
   createdAt: unknown;
   updatedAt?: unknown;
 }

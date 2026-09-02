@@ -27,7 +27,10 @@ import {
   Clock,
   User,
   Package,
+  RefreshCw,
 } from 'lucide-react';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import {
   getAllOrders,
   updateOrderStatusInFirestore,
@@ -163,6 +166,27 @@ export default function AdminOrdersPage() {
       error('Failed to update payment status: ' + (e.message || 'Error occurred'));
     } finally {
       setUpdatingAction(false);
+    }
+  };
+
+  const handleApproveExchange = async (orderId: string) => {
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, {
+        'exchangeRequest.status': 'approved',
+        updatedAt: serverTimestamp(),
+      });
+      success('Exchange approved & courier dispatched for delivery', 'Exchange Approved');
+      setOrders((prev) =>
+        prev.map((o) =>
+          (o.id === orderId || o.orderId === orderId) && o.exchangeRequest
+            ? { ...o, exchangeRequest: { ...o.exchangeRequest, status: 'approved' } }
+            : o
+        )
+      );
+    } catch (err) {
+      console.error('Error approving exchange:', err);
+      error('Failed to approve exchange');
     }
   };
 
@@ -423,6 +447,38 @@ export default function AdminOrdersPage() {
                         <p className="text-[10px] text-[#8E8A85] truncate max-w-[150px]">
                           {ord.items?.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
                         </p>
+
+                        {/* SIZE SWAP / RETURN REQUEST ALERT */}
+                        {ord.exchangeRequest && (
+                          <div className="mt-2 p-2 bg-purple-950/70 border border-purple-800 rounded-lg text-[10px] text-purple-200 shadow-sm">
+                            <div className="flex items-center gap-1 font-bold text-purple-300">
+                              <RefreshCw className="w-3 h-3 text-purple-400 animate-spin" style={{ animationDuration: '8s' }} />
+                              <span>{ord.exchangeRequest.type === 'exchange_size' ? 'Size Swap Requested' : 'Return Requested'}</span>
+                            </div>
+                            <p className="text-white mt-1 font-mono">
+                              {ord.exchangeRequest.currentSize} ➔ <strong className="text-[#DCC9A6] font-bold">{ord.exchangeRequest.requestedSize || 'Refund'}</strong>
+                            </p>
+                            <p className="text-[9px] text-purple-300 mt-0.5 truncate">{ord.exchangeRequest.reason}</p>
+                            <div className="mt-1.5 flex items-center justify-between gap-1 pt-1 border-t border-purple-800/60">
+                              <span className={`px-1.5 py-0.5 rounded font-bold uppercase text-[9px] ${
+                                ord.exchangeRequest.status === 'approved'
+                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                  : 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
+                              }`}>
+                                {ord.exchangeRequest.status}
+                              </span>
+                              {ord.exchangeRequest.status === 'pending' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveExchange(ord.id || ord.orderId)}
+                                  className="bg-purple-800 hover:bg-purple-700 text-white px-2 py-0.5 rounded text-[9px] font-bold transition-colors"
+                                >
+                                  Approve & Dispatch
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Payment Method & Instapay Receipt Column */}
