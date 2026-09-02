@@ -41,13 +41,26 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    // Register Service Worker with automatic update checks
+    // In local development, automatically unregister ServiceWorker and wipe CacheStorage
+    // to prevent Turbopack chunk conflicts and stale dev overlays
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister();
+          }
+        });
+        if ('caches' in window) {
+          caches.keys().then((names) => {
+            for (const name of names) caches.delete(name);
+          });
+        }
+        return;
+      }
+
       navigator.serviceWorker
         .register('/sw.js')
         .then((reg) => {
-          console.log('ARMIA Service Worker registered', reg.scope);
-          // Check for new version from server
           reg.update().catch(() => {});
         })
         .catch((err) => console.warn('ARMIA Service Worker registration failed:', err));

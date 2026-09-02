@@ -1,7 +1,7 @@
 // ARMIA Boutique Service Worker
-// Cache Version: v4-live (Ensures instant updates & background push notifications)
+// Cache Version: v5-live (Bypasses /_next/ & HMR chunks)
 
-const CACHE_NAME = 'armia-boutique-v4';
+const CACHE_NAME = 'armia-boutique-v5';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -50,11 +50,14 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // Skip Firestore, Chrome Extension, API, and Admin calls
+  // NEVER intercept /_next/ chunks, Turbopack HMR, localhost, API, or Admin calls
   if (
     url.origin !== self.location.origin ||
+    url.pathname.startsWith('/_next') ||
     url.pathname.startsWith('/api') ||
     url.pathname.startsWith('/admin') ||
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1' ||
     url.hostname.includes('firestore') ||
     url.hostname.includes('googleapis')
   ) {
