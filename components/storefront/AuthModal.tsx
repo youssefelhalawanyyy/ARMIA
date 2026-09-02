@@ -79,7 +79,11 @@ export default function AuthModal({
     } catch (err: unknown) {
       console.error(err);
       const authErr = err as { code?: string; message?: string };
-      if (authErr.code !== 'auth/popup-closed-by-user') {
+      if (authErr.code === 'auth/unauthorized-domain') {
+        const msg = 'Domain "armiaboutique.com" is not yet added to Authorized Domains in Firebase. Please add it in Firebase Console > Authentication > Settings > Authorized domains.';
+        setErrorMessage(msg);
+        error('Please add armiaboutique.com to Authorized Domains in Firebase Console', 'Domain Not Authorized');
+      } else if (authErr.code !== 'auth/popup-closed-by-user') {
         setErrorMessage(authErr.message || 'Google sign-in failed');
         error('Google sign in failed', 'Error');
       }
