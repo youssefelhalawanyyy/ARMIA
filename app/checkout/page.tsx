@@ -111,10 +111,6 @@ export default function CheckoutPage() {
   const [selectedUpsellSizes, setSelectedUpsellSizes] = useState<Record<string, string>>({});
   const [addingUpsellId, setAddingUpsellId] = useState<string | null>(null);
 
-  // Complimentary Boutique Gift Packaging
-  const [giftPackaging, setGiftPackaging] = useState(false);
-  const [giftNote, setGiftNote] = useState('');
-
   // Fetch products with active discounts for checkout upselling
   useEffect(() => {
     let isMounted = true;
@@ -672,18 +668,6 @@ export default function CheckoutPage() {
         ? `${formData.buildingNumber.trim()}، ${formData.address.trim()}`
         : formData.address.trim();
 
-      const finalNotes = [
-        formData.notes?.trim() || '',
-        giftPackaging
-          ? isArabic
-            ? '🎁 طلب تغليف هدايا فاخر مع شريطة حرير'
-            : '🎁 Complimentary Haute Couture Gift Wrapping Requested'
-          : '',
-        giftNote?.trim()
-          ? `${isArabic ? 'إهداء:' : 'Gift Dedication:'} "${giftNote.trim()}"`
-          : '',
-      ].filter(Boolean).join(' | ');
-
       const orderPayload: Order = {
         orderId: generatedOrderId,
         customerUid: user.uid,
@@ -696,7 +680,7 @@ export default function CheckoutPage() {
           city: formData.city.trim(),
           address: combinedAddress,
           buildingNumber: formData.buildingNumber?.trim() || '',
-          notes: finalNotes,
+          notes: formData.notes?.trim() || '',
         },
         items: items.map((it) => ({
           productId: it.productId,
@@ -1718,42 +1702,6 @@ export default function CheckoutPage() {
                   <p className="text-[10px] text-[#8E8A85]">
                     {paymentMethod === 'COD' ? t.checkout.codNote : t.checkout.instapayNote}
                   </p>
-                </div>
-
-                {/* Complimentary Gift Packaging Toggle */}
-                <div className="p-3 bg-[#FAF7F2] border border-[#DCC9A6] rounded-xl space-y-2">
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={giftPackaging}
-                      onChange={(e) => setGiftPackaging(e.target.checked)}
-                      className="w-4 h-4 rounded text-[#B67355] focus:ring-[#B67355] accent-[#B67355]"
-                    />
-                    <div className="flex-1">
-                      <span className="font-serif text-xs font-bold text-[#1F1F1F] flex items-center gap-1.5">
-                        <Gift className="w-3.5 h-3.5 text-[#B67355]" />
-                        <span>{isArabic ? 'تغليف هدايا فاخر مع شريطة حرير' : 'Complimentary Haute Couture Gift Box'}</span>
-                      </span>
-                      <span className="text-[10px] text-[#8E8A85] block mt-0.5">
-                        {isArabic ? 'مجاناً مع صندوق أرميا الفاخر' : '100% Free with luxury silk ribbon'}
-                      </span>
-                    </div>
-                  </label>
-
-                  {giftPackaging && (
-                    <div className="pt-2 border-t border-[#E8E2D8] space-y-1 animate-fadeIn">
-                      <label className="block text-[10px] uppercase font-sans tracking-wider text-[#8E8A85] font-semibold">
-                        {isArabic ? 'رسالة إهداء مخصصة (اختياري):' : 'Gift Dedication Message (Optional):'}
-                      </label>
-                      <input
-                        type="text"
-                        value={giftNote}
-                        onChange={(e) => setGiftNote(e.target.value)}
-                        placeholder={isArabic ? 'اكتبي رسالتكِ للمهدى إليه...' : 'Write your gift message...'}
-                        className="w-full bg-white border border-[#E8E2D8] px-3 py-1.5 text-xs font-sans rounded-lg focus:outline-none focus:border-[#B67355]"
-                      />
-                    </div>
-                  )}
                 </div>
 
                 {/* Grand Confirm Order Button */}
