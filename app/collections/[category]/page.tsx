@@ -23,15 +23,36 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   ]);
 
   // STRICTLY filter for available products (stock > 0)
-  const availableProducts = products.filter((p) => (p.stockQuantity ?? 0) > 0);
+  let availableProducts = products.filter((p) => (p.stockQuantity ?? 0) > 0);
+
+  // If curation route (best-sellers, new-in) has 0 specific items, fall back to all available products so it is never empty
+  if (availableProducts.length === 0 && (categoryParam === 'best-sellers' || categoryParam === 'new-in')) {
+    const all = await getProducts('all');
+    availableProducts = all.filter((p) => (p.stockQuantity ?? 0) > 0);
+  }
+
+  // If best-sellers, prioritize featured items to the top
+  if (categoryParam === 'best-sellers') {
+    availableProducts.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
+  }
 
   const matchedCat = allCategories.find(
     (c) => c.slug.toLowerCase() === categoryParam || c.id.toLowerCase() === categoryParam
   );
 
-  const title = matchedCat ? matchedCat.name.toUpperCase() : categoryParam.toUpperCase().replace(/-/g, ' ');
-  const titleArabic = matchedCat?.nameArabic;
-  const description = matchedCat?.description || 'Handpicked pieces designed with meticulous attention to detail and modern elegance.';
+  let title = matchedCat ? matchedCat.name.toUpperCase() : categoryParam.toUpperCase().replace(/-/g, ' ');
+  let titleArabic = matchedCat?.nameArabic;
+  let description = matchedCat?.description || 'Handpicked pieces designed with meticulous attention to detail and modern elegance.';
+
+  if (categoryParam === 'best-sellers') {
+    title = 'BEST SELLERS';
+    titleArabic = 'الأكثر مبيعاً';
+    description = 'Our signature best-selling boutique creations, loved for their impeccable tailoring and luxurious comfort.';
+  } else if (categoryParam === 'new-in') {
+    title = 'NEW IN';
+    titleArabic = 'وصل حديثاً';
+    description = 'The latest seasonal curation designed for your signature style.';
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F3EE]">

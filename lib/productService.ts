@@ -96,7 +96,7 @@ export async function getProducts(category?: string): Promise<Product[]> {
     const productsRef = collection(db, PRODUCTS_COLLECTION);
     let q = query(productsRef);
 
-    if (category && category !== 'all' && category !== 'new-in') {
+    if (category && category !== 'all' && category !== 'new-in' && category !== 'best-sellers') {
       q = query(productsRef, where('category', '==', category));
     }
 
@@ -123,10 +123,14 @@ export async function getProducts(category?: string): Promise<Product[]> {
         items.push(product);
       });
 
-      const finalItems =
-        category === 'new-in'
-          ? items.filter((item) => item.isNewArrival || item.category === 'new-in')
-          : items;
+      let finalItems = items;
+      if (category === 'new-in') {
+        const filtered = items.filter((item) => item.isNewArrival || item.category === 'new-in');
+        finalItems = filtered.length > 0 ? filtered : items;
+      } else if (category === 'best-sellers') {
+        const featured = items.filter((item) => item.featured);
+        finalItems = featured.length > 0 ? featured : items;
+      }
 
       PRODUCT_CACHE.set(cacheKey, { data: finalItems, timestamp: Date.now() });
       return finalItems;
@@ -139,7 +143,11 @@ export async function getProducts(category?: string): Promise<Product[]> {
   let fallbackResult: Product[];
   if (category && category !== 'all') {
     if (category === 'new-in') {
-      fallbackResult = INITIAL_PRODUCTS.filter((p) => p.isNewArrival);
+      const filtered = INITIAL_PRODUCTS.filter((p) => p.isNewArrival);
+      fallbackResult = filtered.length > 0 ? filtered : INITIAL_PRODUCTS;
+    } else if (category === 'best-sellers') {
+      const featured = INITIAL_PRODUCTS.filter((p) => p.featured);
+      fallbackResult = featured.length > 0 ? featured : INITIAL_PRODUCTS;
     } else {
       fallbackResult = INITIAL_PRODUCTS.filter((p) => p.category === category);
     }
