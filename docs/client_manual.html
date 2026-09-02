@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ARMIA Haute Couture — Complete Client Shopping & Website Manual</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,800;1,400&display=swap');
+
+    @page {
+      size: A4;
+      margin: 14mm 14mm 14mm 14mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Montserrat', sans-serif;
+      color: #1F1F1F;
+      background-color: #FFFFFF;
+      font-size: 11pt;
+      line-height: 1.55;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      page-break-after: always;
+      break-after: page;
+      padding: 20px 10px;
+      position: relative;
+      min-height: 980px;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    /* Luxury Color Palette */
+    :root {
+      --gold: #B67355;
+      --gold-light: #DCC9A6;
+      --pearl: #FAF7F2;
+      --sand: #F6F3EE;
+      --dark: #1F1F1F;
+      --charcoal: #2A2A2A;
+      --border: #E8E2D8;
+      --emerald: #059669;
+    }
+
+    /* Cover Page */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: linear-gradient(145deg, #141414 0%, #1F1F1F 50%, #2A221C 100%);
+      color: #FFFFFF;
+      border: 3px solid #DCC9A6;
+      border-radius: 12px;
+      padding: 60px 30px;
+      min-height: 940px;
+    }
+
+    .cover-brand {
+      font-family: 'Cinzel', serif;
+      font-size: 38pt;
+      letter-spacing: 0.25em;
+      color: #DCC9A6;
+      text-transform: uppercase;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+
+    .cover-subbrand {
+      font-family: 'Cinzel', serif;
+      font-size: 13pt;
+      letter-spacing: 0.35em;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      opacity: 0.85;
+      margin-bottom: 40px;
+    }
+
+    .cover-divider {
+      width: 80px;
+      height: 2px;
+      background-color: #B67355;
+      margin: 20px auto;
+    }
+
+    .cover-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 26pt;
+      font-weight: 700;
+      color: #FFFFFF;
+      line-height: 1.3;
+      margin-bottom: 16px;
+      max-width: 650px;
+    }
+
+    .cover-arabic {
+      font-family: 'Playfair Display', serif;
+      font-size: 16pt;
+      color: #DCC9A6;
+      margin-bottom: 24px;
+      direction: rtl;
+    }
+
+    .cover-tagline {
+      font-size: 11pt;
+      color: #C5BCB1;
+      max-width: 540px;
+      line-height: 1.6;
+      margin-bottom: 45px;
+    }
+
+    .cover-badge {
+      display: inline-block;
+      border: 1px solid #DCC9A6;
+      padding: 10px 24px;
+      border-radius: 30px;
+      font-size: 10pt;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #DCC9A6;
+      background: rgba(220, 201, 166, 0.08);
+    }
+
+    .cover-footer {
+      margin-top: 60px;
+      font-size: 9pt;
+      color: #8E8A85;
+      letter-spacing: 0.1em;
+    }
+
+    /* Headers & Typography */
+    h1, h2, h3, h4 {
+      font-family: 'Playfair Display', serif;
+      color: var(--dark);
+    }
+
+    .section-tag {
+      font-family: 'Cinzel', serif;
+      font-size: 9pt;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      font-weight: 700;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .section-title {
+      font-size: 20pt;
+      font-weight: 800;
+      margin-bottom: 10px;
+      border-bottom: 2px solid var(--gold-light);
+      padding-bottom: 8px;
+    }
+
+    .section-subtitle {
+      font-size: 10.5pt;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    /* Cards & Components */
+    .card {
+      background-color: var(--pearl);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card-dark {
+      background: #141414;
+      color: white;
+      border: 1px solid var(--gold-light);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card-dark h3, .card-dark h4 {
+      color: #DCC9A6;
+    }
+
+    /* Visual Mockups & UI Elements */
+    .mockup-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin: 12px 0;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    }
+
+    .btn-mockup {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 9pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-gold {
+      background: linear-gradient(135deg, #B67355, #DCC9A6);
+      color: #1F1F1F;
+      border: none;
+    }
+
+    .btn-dark {
+      background: #1F1F1F;
+      color: #DCC9A6;
+      border: 1px solid #DCC9A6;
+    }
+
+    .btn-green {
+      background: #25D366;
+      color: white;
+      border: none;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-right: 6px;
+    }
+
+    .pill-gold {
+      background: #FAF0E6;
+      color: #B67355;
+      border: 1px solid #DCC9A6;
+    }
+
+    .pill-green {
+      background: #ECFDF5;
+      color: #047857;
+      border: 1px solid #A7F3D0;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 20px 0;
+      font-size: 9.5pt;
+    }
+
+    th {
+      background-color: #1F1F1F;
+      color: #DCC9A6;
+      font-family: 'Cinzel', serif;
+      text-transform: uppercase;
+      font-size: 8.5pt;
+      letter-spacing: 0.08em;
+      padding: 9px 12px;
+      text-align: left;
+    }
+
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      background-color: #FFFFFF;
+    }
+
+    tr:nth-child(even) td {
+      background-color: var(--sand);
+    }
+
+    .btn-name {
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .icon-box {
+      border: 1px solid var(--border);
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .icon-box-title {
+      font-weight: 700;
+      font-size: 9.5pt;
+      color: var(--dark);
+      margin-top: 4px;
+    }
+
+    .icon-box-desc {
+      font-size: 8pt;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    .callout {
+      border-left: 4px solid var(--gold);
+      background: #FAF7F2;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 14px 0;
+      font-size: 9.5pt;
+    }
+
+    .arabic-text {
+      direction: rtl;
+      font-family: 'Montserrat', sans-serif;
+      color: #555;
+      font-size: 9.5pt;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== PAGE 1: COVER ==================== -->
+  <div class="page">
+    <div class="cover">
+      <div class="cover-brand">ARMIA</div>
+      <div class="cover-subbrand">HAUTE COUTURE • CAIRO</div>
+      <div class="cover-divider"></div>
+      
+      <div class="cover-title">The Complete Client Shopping Experience & Website Manual</div>
+      <div class="cover-arabic">دليل العميل الشامل — تجربة التسوق وجميع ميزات الموقع خطوة بخطوة</div>
+      
+      <p class="cover-tagline">
+        An exhaustive, beautifully annotated guide explaining every single page, flow, feature, and button across the ARMIA online boutique.
+      </p>
+
+      <div class="cover-badge">
+        Client Edition • Version 2.0 • 2026
+      </div>
+
+      <div class="cover-footer">
+        MAISON ARMIA • OFFICIAL SYSTEM MANUAL • CONFIDENTIAL & CLIENT-FACING
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 2: HOMEPAGE & NAVIGATION ==================== -->
+  <div class="page">
+    <span class="section-tag">Chapter 1</span>
+    <h2 class="section-title">The Storefront Header & Navigation Bar</h2>
+    <p class="section-subtitle">
+      The top navigation of ARMIA is designed for seamless, one-tap access to every boutique section on mobile and desktop.
+    </p>
+
+    <!-- Top Navigation Mockup -->
+    <div class="mockup-bar">
+      <div style="font-family:'Cinzel', serif; font-weight:900; font-size:14pt; letter-spacing:0.15em; color:#1F1F1F;">
+        ARMIA
+      </div>
+      <div style="font-size:8.5pt; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; display:flex; gap:16px;">
+        <span>Collections</span>
+        <span>New In</span>
+        <span>Best Sellers</span>
+        <span>About Us</span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span class="pill pill-gold">EN / عربي</span>
+        <span class="btn-mockup btn-dark">Bag (1)</span>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Element / Button</th>
+          <th>Location</th>
+          <th>What It Does When Clicked</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="btn-name">ARMIA Logo</span></td>
+          <td>Header Center/Left</td>
+          <td>Instantly returns the client to the main Homepage from any screen.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Collections Dropdown</span></td>
+          <td>Main Menu</td>
+          <td>Opens a categorized view: Dresses, Two-Piece Sets, Abayas, Blazers, and Scarves.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">New In</span></td>
+          <td>Main Menu</td>
+          <td>Filters and displays the latest Haute Couture arrivals added in the last 30 days.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Best Sellers</span></td>
+          <td>Main Menu</td>
+          <td>Shows the highest-rated and most ordered pieces across Egypt.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Language Switcher (EN / عربي)</span></td>
+          <td>Top Right</td>
+          <td>Instantly flips the whole website between English and Arabic with full RTL support.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Search Icon (🔍)</span></td>
+          <td>Top Right</td>
+          <td>Opens live instant search with auto-suggest as the customer types fabric or style names.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Wishlist Heart (♡)</span></td>
+          <td>Top Right</td>
+          <td>Opens saved favorites; displays a live counter of liked items stored locally in the browser.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Shopping Bag (🛍️)</span></td>
+          <td>Top Right</td>
+          <td>Slides open the interactive Cart Drawer with live free delivery meter and auto-discounts.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="card">
+      <h4>⚡ Live Announcement Top Bar</h4>
+      <p style="font-size:9.5pt; color:#666; margin-top:4px;">
+        Located at the very top of every page, it pulses with real-time flash offers: e.g. <em>"Free Express Delivery on orders above EGP 2,000 across all 27 Governorates!"</em> plus a live countdown timer.
+      </p>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 3: THE OCCASION STYLIST ==================== -->
+  <div class="page">
+    <span class="section-tag">Chapter 2 • Exclusive Feature</span>
+    <h2 class="section-title">The Occasion Stylist (AI Wardrobe Generator)</h2>
+    <p class="section-subtitle">
+      A 1-click personal concierge that instantly styles a 3-piece haute couture look based on where the client is going.
+    </p>
+
+    <div class="card-dark">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="font-size:13pt; letter-spacing:0.05em;">🪄 "Style Me For My Event"</h3>
+        <span class="pill pill-gold">AI Concierge • Free</span>
+      </div>
+      <p style="font-size:9.5pt; line-height:1.5; color:#E0D9D1;">
+        Clients select their destination venue, and in 2 seconds ARMIA curates an outfit with matching accessories and styling notes.
+      </p>
+    </div>
+
+    <div class="grid-3">
+      <div class="icon-box">
+        <div style="font-size:18pt;">🌊</div>
+        <div class="icon-box-title">Sahel Beach Sunset</div>
+        <div class="icon-box-desc">Light linen sets, flowing kaftans & airy resort silhouettes.</div>
+      </div>
+      <div class="icon-box">
+        <div style="font-size:18pt;">🏛️</div>
+        <div class="icon-box-title">Cairo Business Meeting</div>
+        <div class="icon-box-desc">Structured luxury blazers, tailored trousers & silk shirts.</div>
+      </div>
+      <div class="icon-box">
+        <div style="font-size:18pt;">🌙</div>
+        <div class="icon-box-title">Ramadan & Soirée</div>
+        <div class="icon-box-desc">Embroidered abayas, rich jewel tones & modesty chic.</div>
+      </div>
+      <div class="icon-box">
+        <div style="font-size:18pt;">☕</div>
+        <div class="icon-box-title">Weekend Brunch</div>
+        <div class="icon-box-desc">Relaxed elegance, matching pastel sets & oversized shirts.</div>
+      </div>
+      <div class="icon-box">
+        <div style="font-size:18pt;">💍</div>
+        <div class="icon-box-title">Engagement / Dinner</div>
+        <div class="icon-box-desc">Statement evening gowns, satin slip dresses & metallic accents.</div>
+      </div>
+      <div class="icon-box">
+        <div style="font-size:18pt;">✨</div>
+        <div class="icon-box-title">Atelier Custom Fit</div>
+        <div class="icon-box-desc">Direct WhatsApp styling consultation with our head designer.</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Occasion Stylist Buttons</th>
+          <th>Action & Outcome</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="btn-name">[ Venue Selection Cards ]</span></td>
+          <td>Filters catalog immediately for tailored fabric weights and formal levels.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">[ Add Entire 3-Piece Look to Bag ]</span></td>
+          <td>Adds dress, outerwear, and scarf to cart in 1 tap with a bundled discount.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">[ Re-Roll Another Look ]</span></td>
+          <td>Generates an alternative complementary color palette for the same occasion.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ==================== PAGE 4: PRODUCT DETAILS & SIZING ==================== -->
+  <div class="page">
+    <span class="section-tag">Chapter 3</span>
+    <h2 class="section-title">Product Details Page (PDP) & Sizing Guide</h2>
+    <p class="section-subtitle">
+      Every product page provides high-definition atelier visuals, interactive color swatches, and precision size measurements.
+    </p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>📸 High-Resolution Visual Gallery</h4>
+        <ul style="font-size:9.5pt; margin-left:18px; margin-top:8px; line-height:1.6;">
+          <li><strong>Hover Zoom:</strong> Move cursor over garment to inspect stitching and fabric texture.</li>
+          <li><strong>Thumbnail Strip:</strong> Tap secondary photos to view model from back, side, and movement.</li>
+          <li><strong>Offer Badge:</strong> Shows red/gold discount tag with exact EGP savings.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h4>📏 Interactive Size Selector</h4>
+        <ul style="font-size:9.5pt; margin-left:18px; margin-top:8px; line-height:1.6;">
+          <li><strong>Pill Buttons:</strong> XS, S, M, L, XL, XXL, and Free Size.</li>
+          <li><strong>Out of Stock:</strong> Automatically dims unavailable sizes to prevent order errors.</li>
+          <li><strong>Urgency Counter:</strong> Red alert if fewer than 3 pieces remain in inventory.</li>
+        </ul>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>PDP Button / Feature</th>
+          <th>Visual Appearance</th>
+          <th>What It Does</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="btn-name">Color Swatches</span></td>
+          <td>Circular color bubbles with active gold border</td>
+          <td>Switches product photo to the chosen color (e.g. Oatmeal Beige, Midnight Black, Sage Green).</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Size Chart Link</span></td>
+          <td>"📏 View Size Guide (دليل المقاسات)"</td>
+          <td>Opens modal with Bust, Waist, and Hip measurements in centimeters and inches.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Quantity Adjuster</span></td>
+          <td>[ - ] 1 [ + ]</td>
+          <td>Increases or decreases order quantity with instant price calculation.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">ADD TO BAG</span></td>
+          <td>Solid Black Button with Gold Text</td>
+          <td>Adds the piece to the cart drawer, displays haptic feedback, and opens the drawer.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">BUY NOW (1-CLICK)</span></td>
+          <td>Gold Gradient Button</td>
+          <td>Bypasses the cart and sends client straight to Checkout for lightning-fast purchase.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">WhatsApp Stylist</span></td>
+          <td>Green WhatsApp Icon</td>
+          <td>Opens direct chat with ARMIA hotline (+20 122 085 9992) with product name pre-typed.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Save to Wishlist</span></td>
+          <td>Heart Icon Button</td>
+          <td>Saves piece for future reference; stays stored even after closing browser.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ==================== PAGE 5: CART DRAWER & CHECKOUT ==================== -->
+  <div class="page">
+    <span class="section-tag">Chapter 4</span>
+    <h2 class="section-title">The Smart Cart Drawer & Free Delivery Meter</h2>
+    <p class="section-subtitle">
+      A sliding luxury drawer designed to maximize customer savings and make checkout frictionless.
+    </p>
+
+    <div class="card">
+      <h4>🚚 Dynamic Free Delivery Progress Bar</h4>
+      <p style="font-size:9.5pt; color:#555; margin-top:4px;">
+        Calculates how many Egyptian Pounds are remaining to unlock Free Shipping across Egypt:
+      </p>
+      <div style="background:#E8E2D8; height:8px; border-radius:10px; margin:10px 0; overflow:hidden;">
+        <div style="background:linear-gradient(90deg, #B67355, #DCC9A6); width:75%; height:100%;"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:8.5pt; font-weight:700; color:#B67355;">
+        <span>🚚 Add EGP 250 more to unlock Free Express Delivery!</span>
+        <span>75%</span>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Cart Drawer Feature</th>
+          <th>What It Does</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="btn-name">Quantity [+] / [-]</span></td>
+          <td>Updates items and automatically recalculates bulk tier discounts.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Trash Icon (🗑️)</span></td>
+          <td>Removes the item from bag with a gentle undo confirmation toast.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Auto-Discount Pill</span></td>
+          <td>Displays green badge showing exact savings from active promotions (e.g. 10% Off).</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">PROCEED TO CHECKOUT</span></td>
+          <td>Transfers the client to the 1-Page Express Checkout with SSL encryption.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Abandoned Cart Protection:</strong>
+      If a client enters their phone number at checkout but leaves without finishing, our system saves their bag safely so they can return anytime with 1 tap.
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 6: 1-TAP GPS CHECKOUT & PAYMENT ==================== -->
+  <div class="page">
+    <span class="section-tag">Chapter 5</span>
+    <h2 class="section-title">Checkout: 1-Tap GPS Finder & Payment Methods</h2>
+    <p class="section-subtitle">
+      Designed for Egyptian mobile shoppers: zero manual typing of long governorates and districts.
+    </p>
+
+    <div class="card" style="border: 2px solid #DCC9A6;">
+      <h4>📍 1-Tap GPS Address Finder</h4>
+      <p style="font-size:9.5pt; color:#666; margin-top:4px;">
+        Clients simply tap <strong>[ 📍 Use My Current Location ]</strong>. The system auto-populates:
+      </p>
+      <div class="grid-3" style="margin-top:10px;">
+        <div class="icon-box">
+          <div style="font-weight:700; color:#B67355;">1. Governorate</div>
+          <div style="font-size:8pt; color:#666;">Matches all 27 Governorates including Sahel, Matrouh, Cairo, Alex.</div>
+        </div>
+        <div class="icon-box">
+          <div style="font-weight:700; color:#B67355;">2. City / District</div>
+          <div style="font-size:8pt; color:#666;">Extracts compound, village, or neighborhood (e.g. Stella Heights, Tagamoa).</div>
+        </div>
+        <div class="icon-box">
+          <div style="font-weight:700; color:#B67355;">3. Street Address</div>
+          <div style="font-size:8pt; color:#666;">Extracts road name and main area landmarks.</div>
+        </div>
+      </div>
+      <p style="font-size:8.5pt; color:#B67355; font-weight:700; margin-top:8px;">
+        ⚠️ Building / Villa & Apartment Number is mandatory (*) and left empty for courier delivery accuracy!
+      </p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Payment Method</th>
+          <th>How It Works</th>
+          <th>Client Experience</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="btn-name">Cash on Delivery (COD)</span></td>
+          <td>Pay upon delivery directly to courier across all 27 governorates.</td>
+          <td>Zero upfront payment; client can inspect package before handing cash.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">Instapay Transfer</span></td>
+          <td>Instant bank/wallet transfer to official number <strong>01204000195</strong> (armia emad).</td>
+          <td>Client uploads transfer screenshot directly on page; atelier verifies instantly.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="card-dark">
+      <h4>⚡ Pre-Purchase Checkout Upselling ("Complete Your Look")</h4>
+      <p style="font-size:9pt; color:#CCC; margin-top:4px;">
+        Inside the order summary, clients see matching items with <strong>active discounts</strong>. With 1 click on <strong>[ + Add / أضيفي ]</strong>, the piece is added into their shipment with real-time total recalculation!
+      </p>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 7: ORDER CONFIRMATION & SIZE SWAP ==================== -->
+  <div class="page">
+    <span class="section-tag">Chapter 6</span>
+    <h2 class="section-title">Order Confirmation, Tracking & Size Swap Portal</h2>
+    <p class="section-subtitle">
+      The complete post-purchase hub: live tracking, isolated invoice printing, and hassle-free exchanges.
+    </p>
+
+    <!-- Timeline Mockup -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <span style="font-family:'Cinzel', serif; font-size:9pt; font-weight:700; color:#B67355;">
+          ORDER #ARM-418756 VERIFIED
+        </span>
+        <span class="pill pill-green">✓ Confirmed by Atelier</span>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; text-align:center; font-size:8.5pt; font-weight:700; margin-top:14px;">
+        <div><div style="width:28px; height:28px; background:#B67355; color:white; border-radius:50%; margin:0 auto 4px; line-height:28px;">✓</div>Order Placed</div>
+        <div><div style="width:28px; height:28px; background:#B67355; color:white; border-radius:50%; margin:0 auto 4px; line-height:28px;">✓</div>Confirmed</div>
+        <div><div style="width:28px; height:28px; background:#B67355; color:white; border-radius:50%; margin:0 auto 4px; line-height:28px;">3</div>Processing</div>
+        <div><div style="width:28px; height:28px; background:#E8E2D8; color:#888; border-radius:50%; margin:0 auto 4px; line-height:28px;">4</div>Out for Delivery</div>
+        <div><div style="width:28px; height:28px; background:#E8E2D8; color:#888; border-radius:50%; margin:0 auto 4px; line-height:28px;">5</div>Delivered</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Order Page Button</th>
+          <th>What It Does When Clicked</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="btn-name">[ 📋 Copy Reference ]</span></td>
+          <td>Copies `#ARM-XXXX` to clipboard with instant toast notification.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">[ 🖨️ Print Receipt ]</span></td>
+          <td>Opens clean isolated invoice formatted for A4 or thermal receipt printer.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">[ 💬 WhatsApp Support ]</span></td>
+          <td>Opens WhatsApp concierge with order number pre-filled for real-time questions.</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">[ ⚡ Add to My Order (Post-Purchase) ]</span></td>
+          <td>1-Click addition of discounted piece with <strong>Zero Extra Shipping Fee</strong>!</td>
+        </tr>
+        <tr>
+          <td><span class="btn-name">[ 🔄 Request Size Swap ]</span></td>
+          <td>Opens self-service exchange portal (Pick item, choose desired new size XS-XXL).</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Instant Size Swap Guarantee:</strong>
+      If a garment feels too loose or tight, client taps <strong>"Request Size Swap"</strong>. The exchange is logged in the atelier dispatch queue, and the courier delivers the new size to her door within 24–48 hours.
+    </div>
+  </div>
+
+</body>
+</html>
