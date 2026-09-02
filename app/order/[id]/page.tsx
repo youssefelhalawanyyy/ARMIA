@@ -24,6 +24,10 @@ import {
   Truck,
   ShieldCheck,
   Check,
+  Copy,
+  Clock,
+  ChevronRight,
+  Flame,
 } from 'lucide-react';
 import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
@@ -47,6 +51,7 @@ function OrderTrackingContent() {
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copiedOrderId, setCopiedOrderId] = useState(false);
 
   // Post-Purchase Upsell State
   const [upsellProduct, setUpsellProduct] = useState<Product | null>(null);
@@ -54,6 +59,7 @@ function OrderTrackingContent() {
   const [selectedUpsellSize, setSelectedUpsellSize] = useState<string>('Standard');
   const [addingUpsell, setAddingUpsell] = useState(false);
   const [upsellAdded, setUpsellAdded] = useState(false);
+  const [dismissedUpsell, setDismissedUpsell] = useState(false);
 
   // Self-Service Exchange / Size Swap State
   const [showExchangeModal, setShowExchangeModal] = useState(false);
@@ -65,31 +71,36 @@ function OrderTrackingContent() {
   const [exchangeNotes, setExchangeNotes] = useState('');
   const [submittingExchange, setSubmittingExchange] = useState(false);
 
-  const statusSteps: { status: OrderStatus; label: string; desc: string }[] = [
+  const statusSteps: { status: OrderStatus; label: string; desc: string; icon: string }[] = [
     {
       status: 'pending',
       label: isArabic ? 'تم استلام الطلب' : 'Order Placed',
-      desc: isArabic ? 'تم التسجيل وبانتظار التأكيد' : 'Received & awaiting boutique verification',
+      desc: isArabic ? 'مسجل بانتظار التأكيد' : 'Verified by boutique',
+      icon: '1',
     },
     {
       status: 'confirmed',
       label: isArabic ? 'تم تأكيد الطلب' : 'Confirmed',
-      desc: isArabic ? 'تمت مراجعة الطلب مع الأتيليه' : 'Verified by atelier team',
+      desc: isArabic ? 'مراجعة الأتيليه والمخزون' : 'Atelier confirmed',
+      icon: '2',
     },
     {
       status: 'processing',
-      label: isArabic ? 'التجهيز والتغليف' : 'Processing & Packaging',
-      desc: isArabic ? 'كي، فحص جودة وتغليف فاخر' : 'Steamed, inspected & boxed',
+      label: isArabic ? 'تجهيز وتغليف فاخر' : 'Processing & Boxing',
+      desc: isArabic ? 'كي وفحص جودة' : 'Steamed & gift boxed',
+      icon: '3',
     },
     {
       status: 'shipped',
       label: isArabic ? 'خرج للتوصيل' : 'Out for Delivery',
-      desc: isArabic ? 'مع مندوب الشحن للمحافظة' : 'With courier across Egypt',
+      desc: isArabic ? 'مع مندوب الشحن للمحافظة' : 'With express courier',
+      icon: '4',
     },
     {
       status: 'delivered',
       label: isArabic ? 'تم التسليم' : 'Delivered',
-      desc: isArabic ? 'استلام ودفع عند الاستلام' : 'Received & paid via COD',
+      desc: isArabic ? 'استلام ودفع عند الباب' : 'Delivered & paid',
+      icon: '5',
     },
   ];
 
@@ -150,6 +161,17 @@ function OrderTrackingContent() {
   };
 
   const currentStep = order ? getStepIndex(order.status) : 0;
+
+  const handleCopyOrderId = () => {
+    if (!order) return;
+    navigator.clipboard.writeText(order.orderId);
+    setCopiedOrderId(true);
+    success(
+      isArabic ? `تم نسخ رقم الطلب #${order.orderId}` : `Order ID #${order.orderId} copied!`,
+      isArabic ? 'تم النسخ' : 'Copied'
+    );
+    setTimeout(() => setCopiedOrderId(false), 3000);
+  };
 
   const handlePrint = () => {
     if (order) {
@@ -212,9 +234,9 @@ function OrderTrackingContent() {
       setUpsellAdded(true);
 
       confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
+        particleCount: 100,
+        spread: 80,
+        origin: { y: 0.5 },
         colors: ['#DCC9A6', '#B67355', '#1F1F1F'],
       });
 
@@ -293,7 +315,7 @@ function OrderTrackingContent() {
           <div className="w-10 h-10 border-2 border-[#1F1F1F] border-t-[#DCC9A6] rounded-full animate-spin" />
         </div>
       ) : !order ? (
-        <div className="bg-white border border-[#E8E2D8] p-10 text-center rounded-xl">
+        <div className="bg-white border border-[#E8E2D8] p-10 text-center rounded-2xl shadow-sm">
           <Package className="w-12 h-12 text-[#8E8A85] mx-auto mb-3" />
           <h2 className="font-serif text-2xl font-bold text-[#1F1F1F] mb-1">
             {t.orderConfirmation.title}
@@ -305,39 +327,60 @@ function OrderTrackingContent() {
           </p>
           <Link
             href="/collections"
-            className="inline-block bg-[#1F1F1F] text-[#DCC9A6] hover:bg-[#B67355] hover:text-white px-6 py-2.5 text-xs uppercase tracking-wider font-sans font-semibold transition-colors rounded"
+            className="inline-block bg-[#1F1F1F] text-[#DCC9A6] hover:bg-[#B67355] hover:text-white px-6 py-2.5 text-xs uppercase tracking-wider font-sans font-semibold transition-colors rounded-lg shadow-sm"
           >
             {isArabic ? 'تصفحي التشكيلات الحصرية' : 'Browse Exclusive Collections'}
           </Link>
         </div>
       ) : (
-        <div className="space-y-8 animate-fadeIn">
+        <div className="space-y-7 animate-fadeIn">
           
-          {/* Top Hero Card */}
-          <div className="bg-white border border-[#E8E2D8] p-6 sm:p-8 rounded-2xl shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2D8] pb-6">
+          {/* TOP LUXURY HERO CARD */}
+          <div className="bg-white border border-[#E8E2D8] p-6 sm:p-8 rounded-2xl shadow-sm relative overflow-hidden">
+            {/* Subtle luxury ambient corner accent */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[#EDE3CF]/40 to-transparent rounded-bl-full pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 border-b border-[#E8E2D8] pb-6 relative z-10">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] font-sans uppercase tracking-widest text-[#B67355] font-bold">
-                    ARMIA Haute Couture Order Confirmed
-                  </span>
+                <div className="inline-flex items-center gap-2 bg-[#FAF7F2] border border-[#DCC9A6] px-3 py-1 rounded-full text-[10px] font-sans uppercase tracking-widest text-[#B67355] font-bold mb-2 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>ARMIA HAUTE COUTURE • ORDER VERIFIED</span>
                 </div>
-                <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1F1F1F]">
+                
+                <h1 className="font-serif text-2xl sm:text-3xl font-extrabold text-[#1F1F1F] tracking-tight">
                   {isArabic ? 'شكراً لطلبكِ، تفاصيل شحنتكِ جاهزة' : 'Thank You For Your Order'}
                 </h1>
-                <p className="text-xs text-[#8E8A85] font-sans mt-1">
-                  {isArabic ? 'رقم الطلب المرجعي:' : 'Tracking Reference:'}{' '}
-                  <strong className="font-mono text-[#1F1F1F]">#{order.orderId}</strong>
-                </p>
+
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-[#8E8A85] font-sans">
+                    {isArabic ? 'رقم التتبع المرجعي:' : 'Tracking Reference:'}
+                  </span>
+                  <div className="inline-flex items-center gap-1.5 bg-[#F6F3EE] border border-[#E8E2D8] px-2.5 py-1 rounded-md font-mono text-xs font-bold text-[#1F1F1F]">
+                    <span>#{order.orderId}</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyOrderId}
+                      className="text-[#8E8A85] hover:text-[#B67355] transition-colors ml-1"
+                      title="Copy Reference"
+                    >
+                      {copiedOrderId ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                 <button
+                  type="button"
                   onClick={handlePrint}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#F6F3EE] hover:bg-[#EDE3CF] text-[#1F1F1F] text-xs font-sans font-semibold transition-colors border border-[#E8E2D8] rounded"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#FAF7F2] hover:bg-[#EDE3CF] text-[#1F1F1F] text-xs font-sans font-bold transition-all border border-[#DCC9A6] rounded-xl shadow-xs active:scale-95"
                 >
-                  <Printer className="w-4 h-4" />
+                  <Printer className="w-4 h-4 text-[#B67355]" />
                   <span>{t.orderConfirmation.printReceipt}</span>
                 </button>
                 <a
@@ -346,7 +389,7 @@ function OrderTrackingContent() {
                   )}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#25D366] text-white text-xs font-sans font-semibold hover:opacity-90 transition-opacity rounded"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-sans font-bold transition-all rounded-xl shadow-sm active:scale-95"
                 >
                   <MessageCircle className="w-4 h-4" />
                   <span>{t.orderConfirmation.whatsappSupport}</span>
@@ -354,22 +397,32 @@ function OrderTrackingContent() {
               </div>
             </div>
 
-            {/* Realtime Order Progress Timeline */}
-            <div className="mt-8">
-              <h3 className="font-serif text-sm font-bold uppercase tracking-wider text-[#1F1F1F] mb-6">
-                {t.orderConfirmation.timelineTitle}
-              </h3>
+            {/* REALTIME DELIVERY TIMELINE (ELEGANT & CLEAN WITHOUT TEXT OVERLAP) */}
+            <div className="mt-8 relative z-10">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#B67355]" />
+                  <h3 className="font-serif text-sm font-bold uppercase tracking-wider text-[#1F1F1F]">
+                    {isArabic ? 'مسار تجهيز وشحن الطلب' : 'Live Delivery Timeline'}
+                  </h3>
+                </div>
+                <span className="text-[11px] font-sans font-medium text-[#8E8A85]">
+                  {isArabic ? 'تحديث فوري من الأتيليه' : 'Real-time Atelier Status'}
+                </span>
+              </div>
 
+              {/* Timeline Container */}
               <div className="relative">
-                {/* Progress line */}
-                <div className="hidden sm:block absolute top-1/2 left-4 right-4 h-0.5 bg-[#E8E2D8] -translate-y-1/2 z-0" />
+                {/* Horizontal Progress Line Behind Markers */}
+                <div className="hidden sm:block absolute top-5 left-10 right-10 h-0.5 bg-[#E8E2D8] z-0" />
                 <div
-                  className="hidden sm:block absolute top-1/2 left-4 h-0.5 bg-[#B67355] -translate-y-1/2 z-0 transition-all duration-500"
+                  className="hidden sm:block absolute top-5 left-10 h-0.5 bg-[#B67355] z-0 transition-all duration-700"
                   style={{
                     width: `${Math.max(0, (currentStep / (statusSteps.length - 1)) * 100)}%`,
                   }}
                 />
 
+                {/* Status Steps Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 relative z-10">
                   {statusSteps.map((step, idx) => {
                     const isCompleted = idx <= currentStep;
@@ -378,20 +431,23 @@ function OrderTrackingContent() {
                     return (
                       <div
                         key={step.status}
-                        className={`flex sm:flex-col items-center sm:items-center gap-3 sm:gap-2 text-left sm:text-center p-3 sm:p-0 ${
-                          isCurrent ? 'bg-[#F6F3EE] sm:bg-transparent rounded' : ''
+                        className={`flex sm:flex-col items-center sm:text-center gap-3.5 sm:gap-2.5 p-2 sm:p-0 rounded-xl transition-all ${
+                          isCurrent ? 'bg-[#FAF7F2] sm:bg-transparent' : ''
                         }`}
                       >
+                        {/* Step Marker Circle */}
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-sans transition-all shrink-0 ${
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold font-sans transition-all shrink-0 ${
                             isCompleted
-                              ? 'bg-[#B67355] text-white ring-4 ring-[#EDE3CF]'
+                              ? 'bg-[#B67355] text-white ring-4 ring-[#EDE3CF] shadow-sm'
                               : 'bg-white border-2 border-[#E8E2D8] text-[#8E8A85]'
                           }`}
                         >
-                          {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                          {isCompleted ? <CheckCircle2 className="w-5 h-5 text-white" /> : idx + 1}
                         </div>
-                        <div>
+
+                        {/* Text Label & Description cleanly BELOW marker */}
+                        <div className="min-w-0">
                           <p
                             className={`font-serif text-xs font-bold leading-tight ${
                               isCompleted ? 'text-[#1F1F1F]' : 'text-[#8E8A85]'
@@ -399,7 +455,7 @@ function OrderTrackingContent() {
                           >
                             {step.label}
                           </p>
-                          <p className="text-[10px] text-[#8E8A85] font-sans mt-0.5 hidden sm:block">
+                          <p className="text-[10px] text-[#8E8A85] font-sans mt-1 leading-snug hidden sm:block">
                             {step.desc}
                           </p>
                         </div>
@@ -411,156 +467,233 @@ function OrderTrackingContent() {
             </div>
           </div>
 
-          {/* ⚡ FEATURE 2: POST-PURCHASE 1-CLICK UPSELL (ONLY ON PRODUCTS WITH ACTIVE OFFERS) */}
-          {upsellProduct && !upsellAdded && (
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1F1F1F] via-[#2A2A2A] to-[#1F1F1F] p-5 sm:p-6 text-white border-2 border-[#DCC9A6] shadow-xl animate-scaleUp">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-5">
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="relative w-20 h-24 sm:w-24 sm:h-28 rounded-xl overflow-hidden border border-[#DCC9A6]/40 shrink-0 bg-black">
-                    <Image
-                      src={upsellProduct.imageUrls[0] || ''}
-                      alt={upsellProduct.name}
-                      fill
-                      className="object-cover"
-                    />
-                    <div className="absolute top-1 left-1 bg-[#B67355] text-white text-[9px] font-bold px-1.5 py-0.5 rounded font-sans uppercase">
-                      OFFER
-                    </div>
-                  </div>
+          {/* ⚡ HAUTE COUTURE POST-PURCHASE 1-CLICK UPSELL BOX */}
+          {upsellProduct && !upsellAdded && !dismissedUpsell && (
+            <div className="relative overflow-hidden rounded-2xl bg-[#141414] border-2 border-[#DCC9A6] shadow-xl text-white animate-scaleUp">
+              {/* Subtle background ambient gold glows */}
+              <div className="absolute top-0 right-0 w-72 h-72 bg-[#B67355]/15 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-72 h-72 bg-[#DCC9A6]/10 rounded-full blur-3xl pointer-events-none" />
 
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="bg-[#DCC9A6] text-[#1F1F1F] text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
-                        ⚡ {isArabic ? 'إضافة حصرية للشحنة' : 'Post-Purchase Exclusive'}
-                      </span>
-                      <span className="text-emerald-400 text-[10px] font-bold flex items-center gap-1">
-                        <Truck className="w-3 h-3" />
-                        <span>{isArabic ? 'بدون أي مصاريف شحن إضافية!' : 'Zero Extra Delivery Fee!'}</span>
-                      </span>
-                    </div>
-
-                    <h4 className="font-serif text-base sm:text-lg font-bold text-white mt-1">
-                      {isArabic && upsellProduct.nameArabic ? upsellProduct.nameArabic : upsellProduct.name}
-                    </h4>
-
-                    <div className="flex items-baseline gap-2 mt-1">
-                      <span className="font-serif text-lg font-extrabold text-[#DCC9A6]">
-                        EGP {upsellProduct.discountPrice}
-                      </span>
-                      <span className="text-xs text-[#8E8A85] line-through font-mono">
-                        EGP {upsellProduct.price}
-                      </span>
-                      <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800">
-                        {isArabic
-                          ? `وفّري ${(upsellProduct.price - (upsellProduct.discountPrice || 0)).toFixed(0)} ج.م`
-                          : `Save EGP ${(upsellProduct.price - (upsellProduct.discountPrice || 0)).toFixed(0)}`}
-                      </span>
-                    </div>
-
-                    {/* Color & Size Swatches */}
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      {upsellProduct.colors?.map((c) => (
-                        <button
-                          key={c.name}
-                          type="button"
-                          onClick={() => setSelectedUpsellColor(c)}
-                          className={`w-5 h-5 rounded-full border transition-all ${
-                            selectedUpsellColor?.name === c.name
-                              ? 'ring-2 ring-[#DCC9A6] scale-110'
-                              : 'border-white/30 hover:scale-105'
-                          }`}
-                          style={{ backgroundColor: c.hex }}
-                          title={c.name}
-                        />
-                      ))}
-
-                      {upsellProduct.sizes && upsellProduct.sizes.length > 0 && (
-                        <div className="flex gap-1 ml-2">
-                          {upsellProduct.sizes.slice(0, 4).map((s) => (
-                            <button
-                              key={s}
-                              type="button"
-                              onClick={() => setSelectedUpsellSize(s)}
-                              className={`px-2 py-0.5 text-[10px] font-bold rounded ${
-                                selectedUpsellSize === s
-                                  ? 'bg-[#DCC9A6] text-[#1F1F1F]'
-                                  : 'bg-[#333333] text-white hover:bg-[#444444]'
-                              }`}
-                            >
-                              {s}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              {/* Top Banner Ribbon */}
+              <div className="bg-gradient-to-r from-[#B67355] via-[#DCC9A6] to-[#B67355] px-5 py-2 flex items-center justify-between text-[#1F1F1F]">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 fill-current text-[#1F1F1F]" />
+                  <span className="text-[11px] font-sans font-extrabold uppercase tracking-widest">
+                    {isArabic ? '✨ حصرية خاصة بطلبكِ • بدون أي مصاريف شحن إضافية' : '✨ EXCLUSIVE ORDER PRIVILEGE • ZERO EXTRA SHIPPING FEE'}
+                  </span>
                 </div>
-
                 <button
                   type="button"
-                  onClick={handleAddUpsellToOrder}
-                  disabled={addingUpsell}
-                  className="w-full md:w-auto bg-[#B67355] hover:bg-[#DCC9A6] hover:text-[#1F1F1F] text-white px-6 py-3 rounded-xl text-xs font-sans uppercase font-bold tracking-wider transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
+                  onClick={() => setDismissedUpsell(true)}
+                  className="text-[#1F1F1F] hover:opacity-70 text-xs font-bold"
+                  title="Dismiss"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>
-                    {addingUpsell
-                      ? isArabic ? 'جاري الإضافة...' : 'Adding...'
-                      : isArabic
-                      ? `أضيفي لطلبي الآن (+${upsellProduct.discountPrice} ج.م)`
-                      : `Add to My Order (+EGP ${upsellProduct.discountPrice})`}
-                  </span>
+                  <X className="w-4 h-4" />
                 </button>
+              </div>
+
+              {/* Main Upsell Content */}
+              <div className="p-6 sm:p-7 relative z-10">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                  
+                  {/* Left: Product Thumbnail & Save Badge */}
+                  <div className="flex items-center gap-5 w-full md:w-auto">
+                    <div className="relative w-24 h-32 sm:w-28 sm:h-36 rounded-xl overflow-hidden border border-[#DCC9A6]/50 shrink-0 bg-black shadow-md group">
+                      <Image
+                        src={upsellProduct.imageUrls[0] || ''}
+                        alt={upsellProduct.name}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute top-1.5 left-1.5 bg-[#B67355] text-white text-[9px] font-extrabold px-2 py-0.5 rounded font-sans uppercase shadow-sm">
+                        {isArabic ? 'خصم خاص' : 'OFFER'}
+                      </div>
+                    </div>
+
+                    {/* Middle: Details, Prices, Colors, Sizes */}
+                    <div className="space-y-2 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-sans uppercase tracking-wider text-[#DCC9A6] font-bold">
+                          ARMIA Atelier Selection
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/80 flex items-center gap-1">
+                          <Truck className="w-3 h-3" />
+                          <span>{isArabic ? 'شحن مجاني مع طلبكِ' : 'Free In-Box Delivery'}</span>
+                        </span>
+                      </div>
+
+                      <h3 className="font-serif text-lg sm:text-xl font-bold text-white tracking-wide">
+                        {isArabic && upsellProduct.nameArabic ? upsellProduct.nameArabic : upsellProduct.name}
+                      </h3>
+
+                      {/* Pricing Row */}
+                      <div className="flex items-baseline gap-2.5">
+                        <span className="font-serif text-xl sm:text-2xl font-extrabold text-[#DCC9A6]">
+                          EGP {upsellProduct.discountPrice}
+                        </span>
+                        <span className="text-xs text-[#8E8A85] line-through font-mono">
+                          EGP {upsellProduct.price}
+                        </span>
+                        <span className="text-[10px] text-[#DCC9A6] font-extrabold bg-[#B67355]/30 border border-[#B67355] px-2 py-0.5 rounded">
+                          {isArabic
+                            ? `وفّري ${(upsellProduct.price - (upsellProduct.discountPrice || 0)).toFixed(0)} ج.م`
+                            : `Save EGP ${(upsellProduct.price - (upsellProduct.discountPrice || 0)).toFixed(0)}`}
+                        </span>
+                      </div>
+
+                      {/* Colors & Sizes Selector */}
+                      <div className="pt-1 flex flex-wrap items-center gap-3">
+                        {/* Colors */}
+                        {upsellProduct.colors && upsellProduct.colors.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-[#8E8A85] font-sans">
+                              {isArabic ? 'اللون:' : 'Color:'}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {upsellProduct.colors.map((c) => (
+                                <button
+                                  key={c.name}
+                                  type="button"
+                                  onClick={() => setSelectedUpsellColor(c)}
+                                  className={`w-5 h-5 rounded-full border transition-all ${
+                                    selectedUpsellColor?.name === c.name
+                                      ? 'ring-2 ring-[#DCC9A6] scale-110 border-white'
+                                      : 'border-white/30 hover:scale-105 opacity-70 hover:opacity-100'
+                                  }`}
+                                  style={{ backgroundColor: c.hex }}
+                                  title={c.name}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Sizes */}
+                        {upsellProduct.sizes && upsellProduct.sizes.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-[#8E8A85] font-sans">
+                              {isArabic ? 'المقاس:' : 'Size:'}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {upsellProduct.sizes.slice(0, 5).map((s) => (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  onClick={() => setSelectedUpsellSize(s)}
+                                  className={`px-2 py-0.5 text-[10px] font-bold rounded transition-all ${
+                                    selectedUpsellSize === s
+                                      ? 'bg-[#DCC9A6] text-[#1F1F1F] shadow-sm scale-105'
+                                      : 'bg-[#262626] text-white hover:bg-[#333333]'
+                                  }`}
+                                >
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-[#8E8A85] font-sans pt-1">
+                        {isArabic
+                          ? 'سيتم وضع القطعة في نفس صندوق شحنتكِ قبل إغلاقه وشحنه مباشرة.'
+                          : 'This piece will be placed inside your parcel before sealing with 0 extra shipping.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right: CTA Button */}
+                  <div className="w-full md:w-auto flex flex-col sm:flex-row md:flex-col items-center gap-2.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleAddUpsellToOrder}
+                      disabled={addingUpsell}
+                      className="w-full sm:w-auto md:w-56 bg-gradient-to-r from-[#B67355] via-[#DCC9A6] to-[#B67355] hover:opacity-95 text-[#1F1F1F] font-extrabold px-6 py-3.5 rounded-xl text-xs font-sans uppercase tracking-wider transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <Zap className="w-4 h-4 fill-current text-[#1F1F1F]" />
+                      <span>
+                        {addingUpsell
+                          ? isArabic ? 'جاري الإضافة...' : 'Adding...'
+                          : isArabic
+                          ? `أضيفي لطلبي (+${upsellProduct.discountPrice} ج.م)`
+                          : `Add to My Order (+EGP ${upsellProduct.discountPrice})`}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDismissedUpsell(true)}
+                      className="text-[11px] text-[#8E8A85] hover:text-white underline font-sans transition-colors"
+                    >
+                      {isArabic ? 'لا شكراً، اكتفِ بطلبي الحالي' : 'No thanks, keep my order as is'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Order Info & Delivery Address Grid */}
+          {/* ORDER DESTINATION & PAYMENT SUMMARY GRID */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Shipping & Contact */}
-            <div className="bg-white border border-[#E8E2D8] p-6 space-y-3 rounded-xl">
-              <div className="flex items-center gap-2 border-b border-[#E8E2D8] pb-3 mb-3">
-                <MapPin className="w-4 h-4 text-[#B67355]" />
+            
+            {/* Delivery Destination */}
+            <div className="bg-white border border-[#E8E2D8] p-6 space-y-3.5 rounded-2xl shadow-sm">
+              <div className="flex items-center gap-2.5 border-b border-[#E8E2D8] pb-3">
+                <div className="w-7 h-7 rounded-lg bg-[#FAF7F2] border border-[#DCC9A6] flex items-center justify-center text-[#B67355]">
+                  <MapPin className="w-4 h-4" />
+                </div>
                 <h4 className="font-serif text-sm font-bold text-[#1F1F1F]">
                   {t.orderConfirmation.deliveryDestination}
                 </h4>
               </div>
-              <div className="text-xs font-sans text-[#1F1F1F] space-y-1">
-                <p className="font-semibold">{order.customerDetails?.fullName}</p>
-                <p className="text-[#8E8A85]">
+
+              <div className="text-xs font-sans text-[#1F1F1F] space-y-1.5">
+                <p className="font-bold text-sm text-[#1F1F1F]">{order.customerDetails?.fullName}</p>
+                <p className="text-[#8E8A85] leading-relaxed">
                   {order.customerDetails?.address}, {order.customerDetails?.city}
                 </p>
-                <p className="text-[#8E8A85]">{order.customerDetails?.governorate}</p>
-                <p className="pt-1 flex items-center gap-1.5 font-medium text-[#1F1F1F]">
-                  <Phone className="w-3.5 h-3.5 text-[#B67355]" />
-                  <span dir="ltr">{order.customerDetails?.phone}</span>
-                </p>
+                <p className="text-[#B67355] font-semibold">{order.customerDetails?.governorate}</p>
+                
+                <div className="pt-2 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 bg-[#FAF7F2] border border-[#DCC9A6] px-2.5 py-1 rounded-md text-[#1F1F1F] font-mono text-xs">
+                    <Phone className="w-3.5 h-3.5 text-[#B67355]" />
+                    <span dir="ltr">{order.customerDetails?.phone}</span>
+                  </span>
+                  {order.customerDetails?.alternatePhone && (
+                    <span className="inline-flex items-center gap-1.5 bg-[#F6F3EE] px-2 py-1 rounded text-[#8E8A85] font-mono text-xs">
+                      <span dir="ltr">{order.customerDetails?.alternatePhone}</span>
+                    </span>
+                  )}
+                </div>
+
                 {order.customerDetails?.notes && (
-                  <p className="pt-2 text-[11px] text-[#B67355] italic bg-[#F6F3EE] p-2 border border-[#E8E2D8] rounded">
-                    {isArabic ? 'ملاحظات:' : 'Note:'} {order.customerDetails?.notes}
-                  </p>
+                  <div className="mt-2 text-[11px] text-[#B67355] bg-[#FAF7F2] p-2.5 border border-[#DCC9A6] rounded-lg">
+                    <strong>{isArabic ? 'ملاحظات التوصيل:' : 'Delivery Note:'}</strong> {order.customerDetails?.notes}
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Payment Breakdown */}
-            <div className="bg-white border border-[#E8E2D8] p-6 space-y-3 rounded-xl">
-              <div className="flex items-center gap-2 border-b border-[#E8E2D8] pb-3 mb-3">
-                <ShoppingBag className="w-4 h-4 text-[#B67355]" />
+            {/* Payment Summary */}
+            <div className="bg-white border border-[#E8E2D8] p-6 space-y-3.5 rounded-2xl shadow-sm">
+              <div className="flex items-center gap-2.5 border-b border-[#E8E2D8] pb-3">
+                <div className="w-7 h-7 rounded-lg bg-[#FAF7F2] border border-[#DCC9A6] flex items-center justify-center text-[#B67355]">
+                  <ShoppingBag className="w-4 h-4" />
+                </div>
                 <h4 className="font-serif text-sm font-bold text-[#1F1F1F]">
                   {t.orderConfirmation.paymentSummary}
                 </h4>
               </div>
-              <div className="text-xs font-sans space-y-2 text-[#8E8A85]">
+
+              <div className="text-xs font-sans space-y-2.5 text-[#8E8A85]">
                 <div className="flex justify-between items-center">
                   <span>{isArabic ? 'طريقة الدفع:' : 'Payment Method:'}</span>
                   <span className="text-[#1F1F1F] font-semibold">
                     {order.paymentMethod === 'INSTAPAY' ? (
-                      <span className="inline-flex items-center gap-1 text-white bg-[#B67355] px-2 py-0.5 rounded text-[11px] font-bold">
+                      <span className="inline-flex items-center gap-1 text-white bg-[#B67355] px-2.5 py-0.5 rounded-full text-[11px] font-bold">
                         ⚡ Instapay (01204000195)
                       </span>
                     ) : (
-                      <span className="text-[#1F1F1F]">
+                      <span className="text-[#1F1F1F] font-bold">
                         {isArabic ? 'دفع عند الاستلام (COD)' : 'Cash on Delivery (COD)'}
                       </span>
                     )}
@@ -568,10 +701,10 @@ function OrderTrackingContent() {
                 </div>
 
                 {order.paymentMethod === 'INSTAPAY' && (
-                  <div className="p-2.5 bg-[#FAF7F2] border border-[#DCC9A6] rounded text-[11px] space-y-1">
+                  <div className="p-3 bg-[#FAF7F2] border border-[#DCC9A6] rounded-xl text-[11px] space-y-1.5">
                     <div className="flex justify-between items-center">
                       <span className="text-[#8E8A85]">
-                        {isArabic ? 'حالة مراجعة الإيصال:' : 'Receipt Verification:'}
+                        {isArabic ? 'مراجعة إيصال التحويل:' : 'Receipt Verification:'}
                       </span>
                       <span
                         className={`font-bold px-2 py-0.5 rounded text-[10px] ${
@@ -586,18 +719,18 @@ function OrderTrackingContent() {
                           ? isArabic ? '✓ تم التحقق والتأكيد' : '✓ Verified & Confirmed'
                           : order.paymentStatus === 'rejected'
                           ? isArabic ? '✕ تم رفض الإيصال' : '✕ Receipt Rejected'
-                          : isArabic ? '⏳ قيد المراجعة الفورية' : '⏳ Pending Atelier Review'}
+                          : isArabic ? '⏳ قيد المراجعة الفورية' : '⏳ Pending Review'}
                       </span>
                     </div>
 
                     {order.receiptUrl && (
-                      <div className="pt-1 flex items-center justify-between">
-                        <span className="text-[#8E8A85]">{isArabic ? 'إيصال التحويل:' : 'Attached Receipt:'}</span>
+                      <div className="pt-1 flex items-center justify-between border-t border-[#E8E2D8]">
+                        <span className="text-[#8E8A85]">{isArabic ? 'إيصال التحويل المرفق:' : 'Attached Receipt:'}</span>
                         <a
                           href={order.receiptUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[#B67355] font-semibold underline"
+                          className="text-[#B67355] font-bold underline"
                         >
                           {isArabic ? 'معاينة الإيصال' : 'View Uploaded Receipt'}
                         </a>
@@ -606,32 +739,35 @@ function OrderTrackingContent() {
                   </div>
                 )}
 
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>{t.cart.subtotal}:</span>
                   <span className="text-[#1F1F1F] font-semibold font-mono">
                     EGP {order.subtotal?.toFixed(2)}
                   </span>
                 </div>
+
                 {order.discountAmount ? (
-                  <div className="flex justify-between text-emerald-700">
+                  <div className="flex justify-between items-center text-emerald-700">
                     <span>{t.cart.autoDiscount}:</span>
                     <span className="font-mono font-bold">-EGP {order.discountAmount.toFixed(2)}</span>
                   </div>
                 ) : null}
-                <div className="flex justify-between">
+
+                <div className="flex justify-between items-center">
                   <span>{t.checkout.shippingFee}:</span>
                   <span className="text-[#1F1F1F] font-semibold">
                     {order.shippingFee === 0 ? t.checkout.free : `EGP ${order.shippingFee?.toFixed(2)}`}
                   </span>
                 </div>
-                <div className="border-t border-[#E8E2D8] pt-2 flex justify-between text-sm font-bold text-[#1F1F1F]">
+
+                <div className="border-t border-[#E8E2D8] pt-2.5 flex justify-between items-baseline text-sm font-bold text-[#1F1F1F]">
                   <span className="font-serif">
                     {order.paymentMethod === 'INSTAPAY'
                       ? isArabic ? 'إجمالي المدفوع إنستاباي:' : 'Total Paid via Instapay:'
                       : t.orderConfirmation.codDue}
                     :
                   </span>
-                  <span className="font-serif text-base text-[#B67355]">
+                  <span className="font-serif text-lg text-[#B67355] font-extrabold">
                     EGP {order.totalAmount?.toFixed(2)}
                   </span>
                 </div>
@@ -639,18 +775,18 @@ function OrderTrackingContent() {
             </div>
           </div>
 
-          {/* Items In Order */}
-          <div className="bg-white border border-[#E8E2D8] p-6 shadow-sm rounded-xl">
-            <h4 className="font-serif text-sm font-bold uppercase tracking-wider text-[#1F1F1F] mb-4 border-b border-[#E8E2D8] pb-3">
+          {/* ITEMS IN ORDER */}
+          <div className="bg-white border border-[#E8E2D8] p-6 shadow-sm rounded-2xl space-y-4">
+            <h4 className="font-serif text-sm font-bold uppercase tracking-wider text-[#1F1F1F] border-b border-[#E8E2D8] pb-3">
               {t.orderConfirmation.itemsOrdered} ({order.items?.length || 0})
             </h4>
 
             <div className="divide-y divide-[#E8E2D8]">
               {order.items?.map((item, idx) => (
                 <div key={idx} className="py-4 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3.5 min-w-0">
                     {item.imageUrl && (
-                      <div className="relative w-14 h-16 bg-[#F6F3EE] shrink-0 border border-[#E8E2D8] overflow-hidden rounded">
+                      <div className="relative w-14 h-18 bg-[#F6F3EE] shrink-0 border border-[#E8E2D8] overflow-hidden rounded-lg">
                         <Image
                           src={item.imageUrl}
                           alt={item.name}
@@ -660,16 +796,16 @@ function OrderTrackingContent() {
                       </div>
                     )}
                     <div className="min-w-0">
-                      <h5 className="font-serif text-xs font-semibold text-[#1F1F1F] truncate">
+                      <h5 className="font-serif text-sm font-bold text-[#1F1F1F] truncate">
                         {item.name}
                       </h5>
-                      <p className="text-[10px] text-[#8E8A85] font-sans">
+                      <p className="text-[11px] text-[#8E8A85] font-sans mt-0.5">
                         {item.selectedColor?.name} • {t.product.selectSize}: {item.selectedSize} • {t.product.quantity}: {item.quantity}
                       </p>
                     </div>
                   </div>
 
-                  <span className="font-serif text-xs font-bold text-[#1F1F1F] shrink-0">
+                  <span className="font-serif text-sm font-bold text-[#1F1F1F] shrink-0">
                     EGP {(item.price * item.quantity).toFixed(2)}
                   </span>
                 </div>
@@ -677,18 +813,18 @@ function OrderTrackingContent() {
             </div>
           </div>
 
-          {/* 🔄 FEATURE 3: INSTANT SELF-SERVICE SIZE SWAP & EXCHANGE PORTAL */}
+          {/* 🔄 INSTANT SELF-SERVICE SIZE SWAP & EXCHANGE PORTAL */}
           <div className="bg-white border-2 border-[#DCC9A6] p-6 rounded-2xl shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2D8] pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#FAF7F2] border border-[#DCC9A6] flex items-center justify-center text-[#B67355] shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#DCC9A6] flex items-center justify-center text-[#B67355] shrink-0">
                   <RefreshCw className="w-5 h-5" />
                 </div>
                 <div>
                   <h4 className="font-serif text-base font-bold text-[#1F1F1F]">
                     {isArabic ? 'خدمة الاستبدال وتغيير المقاس الفورية' : 'Instant Size Swap & Easy Exchange Portal'}
                   </h4>
-                  <p className="text-xs text-[#8E8A85] font-sans">
+                  <p className="text-xs text-[#8E8A85] font-sans mt-0.5">
                     {isArabic
                       ? 'هل المقاس غير مناسب؟ يمكنكِ طلب استبدال المقاس أو القطعة وسيقوم المندوب بتوصيل المقاس الجديد لباب بيتكِ.'
                       : 'Wrong size or fit? Request an instant size swap and our courier will deliver your replacement directly to your door.'}
