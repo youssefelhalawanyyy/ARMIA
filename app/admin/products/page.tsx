@@ -576,6 +576,24 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleDeleteAllProducts = async () => {
+    if (confirm(`Are you sure you want to permanently delete ALL ${products.length} products from the database? This cannot be undone.`)) {
+      try {
+        setLoading(true);
+        for (const p of products) {
+          await deleteProduct(p.id);
+        }
+        setProducts([]);
+        success('All products have been permanently deleted from the database.', 'Catalog Cleared');
+      } catch (err: unknown) {
+        console.error('Delete all error:', err);
+        error('Failed to delete all products');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const handleToggleFeatured = async (prod: Product, e: React.MouseEvent) => {
     e.stopPropagation();
     const newFeatured = !(prod.featured ?? false);
@@ -774,13 +792,26 @@ export default function AdminProductsPage() {
           </p>
         </div>
 
-        <button
-          onClick={openAddModal}
-          className="inline-flex items-center gap-2 bg-[#DCC9A6] hover:bg-white text-[#1F1F1F] px-5 py-2.5 text-xs uppercase tracking-wider font-bold transition-all shadow-lg active:scale-95 rounded"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Product</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {products.length > 0 && (
+            <button
+              onClick={handleDeleteAllProducts}
+              className="inline-flex items-center gap-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/60 px-3.5 py-2.5 text-xs uppercase tracking-wider font-bold transition-all rounded"
+              title="Permanently delete all products from database"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete All</span>
+            </button>
+          )}
+
+          <button
+            onClick={openAddModal}
+            className="inline-flex items-center gap-2 bg-[#DCC9A6] hover:bg-white text-[#1F1F1F] px-5 py-2.5 text-xs uppercase tracking-wider font-bold transition-all shadow-lg active:scale-95 rounded"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Product</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter & Search Bar */}

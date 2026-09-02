@@ -101,62 +101,28 @@ export async function getProducts(category?: string): Promise<Product[]> {
     }
 
     const snapshot = await getDocs(q);
+    const items: Product[] = [];
     if (!snapshot.empty) {
-      const items: Product[] = [];
       snapshot.forEach((doc) => {
         const product = sanitizeFirestoreDoc<Product>(doc.id, doc.data());
-        const seedMatch = INITIAL_PRODUCTS.find((p) => p.id === doc.id);
-        if (seedMatch) {
-          if (!product.nameArabic && seedMatch.nameArabic) product.nameArabic = seedMatch.nameArabic;
-          if (!product.descriptionArabic && seedMatch.descriptionArabic) product.descriptionArabic = seedMatch.descriptionArabic;
-          if (seedMatch.specs) {
-            if (!product.specs) {
-              product.specs = seedMatch.specs;
-            } else {
-              if (!product.specs.fabricArabic && seedMatch.specs.fabricArabic) product.specs.fabricArabic = seedMatch.specs.fabricArabic;
-              if (!product.specs.fitArabic && seedMatch.specs.fitArabic) product.specs.fitArabic = seedMatch.specs.fitArabic;
-              if (!product.specs.careArabic && seedMatch.specs.careArabic) product.specs.careArabic = seedMatch.specs.careArabic;
-              if (!product.specs.originArabic && seedMatch.specs.originArabic) product.specs.originArabic = seedMatch.specs.originArabic;
-            }
-          }
-        }
         items.push(product);
       });
-
-      let finalItems = items;
-      if (category === 'new-in') {
-        const filtered = items.filter((item) => item.isNewArrival || item.category === 'new-in');
-        finalItems = filtered.length > 0 ? filtered : items;
-      } else if (category === 'best-sellers') {
-        const featured = items.filter((item) => item.featured);
-        finalItems = featured.length > 0 ? featured : items;
-      }
-
-      PRODUCT_CACHE.set(cacheKey, { data: finalItems, timestamp: Date.now() });
-      return finalItems;
     }
-  } catch (error) {
-    console.warn('Firestore fetch warning, using fallback seed data:', error);
-  }
 
-  // Fallback to initial boutique catalog
-  let fallbackResult: Product[];
-  if (category && category !== 'all') {
+    let finalItems = items;
     if (category === 'new-in') {
-      const filtered = INITIAL_PRODUCTS.filter((p) => p.isNewArrival);
-      fallbackResult = filtered.length > 0 ? filtered : INITIAL_PRODUCTS;
+      finalItems = items.filter((item) => item.isNewArrival || item.category === 'new-in');
     } else if (category === 'best-sellers') {
-      const featured = INITIAL_PRODUCTS.filter((p) => p.featured);
-      fallbackResult = featured.length > 0 ? featured : INITIAL_PRODUCTS;
-    } else {
-      fallbackResult = INITIAL_PRODUCTS.filter((p) => p.category === category);
+      finalItems = items.filter((item) => item.featured);
+      if (finalItems.length === 0) finalItems = items;
     }
-  } else {
-    fallbackResult = INITIAL_PRODUCTS;
-  }
 
-  PRODUCT_CACHE.set(cacheKey, { data: fallbackResult, timestamp: Date.now() });
-  return fallbackResult;
+    PRODUCT_CACHE.set(cacheKey, { data: finalItems, timestamp: Date.now() });
+    return finalItems;
+  } catch (error) {
+    console.warn('Firestore fetch warning:', error);
+    return [];
+  }
 }
 
 /**
@@ -173,34 +139,14 @@ export async function getProductById(id: string): Promise<Product | null> {
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       const product = sanitizeFirestoreDoc<Product>(snap.id, snap.data());
-      const seedMatch = INITIAL_PRODUCTS.find((p) => p.id === snap.id);
-      if (seedMatch) {
-        if (!product.nameArabic && seedMatch.nameArabic) product.nameArabic = seedMatch.nameArabic;
-        if (!product.descriptionArabic && seedMatch.descriptionArabic) product.descriptionArabic = seedMatch.descriptionArabic;
-        if (seedMatch.specs) {
-          if (!product.specs) {
-            product.specs = seedMatch.specs;
-          } else {
-            if (!product.specs.fabricArabic && seedMatch.specs.fabricArabic) product.specs.fabricArabic = seedMatch.specs.fabricArabic;
-            if (!product.specs.fitArabic && seedMatch.specs.fitArabic) product.specs.fitArabic = seedMatch.specs.fitArabic;
-            if (!product.specs.careArabic && seedMatch.specs.careArabic) product.specs.careArabic = seedMatch.specs.careArabic;
-            if (!product.specs.originArabic && seedMatch.specs.originArabic) product.specs.originArabic = seedMatch.specs.originArabic;
-          }
-        }
-      }
       SINGLE_PRODUCT_CACHE.set(id, { data: product, timestamp: Date.now() });
       return product;
     }
+    return null;
   } catch (error) {
     console.warn('Firestore getProductById warning:', error);
+    return null;
   }
-
-  const fallback = INITIAL_PRODUCTS.find((p) => p.id === id);
-  if (fallback) {
-    SINGLE_PRODUCT_CACHE.set(id, { data: fallback, timestamp: Date.now() });
-    return fallback;
-  }
-  return null;
 }
 
 /**
