@@ -6,10 +6,37 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { ArrowRight, ArrowLeft, Sparkles, ShieldCheck, Truck, RotateCcw, Gem } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
+import { Product } from '@/types';
 
-export default function HeroSection() {
+interface HeroSectionProps {
+  products?: Product[];
+}
+
+export default function HeroSection({ products = [] }: HeroSectionProps) {
   const { t, isArabic } = useLanguage();
   const ArrowIcon = isArabic ? ArrowLeft : ArrowRight;
+
+  // Find top available piece (prioritize featured, then any product with stock > 0)
+  const availableProduct =
+    products.find((p) => p.featured && (p.stockQuantity ?? 0) > 0) ||
+    products.find((p) => (p.stockQuantity ?? 0) > 0);
+
+  const cardTitle = availableProduct
+    ? (isArabic && availableProduct.nameArabic ? availableProduct.nameArabic : availableProduct.name)
+    : (isArabic ? 'مجموعات الأتليه المتوفرة' : 'Signature Atelier Collection');
+
+  const cardCategory = availableProduct
+    ? (isArabic ? 'تشكيلة متوفرة ومميزة' : 'Featured Available Piece')
+    : (isArabic ? 'تشكيلة مختارة' : 'Editorial Showcase');
+
+  const cardHref = availableProduct
+    ? `/product/${availableProduct.id}`
+    : '/collections';
+
+  const cardImage =
+    availableProduct?.imageUrls && availableProduct.imageUrls.length > 0
+      ? availableProduct.imageUrls[0]
+      : 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1600&auto=format&fit=crop&q=85';
 
   return (
     <section className="relative bg-[#F6F3EE] overflow-hidden border-b border-[#E8E2D8]">
@@ -88,27 +115,27 @@ export default function HeroSection() {
             {/* High-res Image */}
             <div className="relative w-full h-full rounded-sm overflow-hidden shadow-2xl border border-[#E8E2D8]">
               <Image
-                src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1600&auto=format&fit=crop&q=85"
-                alt="ARMIA Boutique Clothing Collection"
+                src={cardImage}
+                alt={cardTitle}
                 fill
                 priority
                 className="object-cover object-center transform hover:scale-105 transition-transform duration-1000"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
 
-              {/* Floating Luxury Tag */}
+              {/* Floating Luxury Tag - Dynamically Displays Available Product */}
               <div className="absolute bottom-6 left-6 right-6 bg-[#1F1F1F]/90 backdrop-blur-md p-4 border border-[#DCC9A6]/40 flex items-center justify-between text-white rounded">
-                <div>
+                <div className="min-w-0 pr-3">
                   <span className="text-[10px] text-[#DCC9A6] uppercase tracking-[0.25em] font-sans font-semibold block">
-                    {isArabic ? 'تشكيلة مختارة' : 'Editorial Collection'}
+                    {cardCategory}
                   </span>
-                  <p className="font-serif text-sm font-semibold">
-                    {isArabic ? 'أطقم كتان فاخرة وملابس محاكة' : 'Linen Sets & Tailored Outerwear'}
+                  <p className="font-serif text-sm font-semibold truncate">
+                    {cardTitle}
                   </p>
                 </div>
                 <Link
-                  href="/collections/sets"
-                  className="text-xs text-[#DCC9A6] underline hover:text-white transition-colors uppercase tracking-wider font-sans"
+                  href={cardHref}
+                  className="text-xs text-[#DCC9A6] underline hover:text-white transition-colors uppercase tracking-wider font-sans shrink-0"
                 >
                   {isArabic ? 'استكشاف ←' : 'Explore →'}
                 </Link>

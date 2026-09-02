@@ -21,7 +21,7 @@ export default async function HomePage() {
       {/* Main Content */}
       <main className="flex-grow">
         {/* 1. Hero Section ("Design for Your Style") */}
-        <HeroSection />
+        <HeroSection products={products} />
 
         {/* 2. Value Propositions Bar (Premium Quality, Wholesale, Fast Shipping, Support) */}
         <ValueProps />
