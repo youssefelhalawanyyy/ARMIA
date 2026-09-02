@@ -19,10 +19,20 @@ export default function CompleteTheLook({ currentProduct, allProducts }: Complet
   const { isArabic } = useLanguage();
   const { success } = useToast();
 
-  // Find 1 complementary piece (e.g. from a different category or matching collection)
-  const pairedProduct = allProducts.find(
-    (p) => p.id !== currentProduct.id && (p.category !== currentProduct.category || p.category === 'sets' || p.category === 'outerwear')
-  ) || allProducts.find((p) => p.id !== currentProduct.id);
+  // Prioritize FEATURED and IN-STOCK products for the curated upselling bundle
+  const pairedProduct =
+    allProducts.find(
+      (p) => p.featured && p.id !== currentProduct.id && (p.stockQuantity ?? 0) > 0
+    ) ||
+    allProducts.find(
+      (p) =>
+        p.id !== currentProduct.id &&
+        (p.stockQuantity ?? 0) > 0 &&
+        (p.category !== currentProduct.category || p.category === 'sets' || p.category === 'outerwear')
+    ) ||
+    allProducts.find(
+      (p) => p.id !== currentProduct.id && (p.stockQuantity ?? 0) > 0
+    );
 
   // States for main product selection
   const [mainColor, setMainColor] = useState<ProductColor>(

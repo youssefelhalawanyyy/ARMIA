@@ -19,6 +19,7 @@ import {
   RotateCcw,
   Sliders,
   CheckCheck,
+  Star,
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
@@ -72,6 +73,7 @@ export default function AdminProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showOutOfStock, setShowOutOfStock] = useState(false);
+  const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -96,6 +98,7 @@ export default function AdminProductsPage() {
   const [formImageUrls, setFormImageUrls] = useState<string[]>([]);
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [formFeatured, setFormFeatured] = useState(true);
 
   // Custom Color Creator State
   const [customColorName, setCustomColorName] = useState('');
@@ -201,6 +204,7 @@ export default function AdminProductsPage() {
     setFormSizes(defaultSizes);
     setFormVariants(syncVariants(defaultColors, defaultSizes, []));
     setFormImageUrls(['https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900']);
+    setFormFeatured(true);
 
     // Reset Arabic fields with defaults
     setFormNameArabic('');
@@ -229,6 +233,7 @@ export default function AdminProductsPage() {
     setFormCare(prod.specs?.care || '');
     setFormOrigin(prod.specs?.origin || 'Handcrafted in Egypt');
     setFormModelInfo(prod.specs?.modelInfo || '');
+    setFormFeatured(prod.featured ?? false);
 
     const colors = prod.colors && prod.colors.length > 0 ? prod.colors : [PRESET_COLORS[0]];
     const sizes = prod.sizes && prod.sizes.length > 0 ? prod.sizes : ['Standard'];
@@ -451,7 +456,7 @@ export default function AdminProductsPage() {
         variants: formVariants,
         imageUrls: formImageUrls,
         isNewArrival: formCategory === 'new-in' || Boolean(editingProduct?.isNewArrival),
-        featured: true,
+        featured: Boolean(formFeatured),
         specs: {
           fabric: formFabric.trim() || 'Premium Haute Couture Fabric',
           fit: formFit.trim() || 'Tailored Elegance',
@@ -502,6 +507,30 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleToggleFeatured = async (prod: Product, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newFeatured = !(prod.featured ?? false);
+    // Optimistic local state update
+    setProducts((prev) =>
+      prev.map((p) => (p.id === prod.id ? { ...p, featured: newFeatured } : p))
+    );
+    try {
+      await saveProduct({ ...prod, featured: newFeatured });
+      success(
+        newFeatured
+          ? `"${prod.name}" is now featured on the website & upselling!`
+          : `"${prod.name}" removed from featured curation.`
+      );
+    } catch (err) {
+      console.error('Featured update error:', err);
+      // Revert on failure
+      setProducts((prev) =>
+        prev.map((p) => (p.id === prod.id ? { ...p, featured: prod.featured } : p))
+      );
+      error('Failed to update featured status');
+    }
+  };
+
   const getProductStock = useCallback((p: Product): number => {
     if (typeof p.stockQuantity === 'number') return p.stockQuantity;
     if (p.variants && p.variants.length > 0) {
@@ -518,6 +547,10 @@ export default function AdminProductsPage() {
     return products.filter((p) => getProductStock(p) <= 0).length;
   }, [products, getProductStock]);
 
+  const featuredCount = useMemo(() => {
+    return products.filter((p) => p.featured).length;
+  }, [products]);
+
   const filteredProducts = products.filter((p) => {
     const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
     const matchSearch =
@@ -527,8 +560,9 @@ export default function AdminProductsPage() {
     
     const stock = getProductStock(p);
     const matchStock = showOutOfStock ? stock <= 0 : stock > 0;
+    const matchFeatured = showFeaturedOnly ? Boolean(p.featured) : true;
 
-    return matchCat && matchSearch && matchStock;
+    return matchCat && matchSearch && matchStock && matchFeatured;
   });
 
   const allAvailableColors = useMemo(() => {
@@ -567,21 +601,43 @@ export default function AdminProductsPage() {
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-[#1F1F1F] border border-[#333333] p-4 rounded-xl">
         <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0">
           <button
-            onClick={() => setSelectedCategory('all')}
+            onClick={() => {
+              setSelectedCategory('all');
+              setShowFeaturedOnly(false);
+            }}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-              selectedCategory === 'all'
+              selectedCategory === 'all' && !showFeaturedOnly
                 ? 'bg-[#B67355] text-white'
                 : 'text-[#8E8A85] hover:text-white bg-[#141414]'
             }`}
           >
             All Products ({showOutOfStock ? outOfStockCount : inStockCount})
           </button>
+
+          {/* Featured Filter Pill */}
+          <button
+            type="button"
+            onClick={() => setShowFeaturedOnly(!showFeaturedOnly)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all inline-flex items-center gap-1.5 ${
+              showFeaturedOnly
+                ? 'bg-[#DCC9A6] text-[#1F1F1F] font-bold shadow-md'
+                : 'text-[#8E8A85] hover:text-white bg-[#141414] border border-[#333333]'
+            }`}
+            title="Filter to only featured products"
+          >
+            <Star className={`w-3.5 h-3.5 ${showFeaturedOnly ? 'fill-[#1F1F1F] text-[#1F1F1F]' : 'text-[#DCC9A6]'}`} />
+            <span>Featured ({featuredCount})</span>
+          </button>
+
           {availableCategories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => setSelectedCategory(cat.slug)}
+              onClick={() => {
+                setSelectedCategory(cat.slug);
+                setShowFeaturedOnly(false);
+              }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                selectedCategory === cat.slug
+                selectedCategory === cat.slug && !showFeaturedOnly
                   ? 'bg-[#B67355] text-white'
                   : 'text-[#8E8A85] hover:text-white bg-[#141414]'
               }`}
@@ -674,6 +730,7 @@ export default function AdminProductsPage() {
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Price (EGP)</th>
                   <th className="py-3 px-4">Total Stock</th>
+                  <th className="py-3 px-4 text-center">Featured</th>
                   <th className="py-3 px-4">Colors</th>
                   <th className="py-3 px-4">Sizes</th>
                   <th className="py-3 px-4 text-right">Actions</th>
@@ -729,6 +786,22 @@ export default function AdminProductsPage() {
                       }`}>
                         {prod.stockQuantity} pcs
                       </span>
+                    </td>
+
+                    <td className="py-3.5 px-4 text-center">
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleFeatured(prod, e)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                          prod.featured
+                            ? 'bg-[#B67355]/20 text-[#DCC9A6] border-[#B67355]/50 hover:bg-[#B67355]/30 shadow-sm'
+                            : 'bg-[#141414] text-neutral-500 border-[#333333] hover:border-neutral-500 hover:text-neutral-300'
+                        }`}
+                        title={prod.featured ? 'Featured on Website & Upselling (Click to unfeature)' : 'Mark as Featured on Website & Upselling'}
+                      >
+                        <Star className={`w-3 h-3 ${prod.featured ? 'fill-[#DCC9A6] text-[#DCC9A6]' : 'text-neutral-500'}`} />
+                        <span>{prod.featured ? 'Featured' : 'Standard'}</span>
+                      </button>
                     </td>
 
                     <td className="py-3.5 px-4">
@@ -906,6 +979,28 @@ export default function AdminProductsPage() {
                         <span>{totalStockQuantity} Units Total</span>
                         <span className="text-[10px] text-[#8E8A85] font-normal">(Auto-calculated from matrix)</span>
                       </div>
+                    </div>
+
+                    {/* Featured Toggle */}
+                    <div className="sm:col-span-2 bg-[#141414] border border-[#333333] hover:border-[#DCC9A6]/40 transition-colors p-3.5 rounded-lg flex items-center justify-between">
+                      <div className="space-y-0.5 pr-4">
+                        <div className="flex items-center gap-2">
+                          <Star className={`w-4 h-4 ${formFeatured ? 'fill-[#DCC9A6] text-[#DCC9A6]' : 'text-[#8E8A85]'}`} />
+                          <span className="text-xs font-semibold text-white">Feature in Boutique Curation & Upselling</span>
+                        </div>
+                        <p className="text-[11px] text-[#8E8A85]">
+                          Check this to showcase this piece prominently on the website and recommend it in bundle & cart upselling.
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={formFeatured}
+                          onChange={(e) => setFormFeatured(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-10 h-5 bg-[#2B2B2B] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#B67355]"></div>
+                      </label>
                     </div>
                   </div>
 

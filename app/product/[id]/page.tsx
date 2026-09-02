@@ -36,6 +36,7 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [allAvailableProducts, setAllAvailableProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -63,8 +64,14 @@ export default function ProductDetailPage() {
         if (data.sizes && data.sizes.length > 0) {
           setSelectedSize(data.sizes[0]);
         }
-        const related = await getProducts(data.category);
-        setRelatedProducts(related.filter((p) => p.id !== data.id).slice(0, 4));
+        const [related, all] = await Promise.all([
+          getProducts(data.category),
+          getProducts('all'),
+        ]);
+        const availableRelated = related.filter((p) => p.id !== data.id && (p.stockQuantity ?? 0) > 0);
+        const availableAll = all.filter((p) => p.id !== data.id && (p.stockQuantity ?? 0) > 0);
+        setRelatedProducts(availableRelated.slice(0, 4));
+        setAllAvailableProducts(availableAll);
       }
       setLoading(false);
     }
@@ -620,7 +627,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Complete The Look Curated Outfit Bundle */}
-          <CompleteTheLook currentProduct={product} allProducts={relatedProducts} />
+          <CompleteTheLook currentProduct={product} allProducts={allAvailableProducts} />
 
           {/* Related Products Grid */}
           {relatedProducts.length > 0 && (

@@ -65,16 +65,16 @@ export const DEFAULT_CATEGORIES: Category[] = [
   },
 ];
 
-const CATEGORIES_STORAGE_KEY = 'armia_categories_cache_v1';
+const CATEGORIES_STORAGE_KEY = 'armia_categories_cache_v3';
 
 let inMemoryCategories: Category[] | null = null;
 let lastCatFetch = 0;
-const CAT_CACHE_TTL = 15000; // 15 seconds
+const CAT_CACHE_TTL = 10000; // 10 seconds
 
 /**
  * Fetch all categories from Firestore with high-speed caching.
- * If Firestore has a categories configuration, it strictly respects it.
- * If no document or empty array, returns empty list.
+ * Strictly returns the collections added in the admin portal.
+ * If none configured, returns an empty array.
  */
 export async function getCategories(forceFresh = false): Promise<Category[]> {
   if (!forceFresh && inMemoryCategories && Date.now() - lastCatFetch < CAT_CACHE_TTL) {
@@ -83,6 +83,9 @@ export async function getCategories(forceFresh = false): Promise<Category[]> {
 
   if (typeof window !== 'undefined' && !forceFresh) {
     try {
+      // Clean up legacy v1 and v2 caches if present
+      localStorage.removeItem('armia_categories_cache_v1');
+      localStorage.removeItem('armia_categories_cache_v2');
       const cached = localStorage.getItem(CATEGORIES_STORAGE_KEY);
       if (cached && !inMemoryCategories) {
         inMemoryCategories = JSON.parse(cached);
@@ -107,21 +110,13 @@ export async function getCategories(forceFresh = false): Promise<Category[]> {
         }
         return sorted;
       }
-    } else {
-      // No categories configuration exists in Firestore yet
-      inMemoryCategories = [];
-      lastCatFetch = Date.now();
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify([]));
-      }
-      return [];
     }
   } catch (err) {
     console.warn('Firestore categories fetch notice:', err);
   }
 
-  if (inMemoryCategories) return inMemoryCategories;
-  return [];
+  inMemoryCategories = inMemoryCategories || [];
+  return inMemoryCategories;
 }
 
 /**

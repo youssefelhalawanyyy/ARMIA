@@ -1,12 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, ArrowLeft, ShieldCheck, Truck, Sparkles } from 'lucide-react';
+import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, ArrowLeft, ShieldCheck, Truck, Sparkles, Star } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { Product } from '@/types';
+import { getProducts } from '@/lib/productService';
 
 export default function CartDrawer() {
   const router = useRouter();
@@ -20,9 +22,29 @@ export default function CartDrawer() {
     shippingSettings,
     isCartOpen,
     setIsCartOpen,
+    addToCart,
     removeFromCart,
     updateQuantity,
   } = useCart();
+
+  const [featuredUpsell, setFeaturedUpsell] = useState<Product[]>([]);
+
+  useEffect(() => {
+    async function loadUpsell() {
+      try {
+        const all = await getProducts('all');
+        const availableFeatured = all.filter(
+          (p) => p.featured && (p.stockQuantity ?? 0) > 0
+        );
+        setFeaturedUpsell(availableFeatured);
+      } catch (err) {
+        console.warn('Upsell fetch notice:', err);
+      }
+    }
+    if (isCartOpen) {
+      loadUpsell();
+    }
+  }, [isCartOpen]);
 
   const { t, isArabic, direction } = useLanguage();
   const ArrowIcon = isArabic ? ArrowLeft : ArrowRight;
@@ -218,6 +240,65 @@ export default function CartDrawer() {
                     </div>
                   ))
                 )}
+
+                {/* Featured Products Upsell in Cart */}
+                {items.length > 0 &&
+                  featuredUpsell.filter((p) => !items.some((i) => i.productId === p.id)).length > 0 && (
+                    <div className="mt-8 pt-6 border-t border-[#E8E2D8]">
+                      <div className="flex items-center gap-1.5 mb-3 text-[11px] font-sans font-semibold text-[#B67355] uppercase tracking-wider">
+                        <Star className="w-3.5 h-3.5 fill-[#DCC9A6] text-[#B67355]" />
+                        <span>
+                          {isArabic ? 'مختارات مميزة لإكمال إطلالتك' : 'Signature Pieces You May Like'}
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {featuredUpsell
+                          .filter((p) => !items.some((i) => i.productId === p.id))
+                          .slice(0, 2)
+                          .map((up) => (
+                            <div
+                              key={up.id}
+                              className="bg-white border border-[#E8E2D8] p-3 flex items-center justify-between gap-3 rounded shadow-xs"
+                            >
+                              <div className="relative w-12 h-14 bg-[#EDE8E0] shrink-0 overflow-hidden rounded">
+                                <Image
+                                  src={up.imageUrls?.[0] || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900'}
+                                  alt={up.name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                              <div className="flex-grow min-w-0">
+                                <h4 className="font-serif text-xs font-bold text-[#1F1F1F] truncate">
+                                  {isArabic && up.nameArabic ? up.nameArabic : up.name}
+                                </h4>
+                                <span className="font-sans text-[11px] text-[#B67355] font-semibold block mt-0.5">
+                                  EGP {up.discountPrice ? up.discountPrice.toFixed(2) : up.price.toFixed(2)}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  addToCart({
+                                    productId: up.id,
+                                    name: up.name,
+                                    price: up.discountPrice || up.price,
+                                    quantity: 1,
+                                    selectedColor: up.colors?.[0] || { name: 'Standard', hex: '#1F1F1F' },
+                                    selectedSize: up.sizes?.[0] || 'Standard',
+                                    imageUrl: up.imageUrls?.[0] || '',
+                                    category: up.category,
+                                  }, false);
+                                }}
+                                className="px-3 py-1.5 bg-[#1F1F1F] text-[#DCC9A6] text-[10px] uppercase font-bold tracking-wider hover:bg-[#B67355] hover:text-white transition-colors shrink-0 rounded cursor-pointer active:scale-95"
+                              >
+                                {isArabic ? '+ إضافة' : '+ Add'}
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
               </div>
 
               {/* Drawer Footer & Checkout Action */}

@@ -28,10 +28,31 @@ function CollectionsContent() {
       setLoading(true);
       const [data, cats] = await Promise.all([
         getProducts('all'),
-        getCategories(),
+        getCategories(true),
       ]);
       setProducts(data);
-      setAvailableCategories(cats || []);
+      if (cats && cats.length > 0) {
+        setAvailableCategories(cats);
+      } else {
+        // Extract distinct categories only from actual available products
+        const activeProds = data.filter((p) => (p.stockQuantity ?? 0) > 0);
+        const distinctSlugs = Array.from(new Set(activeProds.map((p) => p.category).filter(Boolean)));
+        if (distinctSlugs.length > 0) {
+          const derivedCats: Category[] = distinctSlugs.map((slug) => ({
+            id: slug,
+            slug,
+            name: slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+            nameArabic: slug,
+            description: '',
+            imageUrl: '',
+            featured: false,
+            orderIndex: 0,
+          }));
+          setAvailableCategories(derivedCats);
+        } else {
+          setAvailableCategories([]);
+        }
+      }
       setLoading(false);
     }
     load();
@@ -41,7 +62,8 @@ function CollectionsContent() {
   const activeSearch = searchQuery !== undefined ? searchQuery : searchFromUrl;
 
   const filteredProducts = useMemo(() => {
-    let list = [...products];
+    // ONLY show available products (stock > 0)
+    let list = products.filter((p) => (p.stockQuantity ?? 0) > 0);
 
     if (activeCategory !== 'all') {
       if (activeCategory === 'new-in') {

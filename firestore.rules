@@ -53,5 +53,17 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isSignedIn();
     }
+
+    // Categories & Collections: Public read for storefront, write restricted to signed-in admins
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Settings (Categories config, discounts, shipping, etc.): Public read for storefront, write restricted to signed-in admins
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
   }
 }
