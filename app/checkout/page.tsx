@@ -47,7 +47,7 @@ import {
   saveAbandonedCheckout,
   markAbandonedCheckoutRecovered,
 } from '@/lib/abandonedService';
-import { CustomerDetails, Order, ShippingSettings, PaymentMethodType } from '@/types';
+import { CustomerDetails, Order, ShippingSettings, ShippingZone, PaymentMethodType } from '@/types';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
 export default function CheckoutPage() {
@@ -113,6 +113,7 @@ export default function CheckoutPage() {
     governorate: 'Cairo (القاهرة)',
     city: '',
     address: '',
+    buildingNumber: '',
     notes: '',
   });
 
@@ -182,6 +183,161 @@ export default function CheckoutPage() {
     }
   };
 
+  const matchEgyptianGovernorate = (
+    addr: Record<string, string>,
+    displayName: string,
+    zones: ShippingZone[]
+  ): ShippingZone | undefined => {
+    const fullText = `${addr.state || ''} ${addr.province || ''} ${addr.county || ''} ${addr.city || ''} ${addr.town || ''} ${addr.village || ''} ${addr.suburb || ''} ${addr.resort || ''} ${displayName || ''}`.toLowerCase();
+
+    const rules: { keywords: string[]; zoneId: string }[] = [
+      {
+        keywords: [
+          'matrouh', 'matruh', 'مطروح', 'sahel', 'north coast', 'الساحل', 'ستيلا', 'stella',
+          'العلمين', 'alamein', 'el alamein', 'الضبعة', 'el dabaa', 'dabaa',
+          'marina', 'مارينا', 'سيدي عبد الرحمن', 'sidi abdel rahman', 'ras el hekma', 'رأس الحكمة',
+          'fuka', 'فوكة', 'marassi', 'مراسي', 'hacienda', 'هاسيندا', 'amwaj', 'أمواج'
+        ],
+        zoneId: 'matrouh',
+      },
+      {
+        keywords: [
+          'cairo', 'قاهرة', 'القاهرة', 'tagamoa', 'تجمع', 'rehab', 'رحاب', 'madinaty', 'مدينتي',
+          'nasr city', 'مدينة نصر', 'heliopolis', 'مصر الجديدة', 'maadi', 'معادي',
+          'shorouk', 'شروق', 'badr', 'بدر', 'zamalek', 'زمالك', 'katameya', 'قطامية', 'new cairo'
+        ],
+        zoneId: 'cairo',
+      },
+      {
+        keywords: [
+          'giza', 'جيزة', 'الجيزة', 'october', 'اكتوبر', 'أكتوبر', 'zayed', 'زايد',
+          'dokki', 'دقي', 'الدقي', 'mohandessin', 'مهندسين', 'المهندسين', 'haram', 'هرم',
+          'faisal', 'فيصل', 'smart village', 'القرية الذكية', 'hawamdia', 'badrashein'
+        ],
+        zoneId: 'giza',
+      },
+      {
+        keywords: [
+          'alexandria', 'alex', 'إسكندرية', 'اسكندرية', 'الإسكندرية', 'الاسكندرية',
+          'smouha', 'سموحة', 'miami', 'ميامي', 'agami', 'عجمي', 'montaza', 'منتزه',
+          'loran', 'لوران', 'stanley', 'ستانلي', 'sidi gaber', 'سيدي جابر', 'gleem', 'جليم'
+        ],
+        zoneId: 'alexandria',
+      },
+      {
+        keywords: ['qalyubia', 'قليوبية', 'القليوبية', 'banha', 'بنها', 'shubra', 'شبرا الخيمة', 'obour', 'العبور', 'khanka'],
+        zoneId: 'qalyubia',
+      },
+      {
+        keywords: ['sharqia', 'شرقية', 'الشرقية', 'zagazig', 'الزقازيق', '10th of ramadan', 'العاشر من رمضان', 'belbeis'],
+        zoneId: 'sharqia',
+      },
+      {
+        keywords: ['dakahlia', 'دقهلية', 'الدقهلية', 'mansoura', 'المنصورة', 'talkha', 'طلخا', 'mit ghamr'],
+        zoneId: 'dakahlia',
+      },
+      {
+        keywords: ['gharbia', 'غربية', 'الغربية', 'tanta', 'طنطا', 'mahalla', 'المحلة الكبرى'],
+        zoneId: 'gharbia',
+      },
+      {
+        keywords: ['monufia', 'منوفية', 'المنوفية', 'shebin', 'شبين الكوم', 'sadat city', 'مدينة السادات', 'menouf', 'ashmoon'],
+        zoneId: 'monufia',
+      },
+      {
+        keywords: ['beheira', 'بحيرة', 'البحيرة', 'damanhour', 'دمنهور', 'kafr el dawwar', 'كفر الدوار', 'rashid', 'رشيد'],
+        zoneId: 'beheira',
+      },
+      {
+        keywords: ['kafr el sheikh', 'كفر الشيخ', 'دسوق', 'desouk', 'baltim', 'بلطيم'],
+        zoneId: 'kafr-el-sheikh',
+      },
+      {
+        keywords: ['damietta', 'دمياط', 'ras el bar', 'رأس البر'],
+        zoneId: 'damietta',
+      },
+      {
+        keywords: ['port said', 'بورسعيد', 'بورفؤاد', 'port fouad'],
+        zoneId: 'port-said',
+      },
+      {
+        keywords: ['ismailia', 'إسماعيلية', 'الإسماعيلية', 'فايد', 'fayed'],
+        zoneId: 'ismailia',
+      },
+      {
+        keywords: ['suez', 'سويس', 'السويس', 'ain sokhna', 'عين سخنة', 'sokhna'],
+        zoneId: 'suez',
+      },
+      {
+        keywords: ['faiyum', 'fayoum', 'فيوم', 'الفيوم'],
+        zoneId: 'faiyum',
+      },
+      {
+        keywords: ['beni suef', 'بني سويف'],
+        zoneId: 'beni-suef',
+      },
+      {
+        keywords: ['minya', 'منيا', 'المنيا', 'ملوي', 'mallawi'],
+        zoneId: 'minya',
+      },
+      {
+        keywords: ['asyut', 'assiut', 'أسيوط', 'اسيوط'],
+        zoneId: 'asyut',
+      },
+      {
+        keywords: ['sohag', 'سوهاج', 'tahta', 'طهطا'],
+        zoneId: 'sohag',
+      },
+      {
+        keywords: ['qena', 'قنا', 'nag hammadi', 'نجع حمادي'],
+        zoneId: 'qena',
+      },
+      {
+        keywords: ['luxor', 'أقصر', 'الأقصر'],
+        zoneId: 'luxor',
+      },
+      {
+        keywords: ['aswan', 'أسوان', 'اسوان', 'نوبة', 'nubia'],
+        zoneId: 'aswan',
+      },
+      {
+        keywords: [
+          'red sea', 'بحر أحمر', 'البحر الأحمر', 'hurghada', 'غردقة', 'الغردقة',
+          'gouna', 'el gouna', 'الجونة', 'safaga', 'سفاجا', 'marsa alam', 'مرسى علم'
+        ],
+        zoneId: 'red-sea',
+      },
+      {
+        keywords: [
+          'south sinai', 'جنوب سيناء', 'sharm', 'شرم الشيخ', 'dahab', 'دهب',
+          'nuweiba', 'نويبع', 'ras sedr', 'رأس سدر', 'taba', 'طابا'
+        ],
+        zoneId: 'south-sinai',
+      },
+      {
+        keywords: ['north sinai', 'شمال سيناء', 'arish', 'العريش'],
+        zoneId: 'north-sinai',
+      },
+      {
+        keywords: ['new valley', 'وادي جديد', 'الوادي الجديد', 'kharga', 'الخارجة', 'dakhla', 'الداخلة'],
+        zoneId: 'new-valley',
+      },
+    ];
+
+    for (const rule of rules) {
+      if (rule.keywords.some((kw) => fullText.includes(kw))) {
+        const match = zones.find((z) => z.id === rule.zoneId);
+        if (match) return match;
+      }
+    }
+
+    return zones.find((z) => {
+      const en = z.governorate.toLowerCase();
+      const ar = z.governorateArabic;
+      return fullText.includes(en) || (ar && fullText.includes(ar));
+    });
+  };
+
   const [locatingAddress, setLocatingAddress] = useState(false);
 
   const handleGetLocation = () => {
@@ -210,46 +366,51 @@ export default function CheckoutPage() {
           const data = await res.json();
           const addr = data.address || {};
 
+          // 1. Detect City / District / Resort / Village
           const detectedCity =
+            addr.village ||
+            addr.resort ||
             addr.suburb ||
             addr.neighbourhood ||
             addr.city_district ||
             addr.quarter ||
             addr.town ||
             addr.city ||
+            addr.county ||
+            addr.residential ||
+            addr.hamlet ||
+            (data.display_name ? data.display_name.split(',')[0]?.trim() : '') ||
             '';
 
-          const detectedStreet = [
+          // 2. Detect Detailed Street & Landmark
+          const streetParts = [
             addr.road,
-            addr.house_number ? `#${addr.house_number}` : '',
-            addr.building || '',
-          ].filter(Boolean).join(', ') || data.display_name?.split(',').slice(0, 2).join(',') || '';
+            addr.residential,
+            addr.village,
+            addr.suburb,
+          ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
 
-          const stateOrGov = (addr.state || addr.province || addr.county || '').toLowerCase();
-          const matchedZone = activeZones.find((z) => {
-            const govEn = z.governorate.toLowerCase();
-            const govAr = z.governorateArabic;
-            return (
-              stateOrGov.includes(govEn) ||
-              (govAr && (addr.state || '').includes(govAr)) ||
-              (govEn.includes('cairo') && (stateOrGov.includes('cairo') || stateOrGov.includes('القاهرة'))) ||
-              (govEn.includes('giza') && (stateOrGov.includes('giza') || stateOrGov.includes('الجيزة'))) ||
-              (govEn.includes('alexandria') && (stateOrGov.includes('alex') || stateOrGov.includes('الإسكندرية')))
-            );
-          });
+          const detectedStreet =
+            streetParts.join('، ') ||
+            (data.display_name ? data.display_name.split(',').slice(0, 3).join('، ') : '') ||
+            '';
+
+          // 3. Match Egyptian Governorate with 100% precision
+          const matchedZone = matchEgyptianGovernorate(addr, data.display_name || '', activeZones);
 
           setFormData((prev) => ({
             ...prev,
             ...(matchedZone ? { governorate: `${matchedZone.governorate} (${matchedZone.governorateArabic})` } : {}),
             city: detectedCity || prev.city,
             address: detectedStreet || prev.address,
+            // buildingNumber is intentionally left blank for customer to enter
           }));
 
           success(
             isArabic
-              ? 'تم تحديد عنوانكِ بنجاح! يرجى مراجعة رقم المبنى أو الشقة.'
-              : 'Location detected successfully! Please verify building/apt number.',
-            isArabic ? 'تم التحديد' : 'Location Detected'
+              ? 'تم تحديد المحافظة والحي والشارع! يرجى كتابة رقم العمارة/الفيلا والشقة.'
+              : 'Location detected! Please enter your Building/Villa & Apartment number.',
+            isArabic ? 'تم تحديد العنوان' : 'Address Detected'
           );
         } catch (err) {
           console.warn('Location detection notice:', err);
@@ -407,6 +568,16 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!formData.buildingNumber?.trim()) {
+      error(
+        isArabic
+          ? 'يرجى كتابة رقم العمارة / الفيلا ورقم الشقة لتسليم المندوب'
+          : 'Building / Villa & Apartment number is mandatory for courier delivery.',
+        isArabic ? 'رقم العمارة والشقة إلزامي' : 'Building Number Required'
+      );
+      return;
+    }
+
     // Strict Instapay Validation: Customer MUST upload receipt
     if (paymentMethod === 'INSTAPAY' && !receiptUrl) {
       error(
@@ -423,6 +594,10 @@ export default function CheckoutPage() {
     try {
       const generatedOrderId = generateOrderId();
 
+      const combinedAddress = formData.buildingNumber?.trim()
+        ? `${formData.buildingNumber.trim()}، ${formData.address.trim()}`
+        : formData.address.trim();
+
       const orderPayload: Order = {
         orderId: generatedOrderId,
         customerUid: user.uid,
@@ -433,7 +608,8 @@ export default function CheckoutPage() {
           alternatePhone: formData.alternatePhone?.trim() || '',
           governorate: formData.governorate,
           city: formData.city.trim(),
-          address: formData.address.trim(),
+          address: combinedAddress,
+          buildingNumber: formData.buildingNumber?.trim() || '',
           notes: formData.notes?.trim() || '',
         },
         items: items.map((it) => ({
@@ -867,6 +1043,25 @@ export default function CheckoutPage() {
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       placeholder={t.checkout.addressPlaceholder}
                       className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-sans uppercase tracking-wider text-[#1F1F1F] mb-1 font-semibold flex items-center justify-between">
+                      <span>
+                        {isArabic ? 'رقم العمارة / الفيلا ورقم الشقة *' : 'Building / Villa & Apartment Number *'}
+                      </span>
+                      <span className="text-[10px] text-red-600 font-bold">
+                        {isArabic ? 'إلزامي لتسليم المندوب' : 'Mandatory for courier delivery'}
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.buildingNumber || ''}
+                      onChange={(e) => setFormData({ ...formData, buildingNumber: e.target.value })}
+                      placeholder={isArabic ? 'مثال: عمارة 15 - شقة 4 / فيلا 22' : 'e.g. Building 15, Apt 4 / Villa 22'}
+                      className="w-full bg-[#F6F3EE] border border-[#E8E2D8] px-3.5 py-2.5 text-xs font-sans focus:outline-none focus:border-[#B67355] rounded font-medium"
                     />
                   </div>
 

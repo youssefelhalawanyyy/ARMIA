@@ -125,6 +125,7 @@ export interface CustomerDetails {
   governorate: string;
   city: string;
   address: string;
+  buildingNumber?: string;
   notes?: string;
 }
 
