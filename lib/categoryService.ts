@@ -69,17 +69,19 @@ const CATEGORIES_STORAGE_KEY = 'armia_categories_cache_v1';
 
 let inMemoryCategories: Category[] | null = null;
 let lastCatFetch = 0;
-const CAT_CACHE_TTL = 30000; // 30 seconds
+const CAT_CACHE_TTL = 15000; // 15 seconds
 
 /**
- * Fetch all categories from Firestore with high-speed caching
+ * Fetch all categories from Firestore with high-speed caching.
+ * If Firestore has a categories configuration, it strictly respects it.
+ * If no document or empty array, returns empty list.
  */
-export async function getCategories(): Promise<Category[]> {
-  if (inMemoryCategories && Date.now() - lastCatFetch < CAT_CACHE_TTL) {
+export async function getCategories(forceFresh = false): Promise<Category[]> {
+  if (!forceFresh && inMemoryCategories && Date.now() - lastCatFetch < CAT_CACHE_TTL) {
     return inMemoryCategories;
   }
 
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && !forceFresh) {
     try {
       const cached = localStorage.getItem(CATEGORIES_STORAGE_KEY);
       if (cached && !inMemoryCategories) {
@@ -95,7 +97,7 @@ export async function getCategories(): Promise<Category[]> {
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       const data = snap.data();
-      if (data && Array.isArray(data.categories) && data.categories.length > 0) {
+      if (data && Array.isArray(data.categories)) {
         const cats = data.categories as Category[];
         const sorted = cats.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
         inMemoryCategories = sorted;
@@ -105,20 +107,28 @@ export async function getCategories(): Promise<Category[]> {
         }
         return sorted;
       }
+    } else {
+      // No categories configuration exists in Firestore yet
+      inMemoryCategories = [];
+      lastCatFetch = Date.now();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify([]));
+      }
+      return [];
     }
   } catch (err) {
-    console.warn('Firestore categories notice (using defaults):', err);
+    console.warn('Firestore categories fetch notice:', err);
   }
 
   if (inMemoryCategories) return inMemoryCategories;
-  return DEFAULT_CATEGORIES;
+  return [];
 }
 
 /**
  * Save / Update a Category
  */
 export async function saveCategory(category: Category): Promise<Category[]> {
-  const current = await getCategories();
+  const current = await getCategories(true);
   const existingIdx = current.findIndex((c) => c.id === category.id || c.slug === category.slug);
 
   let updated: Category[];
@@ -129,8 +139,12 @@ export async function saveCategory(category: Category): Promise<Category[]> {
     updated = [...current, { ...category, orderIndex: current.length + 1 }];
   }
 
+  inMemoryCategories = updated;
+  lastCatFetch = Date.now();
+
   if (typeof window !== 'undefined') {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('armia_categories_updated', { detail: updated }));
   }
 
   try {
@@ -147,11 +161,15 @@ export async function saveCategory(category: Category): Promise<Category[]> {
  * Delete a Category by ID or Slug
  */
 export async function deleteCategory(categoryId: string): Promise<Category[]> {
-  const current = await getCategories();
+  const current = await getCategories(true);
   const updated = current.filter((c) => c.id !== categoryId && c.slug !== categoryId);
+
+  inMemoryCategories = updated;
+  lastCatFetch = Date.now();
 
   if (typeof window !== 'undefined') {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('armia_categories_updated', { detail: updated }));
   }
 
   try {
@@ -168,8 +186,12 @@ export async function deleteCategory(categoryId: string): Promise<Category[]> {
  * Reset Categories to Default Curation
  */
 export async function resetCategories(): Promise<Category[]> {
+  inMemoryCategories = DEFAULT_CATEGORIES;
+  lastCatFetch = Date.now();
+
   if (typeof window !== 'undefined') {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(DEFAULT_CATEGORIES));
+    window.dispatchEvent(new CustomEvent('armia_categories_updated', { detail: DEFAULT_CATEGORIES }));
   }
 
   try {

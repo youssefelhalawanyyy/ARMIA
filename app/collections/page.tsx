@@ -8,16 +8,8 @@ import ProductCard from '@/components/storefront/ProductCard';
 import { Product } from '@/types';
 import { getProducts } from '@/lib/productService';
 import { SlidersHorizontal } from 'lucide-react';
-
-const CATEGORIES: { id: string; name: string }[] = [
-  { id: 'all', name: 'ALL PIECES' },
-  { id: 'dresses', name: 'DRESSES' },
-  { id: 'sets', name: 'SETS' },
-  { id: 'tops', name: 'TOPS' },
-  { id: 'bottoms', name: 'BOTTOMS' },
-  { id: 'outerwear', name: 'OUTERWEAR' },
-  { id: 'new-in', name: 'NEW IN' },
-];
+import { getCategories } from '@/lib/categoryService';
+import { Category } from '@/types';
 
 function CollectionsContent() {
   const searchParams = useSearchParams();
@@ -25,6 +17,7 @@ function CollectionsContent() {
   const searchFromUrl = searchParams.get('search') || '';
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>(categoryFromUrl);
   const [searchQuery, setSearchQuery] = useState<string>(searchFromUrl);
@@ -33,8 +26,12 @@ function CollectionsContent() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const data = await getProducts('all');
+      const [data, cats] = await Promise.all([
+        getProducts('all'),
+        getCategories(),
+      ]);
       setProducts(data);
+      setAvailableCategories(cats || []);
       setLoading(false);
     }
     load();
@@ -97,21 +94,33 @@ function CollectionsContent() {
       </div>
 
       {/* Category Filter Pills */}
-      <div className="flex items-center justify-center flex-wrap gap-2 mb-8">
-        {CATEGORIES.map((cat) => (
+      {availableCategories.length > 0 && (
+        <div className="flex items-center justify-center flex-wrap gap-2 mb-8">
           <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
+            onClick={() => setSelectedCategory('all')}
             className={`px-4 py-2 text-xs font-sans uppercase tracking-[0.18em] transition-all border ${
-              activeCategory === cat.id
+              activeCategory === 'all'
                 ? 'bg-[#1F1F1F] text-[#DCC9A6] border-[#1F1F1F] font-semibold shadow-sm'
                 : 'bg-white text-[#1F1F1F] border-[#E8E2D8] hover:border-[#B67355]'
             }`}
           >
-            {cat.name}
+            ALL PIECES
           </button>
-        ))}
-      </div>
+          {availableCategories.map((cat) => (
+            <button
+              key={cat.id || cat.slug}
+              onClick={() => setSelectedCategory(cat.slug)}
+              className={`px-4 py-2 text-xs font-sans uppercase tracking-[0.18em] transition-all border ${
+                activeCategory === cat.slug
+                  ? 'bg-[#1F1F1F] text-[#DCC9A6] border-[#1F1F1F] font-semibold shadow-sm'
+                  : 'bg-white text-[#1F1F1F] border-[#E8E2D8] hover:border-[#B67355]'
+              }`}
+            >
+              {cat.name.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Controls Bar: Items Count & Sort */}
       <div className="bg-white border border-[#E8E2D8] p-4 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">

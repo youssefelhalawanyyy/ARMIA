@@ -1,21 +1,56 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Mail, Phone, MapPin, ShieldCheck, Smartphone, MessageCircle } from 'lucide-react';
 import BrandLogo from '@/components/common/BrandLogo';
 import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { usePWA } from '@/context/PWAContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { getCategories } from '@/lib/categoryService';
+import { Category } from '@/types';
 
 export default function Footer() {
   const { promptInstall, isInstalled } = usePWA();
   const { t, isArabic } = useLanguage();
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getCategories()
+      .then((data) => {
+        if (isMounted) {
+          setCategories(data || []);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setCategories([]);
+      });
+
+    const handleUpdate = () => {
+      getCategories(true).then((data) => {
+        if (isMounted) setCategories(data || []);
+      });
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('armia_categories_updated', handleUpdate);
+      window.addEventListener('storage', handleUpdate);
+    }
+
+    return () => {
+      isMounted = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('armia_categories_updated', handleUpdate);
+        window.removeEventListener('storage', handleUpdate);
+      }
+    };
+  }, []);
 
   return (
     <footer className="bg-[#1F1F1F] text-[#F6F3EE] border-t border-[#333333] pt-16 pb-24 lg:pb-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 mb-14">
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${categories.length > 0 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-10 mb-14`}>
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-4">
             <BrandLogo variant="gold" size="lg" showTagline={true} />
@@ -105,39 +140,29 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Shop Categories */}
-          <div>
-            <h4 className="font-serif text-sm font-semibold tracking-wider text-[#DCC9A6] uppercase mb-4">
-              {t.footer.collections}
-            </h4>
-            <ul className="space-y-2.5 text-xs font-sans text-[#8E8A85]">
-              <li>
-                <Link href="/collections/dresses" className="hover:text-[#DCC9A6] transition-colors">
-                  {isArabic ? 'فساتين' : 'Dresses'}
-                </Link>
-              </li>
-              <li>
-                <Link href="/collections/sets" className="hover:text-[#DCC9A6] transition-colors">
-                  {isArabic ? 'أطقم كتان وسيتات' : 'Linen & Co-ord Sets'}
-                </Link>
-              </li>
-              <li>
-                <Link href="/collections/tops" className="hover:text-[#DCC9A6] transition-colors">
-                  {isArabic ? 'بلوزات وتوبات' : 'Tops & Blouses'}
-                </Link>
-              </li>
-              <li>
-                <Link href="/collections/bottoms" className="hover:text-[#DCC9A6] transition-colors">
-                  {isArabic ? 'بناطيل وتنانير' : 'Pants & Skirts'}
-                </Link>
-              </li>
-              <li>
-                <Link href="/collections/outerwear" className="hover:text-[#DCC9A6] transition-colors">
-                  {isArabic ? 'بليزر وعبايات' : 'Blazers & Outerwear'}
-                </Link>
-              </li>
-            </ul>
-          </div>
+          {/* Shop Categories / Collections */}
+          {categories.length > 0 && (
+            <div>
+              <h4 className="font-serif text-sm font-semibold tracking-wider text-[#DCC9A6] uppercase mb-4">
+                {t.footer.collections}
+              </h4>
+              <ul className="space-y-2.5 text-xs font-sans text-[#8E8A85]">
+                {categories.map((cat) => {
+                  const displayName = isArabic && cat.nameArabic ? cat.nameArabic : cat.name;
+                  return (
+                    <li key={cat.id || cat.slug}>
+                      <Link
+                        href={`/collections/${cat.slug}`}
+                        className="hover:text-[#DCC9A6] transition-colors"
+                      >
+                        {displayName}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
           {/* Customer Care */}
           <div>

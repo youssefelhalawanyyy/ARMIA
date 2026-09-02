@@ -4,28 +4,58 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { getCategories, DEFAULT_CATEGORIES } from '@/lib/categoryService';
+import { getCategories } from '@/lib/categoryService';
 import { Category } from '@/types';
 import { useLanguage } from '@/context/LanguageContext';
 
 export default function CategorySection() {
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const { t, isArabic } = useLanguage();
 
   useEffect(() => {
     let isMounted = true;
     getCategories()
       .then((data) => {
-        if (isMounted && data.length > 0) {
-          setCategories(data.filter((c) => c.featured !== false));
+        if (isMounted) {
+          setCategories(data ? data.filter((c) => c.featured !== false) : []);
+          setLoaded(true);
         }
       })
-      .catch((err) => console.warn('Categories load notice:', err));
+      .catch((err) => {
+        console.warn('Categories load notice:', err);
+        if (isMounted) setLoaded(true);
+      });
+
+    const handleUpdate = () => {
+      getCategories(true).then((data) => {
+        if (isMounted) {
+          setCategories(data ? data.filter((c) => c.featured !== false) : []);
+        }
+      });
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('armia_categories_updated', handleUpdate);
+      window.addEventListener('storage', handleUpdate);
+    }
 
     return () => {
       isMounted = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('armia_categories_updated', handleUpdate);
+        window.removeEventListener('storage', handleUpdate);
+      }
     };
   }, []);
+
+  if (loaded && categories.length === 0) {
+    return null;
+  }
+
+  if (categories.length === 0) {
+    return null;
+  }
 
   return (
     <section className="py-16 bg-[#F6F3EE] border-b border-[#E8E2D8]">
