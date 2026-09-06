@@ -29,6 +29,7 @@ import CompleteTheLook from '@/components/storefront/CompleteTheLook';
 import SizeGuideModal from '@/components/storefront/SizeGuideModal';
 import { Product, ProductColor } from '@/types';
 import { getProductById, getProducts } from '@/lib/productService';
+import { INITIAL_PRODUCTS } from '@/lib/seedData';
 import { getActiveFlashDealForProduct } from '@/lib/discountService';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -37,17 +38,32 @@ export default function ProductDetailPage() {
   const params = useParams();
   const productId = params.id as string;
 
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<Product | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`armia_prod_${productId}`);
+        if (cached) return JSON.parse(cached);
+      } catch {}
+    }
+    return INITIAL_PRODUCTS.find((p) => p.id === productId) || null;
+  });
+
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [allAvailableProducts, setAllAvailableProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(() => !product);
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isAutoScrollPlaying, setIsAutoScrollPlaying] = useState(true);
   const [isGalleryHovered, setIsGalleryHovered] = useState(false);
   const [galleryProgress, setGalleryProgress] = useState(0);
-  const [selectedColor, setSelectedColor] = useState<ProductColor | null>(null);
-  const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedColor, setSelectedColor] = useState<ProductColor | null>(() => {
+    if (product?.colors && product.colors.length > 0) return product.colors[0];
+    return null;
+  });
+  const [selectedSize, setSelectedSize] = useState<string>(() => {
+    if (product?.sizes && product.sizes.length > 0) return product.sizes[0];
+    return '';
+  });
   const [quantity, setQuantity] = useState(1);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'specs' | 'wholesale' | 'shipping'>('specs');
@@ -59,17 +75,14 @@ export default function ProductDetailPage() {
   useEffect(() => {
     async function load() {
       if (!productId) return;
-      setLoading(true);
+      if (!product) {
+        setLoading(true);
+      }
       const data = await getProductById(productId);
       if (data) {
         setProduct(data);
-        if (data.colors && data.colors.length > 0) {
-          setSelectedColor(data.colors[0]);
-        }
-        if (data.sizes && data.sizes.length > 0) {
-          setSelectedSize(data.sizes[0]);
-        }
-        // Unblock main product view immediately for lightning-fast page display
+        setSelectedColor((prev) => prev || (data.colors?.[0] ?? null));
+        setSelectedSize((prev) => prev || (data.sizes?.[0] ?? ''));
         setLoading(false);
 
         // Fetch related & upselling look pieces in the background non-blockingly

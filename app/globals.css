@@ -161,3 +161,20 @@ h1, h2, h3, h4, h5, h6, .font-serif {
   animation: bounceSubtle 3s ease-in-out infinite;
 }
 
+/* High-Speed Rendering & Performance Optimizations */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, a, input, select {
+  touch-action: manipulation;
+}
+
+/* Optimize below-the-fold paint performance */
+.optimize-paint {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 400px;
+}
+
+

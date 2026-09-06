@@ -75,11 +75,36 @@ function sanitizeFirestoreDoc<T>(id: string, rawData: Record<string, unknown> | 
 
 const PRODUCT_CACHE = new Map<string, { data: Product[]; timestamp: number }>();
 const SINGLE_PRODUCT_CACHE = new Map<string, { data: Product; timestamp: number }>();
-const CACHE_TTL_MS = 120000; // 2 minutes hot in-memory cache for instant reloads
+const CACHE_TTL_MS = 300000; // 5 minutes hot in-memory cache
 
 export function invalidateProductCache(): void {
   PRODUCT_CACHE.clear();
   SINGLE_PRODUCT_CACHE.clear();
+  if (typeof window !== 'undefined') {
+    try {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('armia_catalog_cache_') || key.startsWith('armia_prod_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch {}
+  }
+}
+
+async function refreshSingleProductInBackground(id: string) {
+  try {
+    const docRef = doc(db, PRODUCTS_COLLECTION, id);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const fresh = sanitizeFirestoreDoc<Product>(snap.id, snap.data());
+      SINGLE_PRODUCT_CACHE.set(id, { data: fresh, timestamp: Date.now() });
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`armia_prod_${id}`, JSON.stringify(fresh));
+        } catch {}
+      }
+    }
+  } catch {}
 }
 
 /**
@@ -90,6 +115,20 @@ export async function getProducts(category?: string): Promise<Product[]> {
   const cached = PRODUCT_CACHE.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.data;
+  }
+
+  // Instant client cache for zero-lag reloads
+  if (typeof window !== 'undefined') {
+    try {
+      const local = localStorage.getItem(`armia_catalog_cache_${cacheKey}`);
+      if (local) {
+        const parsed = JSON.parse(local) as Product[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          PRODUCT_CACHE.set(cacheKey, { data: parsed, timestamp: Date.now() });
+          return parsed;
+        }
+      }
+    } catch {}
   }
 
   try {
@@ -123,6 +162,16 @@ export async function getProducts(category?: string): Promise<Product[]> {
     }
 
     PRODUCT_CACHE.set(cacheKey, { data: finalItems, timestamp: Date.now() });
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`armia_catalog_cache_${cacheKey}`, JSON.stringify(finalItems));
+        finalItems.forEach((p) => {
+          localStorage.setItem(`armia_prod_${p.id}`, JSON.stringify(p));
+        });
+      } catch {}
+    }
+
     return finalItems;
   } catch (error) {
     console.warn('Firestore fetch warning:', error);
@@ -139,12 +188,31 @@ export async function getProductById(id: string): Promise<Product | null> {
     return cached.data;
   }
 
+  // Instant local client cache lookup
+  if (typeof window !== 'undefined') {
+    try {
+      const local = localStorage.getItem(`armia_prod_${id}`);
+      if (local) {
+        const parsed = JSON.parse(local) as Product;
+        SINGLE_PRODUCT_CACHE.set(id, { data: parsed, timestamp: Date.now() });
+        // Background revalidation
+        refreshSingleProductInBackground(id);
+        return parsed;
+      }
+    } catch {}
+  }
+
   try {
     const docRef = doc(db, PRODUCTS_COLLECTION, id);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       const product = sanitizeFirestoreDoc<Product>(snap.id, snap.data());
       SINGLE_PRODUCT_CACHE.set(id, { data: product, timestamp: Date.now() });
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`armia_prod_${id}`, JSON.stringify(product));
+        } catch {}
+      }
       return product;
     }
   } catch (error) {

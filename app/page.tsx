@@ -31,17 +31,25 @@ export default async function HomePage() {
         <ValueProps />
 
         {/* 3. Shop by Category (Only shows configured categories) */}
-        <CategorySection />
+        <div className="optimize-paint">
+          <CategorySection />
+        </div>
 
         {/* 4. Featured Pieces (Only shows when admin features products and stock > 0) */}
-        <FeaturedProductsSection products={products} />
+        <div className="optimize-paint">
+          <FeaturedProductsSection products={products} />
+        </div>
 
         {/* 5. New Arrivals Grid (Only shows available products) */}
-        <NewArrivalsSection products={products} />
+        <div className="optimize-paint">
+          <NewArrivalsSection products={products} />
+        </div>
       </main>
 
       {/* Storefront Footer */}
-      <Footer />
+      <div className="optimize-paint">
+        <Footer />
+      </div>
     </div>
   );
 }
