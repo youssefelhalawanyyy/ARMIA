@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, ShoppingBag, Check, Zap } from 'lucide-react';
+import { Heart, ShoppingBag, Check, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product, ProductColor } from '@/types';
 import { useCart } from '@/context/CartContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -25,6 +25,27 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [quickAddSuccess, setQuickAddSuccess] = useState(false);
+
+  const cardTouchStartX = useRef<number | null>(null);
+  const cardTouchEndX = useRef<number | null>(null);
+
+  const handleCardTouchStart = (e: React.TouchEvent) => {
+    cardTouchStartX.current = e.targetTouches[0].clientX;
+  };
+  const handleCardTouchMove = (e: React.TouchEvent) => {
+    cardTouchEndX.current = e.targetTouches[0].clientX;
+  };
+  const handleCardTouchEnd = () => {
+    if (cardTouchStartX.current === null || cardTouchEndX.current === null) return;
+    const diff = cardTouchStartX.current - cardTouchEndX.current;
+    if (diff > 35 && product.imageUrls.length > 1) {
+      setActiveImageIndex((prev) => (prev + 1) % product.imageUrls.length);
+    } else if (diff < -35 && product.imageUrls.length > 1) {
+      setActiveImageIndex((prev) => (prev - 1 + product.imageUrls.length) % product.imageUrls.length);
+    }
+    cardTouchStartX.current = null;
+    cardTouchEndX.current = null;
+  };
 
   useEffect(() => {
     if (!isHovered || product.imageUrls.length <= 1) {
@@ -98,7 +119,12 @@ export default function ProductCard({ product }: ProductCardProps) {
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Thumbnail Container */}
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#F6F3EE]">
+      <div 
+        className="relative aspect-[3/4] w-full overflow-hidden bg-[#F6F3EE] select-none"
+        onTouchStart={handleCardTouchStart}
+        onTouchMove={handleCardTouchMove}
+        onTouchEnd={handleCardTouchEnd}
+      >
         <Link href={`/product/${product.id}`} className="block w-full h-full">
           {/* Main & Auto-scrolling Image */}
           <Image
@@ -110,15 +136,52 @@ export default function ProductCard({ product }: ProductCardProps) {
           />
         </Link>
 
-        {/* Auto-scroll photo progress dots */}
+        {/* Card Chevrons on Hover */}
         {product.imageUrls.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+          <>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setActiveImageIndex((prev) => (prev - 1 + product.imageUrls.length) % product.imageUrls.length);
+              }}
+              aria-label="Previous image"
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/85 backdrop-blur-xs flex items-center justify-center text-[#1F1F1F] hover:bg-white hover:text-[#B67355] transition-all shadow-sm z-20 opacity-0 group-hover:opacity-100 cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setActiveImageIndex((prev) => (prev + 1) % product.imageUrls.length);
+              }}
+              aria-label="Next image"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/85 backdrop-blur-xs flex items-center justify-center text-[#1F1F1F] hover:bg-white hover:text-[#B67355] transition-all shadow-sm z-20 opacity-0 group-hover:opacity-100 cursor-pointer"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
+
+        {/* Auto-scroll photo progress dots (clickable) */}
+        {product.imageUrls.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 z-20 opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
             {product.imageUrls.map((_, idx) => (
-              <span
+              <button
                 key={idx}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  activeImageIndex === idx ? 'w-3.5 bg-white shadow-sm' : 'w-1.5 bg-white/50'
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setActiveImageIndex(idx);
+                }}
+                className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                  activeImageIndex === idx ? 'w-3.5 bg-white shadow-sm ring-1 ring-black/10' : 'w-1.5 bg-white/60 hover:bg-white'
                 }`}
+                aria-label={`View photo ${idx + 1}`}
               />
             ))}
           </div>

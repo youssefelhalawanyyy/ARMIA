@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -145,6 +145,31 @@ export default function ProductDetailPage() {
     setGalleryProgress(0);
   };
 
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setIsGalleryHovered(true);
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    setIsGalleryHovered(false);
+    if (touchStartX.current === null || touchEndX.current === null) return;
+    const diff = touchStartX.current - touchEndX.current;
+    if (diff > 40) {
+      handleNextImage();
+    } else if (diff < -40) {
+      handlePrevImage();
+    }
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-[#F6F3EE]">
@@ -285,8 +310,9 @@ export default function ProductDetailPage() {
                 className="relative aspect-[3/4] w-full bg-white border border-[#E8E2D8] overflow-hidden shadow-sm rounded-sm group select-none"
                 onMouseEnter={() => setIsGalleryHovered(true)}
                 onMouseLeave={() => setIsGalleryHovered(false)}
-                onTouchStart={() => setIsGalleryHovered(true)}
-                onTouchEnd={() => setIsGalleryHovered(false)}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
               >
                 {/* Luxury Story-style Progress Bars (shown when multiple images) */}
                 {product.imageUrls.length > 1 && (
