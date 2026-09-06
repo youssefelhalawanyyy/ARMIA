@@ -118,7 +118,7 @@ export default function ProductDetailPage() {
   const mainImage = product.imageUrls[selectedImageIndex] || product.imageUrls[0] || '';
 
   // Check if there is an active single-item Flash Deal with countdown
-  const flashDeal = getActiveFlashDealForProduct(product.id, discounts);
+  const flashDeal = getActiveFlashDealForProduct(product.id, discounts, product.name);
 
   // Only add the special offer countdown when there is an active flash deal / special offer on this item
   const countdownEndTime = flashDeal?.endTime || null;

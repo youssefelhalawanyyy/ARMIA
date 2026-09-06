@@ -28,7 +28,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const isFav = isWishlisted(product.id);
 
   // Check if this product has an active Flash Deal with countdown
-  const flashDeal = getActiveFlashDealForProduct(product.id, discounts);
+  const flashDeal = getActiveFlashDealForProduct(product.id, discounts, product.name);
 
   // Calculate effective price
   let effectivePrice = product.discountPrice || product.price;

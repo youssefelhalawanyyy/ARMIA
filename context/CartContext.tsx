@@ -12,6 +12,7 @@ import {
   getDiscounts,
   evaluateDiscounts,
   DEFAULT_DISCOUNTS,
+  DISCOUNTS_STORAGE_KEY,
 } from '@/lib/discountService';
 
 interface CartContextType {
@@ -117,8 +118,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [discounts, setDiscounts] = useState<Discount[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem('armia_discounts_cache_v1');
-        return cached ? JSON.parse(cached) : DEFAULT_DISCOUNTS;
+        const cached = localStorage.getItem(DISCOUNTS_STORAGE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+        return DEFAULT_DISCOUNTS;
       } catch {
         return DEFAULT_DISCOUNTS;
       }
@@ -141,7 +146,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const refreshDiscounts = useCallback(async () => {
     try {
       const data = await getDiscounts();
-      setDiscounts(data);
+      if (data && data.length > 0) {
+        setDiscounts(data);
+      }
     } catch (err) {
       console.warn('Discounts fetch notice:', err);
     }
@@ -153,15 +160,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       .then(([shipData, discData]) => {
         if (isMounted) {
           if (shipData) setShippingSettings(shipData);
-          if (discData) setDiscounts(discData);
+          if (discData && discData.length > 0) setDiscounts(discData);
         }
       })
       .catch((err) => console.warn('Sync load notice:', err));
 
+    const handleDiscountsUpdated = () => {
+      refreshDiscounts();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('armia_discounts_updated', handleDiscountsUpdated);
+      window.addEventListener('storage', handleDiscountsUpdated);
+    }
+
     return () => {
       isMounted = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('armia_discounts_updated', handleDiscountsUpdated);
+        window.removeEventListener('storage', handleDiscountsUpdated);
+      }
     };
-  }, []);
+  }, [refreshDiscounts]);
 
   const setSelectedGovernorate = (gov: string) => {
     setSelectedGovernorateState(gov);

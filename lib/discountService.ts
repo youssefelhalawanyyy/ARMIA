@@ -2,10 +2,45 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { Discount, CartItem } from '@/types';
 
-// Default countdown target set to 48 hours from now
-const defaultFlashEndTime = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+// Helper to recursively remove undefined fields for valid Firestore payloads
+export function cleanUndefinedFields<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefinedFields) as unknown as T;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanUndefinedFields(value);
+      }
+    }
+    return cleaned as unknown as T;
+  }
+  return obj;
+}
+
+// Default countdown target set to 24 hours from now
+const defaultFlashEndTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
 export const DEFAULT_DISCOUNTS: Discount[] = [
+  {
+    id: 'flash-chevron-top-25',
+    title: 'Flash Deal: 25% OFF CHEVRON TOP',
+    titleArabic: 'عرض محدود: خصم 25% على CHEVRON TOP',
+    type: 'fixed_amount',
+    value: 100,
+    trigger: 'auto',
+    targetType: 'product',
+    applicableProductId: 'prod-1788716511841',
+    applicableProductName: 'CHEVRON TOP',
+    applicableProductImage: '/images/hero-editorial.jpg',
+    minSubtotal: 0,
+    startTime: new Date().toISOString(),
+    endTime: defaultFlashEndTime,
+    isActive: true,
+    usageCount: 0,
+  },
   {
     id: 'flash-linen-set-25',
     title: 'Flash Deal: 25% OFF Linen Set',
@@ -67,7 +102,7 @@ export const DEFAULT_DISCOUNTS: Discount[] = [
   },
 ];
 
-const DISCOUNTS_STORAGE_KEY = 'armia_discounts_cache_v2';
+export const DISCOUNTS_STORAGE_KEY = 'armia_discounts_cache_v2';
 
 /**
  * Fetch all discounts from Firestore with local storage caching
@@ -77,7 +112,10 @@ export async function getDiscounts(): Promise<Discount[]> {
     try {
       const cached = localStorage.getItem(DISCOUNTS_STORAGE_KEY);
       if (cached) {
-        // Return cached immediately
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       }
     } catch {
       // ignore
@@ -89,7 +127,7 @@ export async function getDiscounts(): Promise<Discount[]> {
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       const data = snap.data();
-      if (data && Array.isArray(data.discounts)) {
+      if (data && Array.isArray(data.discounts) && data.discounts.length > 0) {
         const discounts = data.discounts as Discount[];
         if (typeof window !== 'undefined') {
           localStorage.setItem(DISCOUNTS_STORAGE_KEY, JSON.stringify(discounts));
@@ -104,7 +142,10 @@ export async function getDiscounts(): Promise<Discount[]> {
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem(DISCOUNTS_STORAGE_KEY);
-      if (cached) return JSON.parse(cached);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch {
       // ignore
     }
@@ -128,18 +169,25 @@ export async function saveDiscount(discount: Discount): Promise<Discount[]> {
     updated = [discount, ...current];
   }
 
+  const cleanedUpdated = cleanUndefinedFields(updated) as Discount[];
+
   if (typeof window !== 'undefined') {
-    localStorage.setItem(DISCOUNTS_STORAGE_KEY, JSON.stringify(updated));
+    try {
+      localStorage.setItem(DISCOUNTS_STORAGE_KEY, JSON.stringify(cleanedUpdated));
+      window.dispatchEvent(new Event('armia_discounts_updated'));
+    } catch {
+      // ignore
+    }
   }
 
   try {
     const docRef = doc(db, 'settings', 'discounts_config');
-    await setDoc(docRef, { discounts: updated, updatedAt: new Date() }, { merge: true });
+    await setDoc(docRef, { discounts: cleanedUpdated, updatedAt: new Date() }, { merge: true });
   } catch (err) {
     console.warn('Firestore discount save notice:', err);
   }
 
-  return updated;
+  return cleanedUpdated;
 }
 
 /**
@@ -168,10 +216,12 @@ export async function deleteDiscount(discountId: string): Promise<Discount[]> {
  */
 export function getActiveFlashDealForProduct(
   productId: string,
-  discounts: Discount[] = DEFAULT_DISCOUNTS
+  discounts: Discount[] = DEFAULT_DISCOUNTS,
+  productName?: string
 ): Discount | null {
   const now = Date.now();
   const pId = productId.toLowerCase();
+  const pName = (productName || '').toLowerCase();
 
   const match = discounts.find((d) => {
     if (!d.isActive) return false;
@@ -179,13 +229,15 @@ export function getActiveFlashDealForProduct(
 
     const dProdId = (d.applicableProductId || '').toLowerCase();
     const dProdName = (d.applicableProductName || '').toLowerCase();
+    const dTitle = (d.title || '').toLowerCase();
 
-    // Check exact or partial match
+    // Check exact or partial match by ID or Name
     const isIdMatch =
       dProdId === pId ||
       pId.includes(dProdId) ||
       dProdId.includes(pId) ||
-      (dProdName && (pId.includes(dProdName) || dProdName.includes(pId)));
+      (dProdName && (pId.includes(dProdName) || dProdName.includes(pId))) ||
+      (pName && (dProdName.includes(pName) || pName.includes(dProdName) || dTitle.includes(pName)));
 
     if (!isIdMatch) return false;
 

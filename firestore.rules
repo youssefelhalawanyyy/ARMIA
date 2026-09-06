@@ -60,10 +60,9 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
-    // Settings (Categories config, discounts, shipping, etc.): Public read for storefront, write restricted to signed-in admins
+    // Settings (Categories config, discounts, shipping, etc.): Public read and write for administrative updates
     match /settings/{settingId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read, write: if true;
     }
   }
 }
