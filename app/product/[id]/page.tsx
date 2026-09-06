@@ -17,7 +17,10 @@ import {
   Sparkles,
   Zap,
   Ruler,
+  Play,
+  Pause,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import ProductCard from '@/components/storefront/ProductCard';
@@ -40,6 +43,9 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isAutoScrollPlaying, setIsAutoScrollPlaying] = useState(true);
+  const [isGalleryHovered, setIsGalleryHovered] = useState(false);
+  const [galleryProgress, setGalleryProgress] = useState(0);
   const [selectedColor, setSelectedColor] = useState<ProductColor | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
@@ -63,19 +69,68 @@ export default function ProductDetailPage() {
         if (data.sizes && data.sizes.length > 0) {
           setSelectedSize(data.sizes[0]);
         }
-        const [related, all] = await Promise.all([
-          getProducts(data.category),
-          getProducts('all'),
-        ]);
-        const availableRelated = related.filter((p) => p.id !== data.id && (p.stockQuantity ?? 0) > 0);
-        const availableAll = all.filter((p) => p.id !== data.id && (p.stockQuantity ?? 0) > 0);
-        setRelatedProducts(availableRelated.slice(0, 4));
-        setAllAvailableProducts(availableAll);
+        // Unblock main product view immediately for lightning-fast page display
+        setLoading(false);
+
+        // Fetch related & upselling look pieces in the background non-blockingly
+        getProducts(data.category).then((related) => {
+          const availableRelated = related.filter((p) => p.id !== data.id && (p.stockQuantity ?? 0) > 0);
+          setRelatedProducts(availableRelated.slice(0, 4));
+        });
+
+        getProducts('all').then((all) => {
+          const availableAll = all.filter((p) => p.id !== data.id && (p.stockQuantity ?? 0) > 0);
+          setAllAvailableProducts(availableAll);
+        });
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     }
     load();
   }, [productId]);
+
+  // Smart Auto-Scroll Effect for Product Photos
+  useEffect(() => {
+    const imagesCount = product?.imageUrls?.length || 0;
+    if (imagesCount <= 1 || !isAutoScrollPlaying || isGalleryHovered) {
+      return;
+    }
+
+    const intervalStepMs = 40;
+    const durationMs = 4000;
+    const stepIncrement = (intervalStepMs / durationMs) * 100;
+
+    const timer = setInterval(() => {
+      setGalleryProgress((prev) => {
+        if (prev >= 100) {
+          setSelectedImageIndex((current) => (current + 1) % imagesCount);
+          return 0;
+        }
+        return prev + stepIncrement;
+      });
+    }, intervalStepMs);
+
+    return () => clearInterval(timer);
+  }, [product?.imageUrls?.length, isAutoScrollPlaying, isGalleryHovered]);
+
+  const handleSelectImage = (idx: number) => {
+    setSelectedImageIndex(idx);
+    setGalleryProgress(0);
+  };
+
+  const handlePrevImage = () => {
+    const imagesCount = product?.imageUrls?.length || 0;
+    if (imagesCount <= 1) return;
+    setSelectedImageIndex((prev) => (prev - 1 + imagesCount) % imagesCount);
+    setGalleryProgress(0);
+  };
+
+  const handleNextImage = () => {
+    const imagesCount = product?.imageUrls?.length || 0;
+    if (imagesCount <= 1) return;
+    setSelectedImageIndex((prev) => (prev + 1) % imagesCount);
+    setGalleryProgress(0);
+  };
 
   if (loading) {
     return (
@@ -212,18 +267,92 @@ export default function ProductDetailPage() {
             
             {/* Left: Gallery (7 Cols) */}
             <div className="lg:col-span-7 space-y-4">
-              {/* Main Image Display */}
-              <div className="relative aspect-[3/4] w-full bg-white border border-[#E8E2D8] overflow-hidden shadow-sm rounded-sm">
-                <Image
-                  src={mainImage}
-                  alt={product.name}
-                  fill
-                  priority
-                  className="object-cover object-center"
-                />
+              {/* Main Image Display with Smart Auto-Scroll */}
+              <div
+                className="relative aspect-[3/4] w-full bg-white border border-[#E8E2D8] overflow-hidden shadow-sm rounded-sm group select-none"
+                onMouseEnter={() => setIsGalleryHovered(true)}
+                onMouseLeave={() => setIsGalleryHovered(false)}
+                onTouchStart={() => setIsGalleryHovered(true)}
+                onTouchEnd={() => setIsGalleryHovered(false)}
+              >
+                {/* Luxury Story-style Progress Bars (shown when multiple images) */}
+                {product.imageUrls.length > 1 && (
+                  <div className="absolute top-3 left-3 right-3 z-30 flex items-center gap-1.5 pointer-events-none">
+                    {product.imageUrls.map((_, idx) => {
+                      const isPast = idx < selectedImageIndex;
+                      const isCurrent = idx === selectedImageIndex;
+                      const fillWidth = isPast ? 100 : isCurrent ? galleryProgress : 0;
+                      return (
+                        <div
+                          key={idx}
+                          className="h-1 flex-1 bg-black/25 backdrop-blur-sm rounded-full overflow-hidden"
+                        >
+                          <div
+                            className={`h-full transition-all ease-linear ${
+                              isCurrent
+                                ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)]'
+                                : isPast
+                                ? 'bg-[#DCC9A6]'
+                                : 'bg-transparent'
+                            }`}
+                            style={{ width: `${fillWidth}%` }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-                {/* Floating Tags */}
-                <div className="absolute top-4 left-4 flex flex-col gap-1.5">
+                {/* Animated Image with Cross-fade & Subtle Scale */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={selectedImageIndex}
+                    initial={{ opacity: 0, scale: 1.01 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.99 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                    className="absolute inset-0 w-full h-full"
+                  >
+                    <Image
+                      src={product.imageUrls[selectedImageIndex] || mainImage}
+                      alt={product.name}
+                      fill
+                      priority
+                      className="object-cover object-center"
+                    />
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Interactive Navigation Arrows (Smooth Glassmorphism) */}
+                {product.imageUrls.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePrevImage();
+                      }}
+                      aria-label="Previous Photo"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/85 backdrop-blur-md border border-[#E8E2D8] flex items-center justify-center text-[#1F1F1F] hover:text-[#B67355] hover:bg-white hover:scale-105 transition-all shadow-md z-20 opacity-0 group-hover:opacity-100"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleNextImage();
+                      }}
+                      aria-label="Next Photo"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/85 backdrop-blur-md border border-[#E8E2D8] flex items-center justify-center text-[#1F1F1F] hover:text-[#B67355] hover:bg-white hover:scale-105 transition-all shadow-md z-20 opacity-0 group-hover:opacity-100"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
+
+                {/* Floating Tags (positioned below story progress bars) */}
+                <div className="absolute top-6 left-4 flex flex-col gap-1.5 z-20 pointer-events-none">
                   {flashDeal ? (
                     <span className="bg-[#B67355] text-white text-[10px] font-sans font-bold uppercase tracking-widest px-3 py-1 shadow-md flex items-center gap-1.5 rounded-sm">
                       <Zap className="w-3.5 h-3.5 fill-current animate-pulse" />
@@ -242,8 +371,9 @@ export default function ProductDetailPage() {
 
                 {/* Floating Wishlist Button */}
                 <button
+                  type="button"
                   onClick={() => toggleWishlist(product.id)}
-                  className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm border border-[#E8E2D8] flex items-center justify-center text-[#1F1F1F] hover:text-[#B67355] hover:border-[#B67355] transition-all shadow-md"
+                  className="absolute top-6 right-4 w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm border border-[#E8E2D8] flex items-center justify-center text-[#1F1F1F] hover:text-[#B67355] hover:border-[#B67355] transition-all shadow-md z-20"
                 >
                   <Heart
                     className={`w-5 h-5 ${
@@ -251,19 +381,53 @@ export default function ProductDetailPage() {
                     }`}
                   />
                 </button>
+
+                {/* Smart Creative Control Pill at Bottom Corner */}
+                {product.imageUrls.length > 1 && (
+                  <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2 bg-[#1F1F1F]/80 backdrop-blur-md text-white text-[11px] font-sans px-3 py-1.5 rounded-full border border-white/20 shadow-lg">
+                    <span className="font-mono tracking-wider">
+                      {String(selectedImageIndex + 1).padStart(2, '0')} / {String(product.imageUrls.length).padStart(2, '0')}
+                    </span>
+                    <span className="w-px h-3 bg-white/30" />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAutoScrollPlaying((prev) => !prev);
+                      }}
+                      className="hover:text-[#DCC9A6] transition-colors flex items-center gap-1.5 cursor-pointer"
+                      title={isAutoScrollPlaying ? (isArabic ? 'إيقاف التمرير التلقائي' : 'Pause Auto-Scroll') : (isArabic ? 'تشغيل التمرير التلقائي' : 'Play Auto-Scroll')}
+                    >
+                      {isAutoScrollPlaying ? (
+                        <>
+                          <Pause className="w-3 h-3" />
+                          <span className="text-[10px] text-[#DCC9A6]">
+                            {isGalleryHovered ? (isArabic ? 'متوقف مؤقتاً' : 'Paused') : (isArabic ? 'تلقائي' : 'Auto')}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3 h-3 fill-current" />
+                          <span className="text-[10px] opacity-80">{isArabic ? 'تشغيل' : 'Play'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Thumbnails list */}
+              {/* Thumbnails list with active gold ring & subtle count badges */}
               {product.imageUrls.length > 1 && (
-                <div className="flex gap-3 overflow-x-auto pb-2">
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
                   {product.imageUrls.map((url, idx) => (
                     <button
                       key={idx}
-                      onClick={() => setSelectedImageIndex(idx)}
-                      className={`relative w-20 aspect-[3/4] shrink-0 border-2 overflow-hidden transition-all rounded-sm ${
+                      type="button"
+                      onClick={() => handleSelectImage(idx)}
+                      className={`relative w-20 aspect-[3/4] shrink-0 border-2 overflow-hidden transition-all duration-300 rounded-sm cursor-pointer ${
                         selectedImageIndex === idx
-                          ? 'border-[#B67355] opacity-100 shadow-md'
-                          : 'border-[#E8E2D8] opacity-70 hover:opacity-100'
+                          ? 'border-[#B67355] ring-2 ring-[#B67355]/40 opacity-100 shadow-md scale-[1.03]'
+                          : 'border-[#E8E2D8] opacity-60 hover:opacity-100 hover:border-[#DCC9A6]'
                       }`}
                     >
                       <Image
@@ -272,6 +436,9 @@ export default function ProductDetailPage() {
                         fill
                         className="object-cover"
                       />
+                      <span className="absolute bottom-1 right-1 bg-black/60 backdrop-blur-xs text-white text-[9px] font-mono px-1 rounded">
+                        {String(idx + 1).padStart(2, '0')}
+                      </span>
                     </button>
                   ))}
                 </div>

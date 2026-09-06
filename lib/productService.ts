@@ -75,7 +75,7 @@ function sanitizeFirestoreDoc<T>(id: string, rawData: Record<string, unknown> | 
 
 const PRODUCT_CACHE = new Map<string, { data: Product[]; timestamp: number }>();
 const SINGLE_PRODUCT_CACHE = new Map<string, { data: Product; timestamp: number }>();
-const CACHE_TTL_MS = 20000; // 20s hot memory cache
+const CACHE_TTL_MS = 120000; // 2 minutes hot in-memory cache for instant reloads
 
 export function invalidateProductCache(): void {
   PRODUCT_CACHE.clear();
@@ -109,18 +109,10 @@ export async function getProducts(category?: string): Promise<Product[]> {
       });
     }
 
-    // Merge with INITIAL_PRODUCTS if not already present in items
-    INITIAL_PRODUCTS.forEach((initProd) => {
-      if (!items.some((p) => p.id === initProd.id)) {
-        if (category && category !== 'all' && category !== 'new-in' && category !== 'best-sellers') {
-          if (initProd.category === category) {
-            items.push(initProd);
-          }
-        } else {
-          items.push(initProd);
-        }
-      }
-    });
+    // Only fallback to INITIAL_PRODUCTS if Firestore is completely empty (e.g. uninitialized)
+    if (items.length === 0 && (!category || category === 'all')) {
+      items.push(...INITIAL_PRODUCTS);
+    }
 
     let finalItems = items;
     if (category === 'new-in') {

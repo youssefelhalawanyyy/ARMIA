@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Heart, ShoppingBag, Check, Zap } from 'lucide-react';
@@ -23,7 +23,21 @@ export default function ProductCard({ product }: ProductCardProps) {
       : { name: 'Standard', hex: '#1F1F1F' }
   );
   const [isHovered, setIsHovered] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [quickAddSuccess, setQuickAddSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!isHovered || product.imageUrls.length <= 1) {
+      setActiveImageIndex(0);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setActiveImageIndex((prev) => (prev + 1) % product.imageUrls.length);
+    }, 1800);
+
+    return () => clearInterval(timer);
+  }, [isHovered, product.imageUrls.length]);
 
   const isFav = isWishlisted(product.id);
 
@@ -86,15 +100,29 @@ export default function ProductCard({ product }: ProductCardProps) {
       {/* Thumbnail Container */}
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#F6F3EE]">
         <Link href={`/product/${product.id}`} className="block w-full h-full">
-          {/* Main & Hover Image Switch */}
+          {/* Main & Auto-scrolling Image */}
           <Image
-            src={isHovered && product.imageUrls.length > 1 ? hoverImage : mainImage}
+            src={product.imageUrls[activeImageIndex] || mainImage}
             alt={product.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
+            className="object-cover object-center transition-all duration-700 group-hover:scale-105"
           />
         </Link>
+
+        {/* Auto-scroll photo progress dots */}
+        {product.imageUrls.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+            {product.imageUrls.map((_, idx) => (
+              <span
+                key={idx}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  activeImageIndex === idx ? 'w-3.5 bg-white shadow-sm' : 'w-1.5 bg-white/50'
+                }`}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Discount, Flash Deal, New Tag, & Stock Status */}
         <div className="absolute top-2.5 left-2.5 rtl:left-auto rtl:right-2.5 flex flex-col gap-1 z-10 pointer-events-none">

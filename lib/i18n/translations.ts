@@ -92,6 +92,7 @@ export interface Translations {
     emptyTitle: string;
     emptySubtitle: string;
     explorePieces: string;
+    deliveryPrice: string;
     subtotal: string;
     autoDiscount: string;
     voucherDiscount: string;
@@ -329,6 +330,7 @@ export const translations: Record<Language, Translations> = {
       emptyTitle: 'Your shopping bag is empty',
       emptySubtitle: 'Explore our latest collections and find timeless pieces to elevate your style.',
       explorePieces: 'Explore Collections',
+      deliveryPrice: 'Delivery Price',
       subtotal: 'Subtotal',
       autoDiscount: 'Auto Discount Applied',
       voucherDiscount: 'Promo Voucher Applied',
@@ -559,6 +561,7 @@ export const translations: Record<Language, Translations> = {
       emptyTitle: 'حقيبة التسوق فارغة حالياً',
       emptySubtitle: 'استكشفي أحدث تشكيلاتنا واختاري قطعك المفضلة لتتألقي بأسلوب لا يُضاهى.',
       explorePieces: 'تصفحي التشكيلات',
+      deliveryPrice: 'سعر التوصيل',
       subtotal: 'المجموع الفرعي',
       autoDiscount: 'خصم تلقائي مطبق',
       voucherDiscount: 'كوبون الخصم المطبق',

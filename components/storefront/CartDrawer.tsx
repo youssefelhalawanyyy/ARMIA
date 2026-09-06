@@ -19,6 +19,7 @@ export default function CartDrawer() {
     discountAmount,
     appliedDiscount,
     totalAmount,
+    shippingFee,
     shippingSettings,
     isCartOpen,
     setIsCartOpen,
@@ -34,7 +35,7 @@ export default function CartDrawer() {
       try {
         const all = await getProducts('all');
         const availableFeatured = all.filter(
-          (p) => p.featured && (p.stockQuantity ?? 0) > 0
+          (p) => p.featured && (p.stockQuantity ?? 0) > 0 && !items.some((it) => it.productId === p.id)
         );
         setFeaturedUpsell(availableFeatured);
       } catch (err) {
@@ -321,6 +322,27 @@ export default function CartDrawer() {
 
                   {/* Summary Breakdown */}
                   <div className="space-y-1.5 text-xs font-sans text-[#8E8A85]">
+                    {/* Delivery Price before Subtotal */}
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="flex items-center gap-1.5">
+                        <span>{t.cart.deliveryPrice || (isArabic ? 'سعر التوصيل' : 'Delivery Price')}</span>
+                        {shippingFee === 0 && (
+                          <span className="text-[10px] text-[#10B981] font-semibold bg-[#10B981]/10 px-1.5 py-0.5 rounded-sm">
+                            {isArabic ? 'شحن مجاني' : 'Free Delivery'}
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-mono text-[#1F1F1F]">
+                        {shippingFee === 0 ? (
+                          <span className="text-[#10B981] font-bold uppercase tracking-wider">
+                            {isArabic ? 'مجاناً' : 'FREE'}
+                          </span>
+                        ) : (
+                          `EGP ${shippingFee.toFixed(2)}`
+                        )}
+                      </span>
+                    </div>
+
                     <div className="flex justify-between">
                       <span>{t.cart.subtotal}</span>
                       <span className="font-mono text-[#1F1F1F]">EGP {subtotal.toFixed(2)}</span>
