@@ -20,6 +20,7 @@ import {
 import { useLanguage } from '@/context/LanguageContext';
 import { Product } from '@/types';
 import { INITIAL_PRODUCTS } from '@/lib/seedData';
+import ShopSetModal from './ShopSetModal';
 
 interface HeroSectionProps {
   products?: Product[];
@@ -32,6 +33,7 @@ export default function HeroSection({ products = [] }: HeroSectionProps) {
   const ArrowIcon = isArabic ? ArrowLeft : ArrowRight;
 
   const [activeHotspot, setActiveHotspot] = useState<HotspotId | null>(null);
+  const [isSetModalOpen, setIsSetModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close popover when clicking outside
@@ -46,36 +48,24 @@ export default function HeroSection({ products = [] }: HeroSectionProps) {
   }, []);
 
   // Find Chevron Top from products or seed
-  const chevronProduct =
+  const chevronProduct: Product =
     products.find(
       (p) => p.id === 'prod-1788716511841' || p.name.toUpperCase().includes('CHEVRON')
-    ) || INITIAL_PRODUCTS.find((p) => p.id === 'prod-1788716511841') || {
-      id: 'prod-1788716511841',
-      name: 'CHEVRON TOP',
-      nameArabic: 'توب شيفرون مطرز بدون أكمام',
-      category: 'tops',
-      categoryArabic: 'بلوزات وتوبات',
-      price: 500,
-      discountPrice: 400,
-    };
+    ) ||
+    INITIAL_PRODUCTS.find((p) => p.id === 'prod-1788716511841') ||
+    INITIAL_PRODUCTS[0];
 
   // Find Pants from products or seed
-  const pantsProduct =
+  const pantsProduct: Product =
     products.find(
       (p) =>
         p.id === 'prod-relaxed-denim-pants' ||
         p.category === 'bottoms' ||
         p.name.toUpperCase().includes('PANTS') ||
         p.name.toUpperCase().includes('DENIM')
-    ) || INITIAL_PRODUCTS.find((p) => p.id === 'prod-relaxed-denim-pants') || {
-      id: 'prod-relaxed-denim-pants',
-      name: 'RELAXED DENIM PANTS',
-      nameArabic: 'بنطال جينز واسع بخصر مريح',
-      category: 'bottoms',
-      categoryArabic: 'بناطيل وتنانير',
-      price: 450,
-      discountPrice: 380,
-    };
+    ) ||
+    INITIAL_PRODUCTS.find((p) => p.id === 'prod-relaxed-denim-pants') ||
+    INITIAL_PRODUCTS[1];
 
   const topHref = `/product/${chevronProduct.id}`;
   const pantsHref = `/product/${pantsProduct.id}`;
@@ -439,13 +429,15 @@ export default function HeroSection({ products = [] }: HeroSectionProps) {
                       {isArabic ? 'البنطال' : 'Pants'} ({pantsProduct.price} EGP)
                     </button>
 
-                    <Link
-                      href={topHref}
-                      className="bg-[#DCC9A6] text-[#1F1F1F] hover:bg-[#B67355] hover:text-white px-3 py-1.5 text-[11px] font-sans uppercase tracking-wider font-bold rounded flex items-center gap-1.5 transition-all shadow"
+                    <button
+                      type="button"
+                      onClick={() => setIsSetModalOpen(true)}
+                      className="bg-[#DCC9A6] text-[#1F1F1F] hover:bg-[#B67355] hover:text-white px-3.5 py-1.5 text-[11px] font-sans uppercase tracking-wider font-bold rounded flex items-center gap-1.5 transition-all shadow"
                     >
-                      <span>{isArabic ? 'تسوق' : 'Shop'}</span>
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>{isArabic ? 'تسوق الطقم' : 'Shop Set'}</span>
                       <ArrowIcon className="w-3 h-3" />
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -453,6 +445,14 @@ export default function HeroSection({ products = [] }: HeroSectionProps) {
           </motion.div>
         </div>
       </div>
+
+      {/* Interactive Size Selection Modal for the 2-Piece Set */}
+      <ShopSetModal
+        isOpen={isSetModalOpen}
+        onClose={() => setIsSetModalOpen(false)}
+        topProduct={chevronProduct}
+        pantsProduct={pantsProduct}
+      />
     </section>
   );
 }

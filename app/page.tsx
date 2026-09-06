@@ -1,6 +1,7 @@
 import React from 'react';
 import Navbar from '@/components/storefront/Navbar';
 import HeroSection from '@/components/storefront/HeroSection';
+import ShopTheLookSection from '@/components/storefront/ShopTheLookSection';
 import ValueProps from '@/components/storefront/ValueProps';
 import CategorySection from '@/components/storefront/CategorySection';
 import FeaturedProductsSection from '@/components/storefront/FeaturedProductsSection';
@@ -23,7 +24,10 @@ export default async function HomePage() {
         {/* 1. Hero Section ("Design for Your Style") */}
         <HeroSection products={products} />
 
-        {/* 2. Value Propositions Bar (Premium Quality, Wholesale, Fast Shipping, Support) */}
+        {/* 2. Shop The Look / Signature Set Section */}
+        <ShopTheLookSection products={products} />
+
+        {/* 3. Value Propositions Bar (Premium Quality, Wholesale, Fast Shipping, Support) */}
         <ValueProps />
 
         {/* 3. Shop by Category (Only shows configured categories) */}
