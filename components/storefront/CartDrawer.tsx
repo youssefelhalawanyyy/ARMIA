@@ -321,10 +321,11 @@ export default function CartDrawer() {
                   )}
 
                   {/* Summary Breakdown */}
-                  <div className="space-y-1.5 text-xs font-sans text-[#8E8A85]">
+                  <div className="space-y-2 text-xs font-sans text-[#8E8A85]">
                     {/* Delivery Price before Subtotal */}
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="flex items-center gap-1.5">
+                    <div className="flex justify-between items-center text-xs pb-1.5 border-b border-[#E8E2D8]/60">
+                      <span className="flex items-center gap-1.5 text-[#1F1F1F] font-medium">
+                        <Truck className="w-3.5 h-3.5 text-[#B67355]" />
                         <span>{t.cart.deliveryPrice || (isArabic ? 'سعر التوصيل' : 'Delivery Price')}</span>
                         {shippingFee === 0 && (
                           <span className="text-[10px] text-[#10B981] font-semibold bg-[#10B981]/10 px-1.5 py-0.5 rounded-sm">
@@ -332,7 +333,7 @@ export default function CartDrawer() {
                           </span>
                         )}
                       </span>
-                      <span className="font-mono text-[#1F1F1F]">
+                      <span className="font-mono text-[#1F1F1F] font-semibold">
                         {shippingFee === 0 ? (
                           <span className="text-[#10B981] font-bold uppercase tracking-wider">
                             {isArabic ? 'مجاناً' : 'FREE'}
@@ -343,9 +344,9 @@ export default function CartDrawer() {
                       </span>
                     </div>
 
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <span>{t.cart.subtotal}</span>
-                      <span className="font-mono text-[#1F1F1F]">EGP {subtotal.toFixed(2)}</span>
+                      <span className="font-mono text-[#1F1F1F] font-semibold">EGP {subtotal.toFixed(2)}</span>
                     </div>
                     {discountAmount > 0 && (
                       <div className="flex justify-between text-[#B67355] font-semibold">

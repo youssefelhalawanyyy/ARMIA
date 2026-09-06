@@ -739,6 +739,21 @@ function OrderTrackingContent() {
                   </div>
                 )}
 
+                <div className="flex justify-between items-center pb-2 border-b border-[#E8E2D8]/60">
+                  <span className="flex items-center gap-1.5 text-[#1F1F1F] font-medium">
+                    <Truck className="w-3.5 h-3.5 text-[#B67355]" />
+                    <span>{t.checkout.shippingFee}:</span>
+                    {order.shippingFee === 0 && (
+                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded-sm">
+                        {isArabic ? 'شحن مجاني' : 'Free Delivery'}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[#1F1F1F] font-semibold font-mono">
+                    {order.shippingFee === 0 ? t.checkout.free : `EGP ${order.shippingFee?.toFixed(2)}`}
+                  </span>
+                </div>
+
                 <div className="flex justify-between items-center">
                   <span>{t.cart.subtotal}:</span>
                   <span className="text-[#1F1F1F] font-semibold font-mono">
@@ -752,13 +767,6 @@ function OrderTrackingContent() {
                     <span className="font-mono font-bold">-EGP {order.discountAmount.toFixed(2)}</span>
                   </div>
                 ) : null}
-
-                <div className="flex justify-between items-center">
-                  <span>{t.checkout.shippingFee}:</span>
-                  <span className="text-[#1F1F1F] font-semibold">
-                    {order.shippingFee === 0 ? t.checkout.free : `EGP ${order.shippingFee?.toFixed(2)}`}
-                  </span>
-                </div>
 
                 <div className="border-t border-[#E8E2D8] pt-2.5 flex justify-between items-baseline text-sm font-bold text-[#1F1F1F]">
                   <span className="font-serif">

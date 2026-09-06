@@ -1649,7 +1649,29 @@ export default function CheckoutPage() {
 
                 {/* Cost calculation Breakdown */}
                 <div className="space-y-2.5 border-t border-[#E8E2D8] pt-4 text-xs font-sans text-[#8E8A85]">
-                  <div className="flex justify-between">
+                  {/* Delivery Price / Shipping Fee BEFORE Subtotal */}
+                  <div className="flex justify-between items-center pb-2 border-b border-[#E8E2D8]/60">
+                    <span className="flex items-center gap-1.5 text-[#1F1F1F] font-medium">
+                      <Truck className="w-3.5 h-3.5 text-[#B67355]" />
+                      <span>
+                        {isArabic ? 'سعر التوصيل' : 'Delivery Price'} ({formData.governorate.split('(')[0].trim()})
+                      </span>
+                      {dynamicShippingFee === 0 && (
+                        <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded-sm">
+                          {isArabic ? 'شحن مجاني' : 'Free Delivery'}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[#1F1F1F] font-semibold font-mono">
+                      {dynamicShippingFee === 0 ? (
+                        <span className="text-emerald-700 uppercase font-bold">{t.checkout.free}</span>
+                      ) : (
+                        `EGP ${dynamicShippingFee.toFixed(2)}`
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
                     <span>{isArabic ? 'السعر الأصلي (المجموع الفرعي)' : 'Original Price (Subtotal)'}</span>
                     <span className="text-[#1F1F1F] font-semibold font-mono">
                       EGP {subtotal.toFixed(2)}
@@ -1669,19 +1691,6 @@ export default function CheckoutPage() {
                       <span className="font-mono font-bold">-EGP {discountAmount.toFixed(2)}</span>
                     </div>
                   )}
-
-                  <div className="flex justify-between">
-                    <span>
-                      {t.checkout.shippingFee} ({formData.governorate.split('(')[0].trim()})
-                    </span>
-                    <span className="text-[#1F1F1F] font-semibold">
-                      {dynamicShippingFee === 0 ? (
-                        <span className="text-emerald-700 uppercase font-bold">{t.checkout.free}</span>
-                      ) : (
-                        `EGP ${dynamicShippingFee.toFixed(2)}`
-                      )}
-                    </span>
-                  </div>
 
                   <div className="border-t border-[#E8E2D8] pt-3 flex justify-between text-base font-bold text-[#1F1F1F]">
                     <span className="font-serif">{t.checkout.total}</span>
