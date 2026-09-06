@@ -105,6 +105,7 @@ export default function StorefrontMobileTabBar() {
             <Link
               key={tab.name}
               href={tab.href}
+              prefetch={true}
               className={`relative flex flex-col items-center justify-center py-1 px-3 text-center transition-all duration-200 active:scale-90 ${
                 isCurrent ? 'text-[#DCC9A6]' : 'text-[#8E8A85] hover:text-[#DCC9A6]'
               }`}

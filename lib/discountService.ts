@@ -87,6 +87,22 @@ export const DEFAULT_DISCOUNTS: Discount[] = [
 
 export const DISCOUNTS_STORAGE_KEY = 'armia_discounts_cache_v2';
 
+async function refreshDiscountsInBackground() {
+  try {
+    const docRef = doc(db, 'settings', 'discounts_config');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data && Array.isArray(data.discounts) && data.discounts.length > 0) {
+        const discounts = data.discounts as Discount[];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(DISCOUNTS_STORAGE_KEY, JSON.stringify(discounts));
+        }
+      }
+    }
+  } catch {}
+}
+
 /**
  * Fetch all discounts from Firestore with local storage caching
  */
@@ -97,6 +113,7 @@ export async function getDiscounts(): Promise<Discount[]> {
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          refreshDiscountsInBackground();
           return parsed;
         }
       }

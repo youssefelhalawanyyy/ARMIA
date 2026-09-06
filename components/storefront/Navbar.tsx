@@ -109,6 +109,7 @@ export default function Navbar() {
                   <Link
                     key={link.name}
                     href={link.href}
+                    prefetch={true}
                     className={`font-sans text-xs uppercase tracking-[0.18em] font-medium transition-colors relative py-1 ${
                       isActive ? 'text-[#B67355] font-semibold' : 'text-[#1F1F1F] hover:text-[#B67355]'
                     }`}
@@ -141,6 +142,7 @@ export default function Navbar() {
               {/* Wishlist Link */}
               <Link
                 href="/wishlist"
+                prefetch={true}
                 className="p-2 text-[#1F1F1F] hover:text-[#B67355] transition-colors relative hidden sm:flex items-center"
                 aria-label="Wishlist"
               >

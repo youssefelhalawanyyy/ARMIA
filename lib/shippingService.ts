@@ -40,16 +40,31 @@ export const DEFAULT_SHIPPING_SETTINGS: ShippingSettings = {
 
 const SHIPPING_STORAGE_KEY = 'armia_shipping_settings_cache_v1';
 
+async function refreshShippingSettingsInBackground() {
+  try {
+    const docRef = doc(db, 'settings', 'shipping');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data() as ShippingSettings;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(SHIPPING_STORAGE_KEY, JSON.stringify(data));
+      }
+    }
+  } catch {}
+}
+
 /**
  * Get current shipping settings from Firestore (or local cache / defaults)
  */
 export async function getShippingSettings(): Promise<ShippingSettings> {
-  // Check local cache
+  // Check local cache for 0ms instant reload
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem(SHIPPING_STORAGE_KEY);
       if (cached) {
-        // Return cached immediately and refresh in background
+        const parsed = JSON.parse(cached) as ShippingSettings;
+        refreshShippingSettingsInBackground();
+        return parsed;
       }
     } catch {
       // ignore

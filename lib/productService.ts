@@ -107,6 +107,47 @@ async function refreshSingleProductInBackground(id: string) {
   } catch {}
 }
 
+async function refreshProductsInBackground(cacheKey: string, category?: string) {
+  try {
+    const productsRef = collection(db, PRODUCTS_COLLECTION);
+    let q = query(productsRef);
+
+    if (category && category !== 'all' && category !== 'new-in' && category !== 'best-sellers') {
+      q = query(productsRef, where('category', '==', category));
+    }
+
+    const snapshot = await getDocs(q);
+    const items: Product[] = [];
+    if (!snapshot.empty) {
+      snapshot.forEach((doc) => {
+        const product = sanitizeFirestoreDoc<Product>(doc.id, doc.data());
+        items.push(product);
+      });
+    }
+
+    if (items.length > 0) {
+      let finalItems = items;
+      if (category === 'new-in') {
+        finalItems = items.filter((item) => item.isNewArrival || item.category === 'new-in');
+      } else if (category === 'best-sellers') {
+        finalItems = items.filter((item) => item.featured);
+        if (finalItems.length === 0) finalItems = items;
+      }
+
+      PRODUCT_CACHE.set(cacheKey, { data: finalItems, timestamp: Date.now() });
+
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(`armia_catalog_cache_${cacheKey}`, JSON.stringify(finalItems));
+          finalItems.forEach((p) => {
+            localStorage.setItem(`armia_prod_${p.id}`, JSON.stringify(p));
+          });
+        } catch {}
+      }
+    }
+  } catch {}
+}
+
 /**
  * Fetch all products or filter by category with high-speed memory caching
  */
@@ -117,7 +158,7 @@ export async function getProducts(category?: string): Promise<Product[]> {
     return cached.data;
   }
 
-  // Instant client cache for zero-lag reloads
+  // Instant client cache for zero-lag reloads (0ms initial render + background sync)
   if (typeof window !== 'undefined') {
     try {
       const local = localStorage.getItem(`armia_catalog_cache_${cacheKey}`);
@@ -125,6 +166,7 @@ export async function getProducts(category?: string): Promise<Product[]> {
         const parsed = JSON.parse(local) as Product[];
         if (Array.isArray(parsed) && parsed.length > 0) {
           PRODUCT_CACHE.set(cacheKey, { data: parsed, timestamp: Date.now() });
+          refreshProductsInBackground(cacheKey, category);
           return parsed;
         }
       }

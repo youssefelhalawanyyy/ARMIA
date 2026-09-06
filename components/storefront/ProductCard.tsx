@@ -125,7 +125,16 @@ export default function ProductCard({ product }: ProductCardProps) {
         onTouchMove={handleCardTouchMove}
         onTouchEnd={handleCardTouchEnd}
       >
-        <Link href={`/product/${product.id}`} className="block w-full h-full">
+        <Link
+          href={`/product/${product.id}`}
+          prefetch={true}
+          onMouseEnter={() => {
+            try {
+              localStorage.setItem(`armia_prod_${product.id}`, JSON.stringify(product));
+            } catch {}
+          }}
+          className="block w-full h-full"
+        >
           {/* Main & Auto-scrolling Image */}
           <Image
             src={product.imageUrls[activeImageIndex] || mainImage}
@@ -283,7 +292,16 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
 
           {/* Product Name */}
-          <Link href={`/product/${product.id}`} className="block">
+          <Link
+            href={`/product/${product.id}`}
+            prefetch={true}
+            onMouseEnter={() => {
+              try {
+                localStorage.setItem(`armia_prod_${product.id}`, JSON.stringify(product));
+              } catch {}
+            }}
+            className="block"
+          >
             <h3 className="font-serif text-sm font-semibold tracking-wider text-[#1F1F1F] group-hover:text-[#B67355] transition-colors truncate">
               {isArabic && product.nameArabic ? product.nameArabic : product.name}
             </h3>

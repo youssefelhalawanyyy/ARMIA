@@ -10,6 +10,7 @@ import StorefrontMobileTabBar from "@/components/storefront/StorefrontMobileTabB
 import StorefrontPWAInstallModal from "@/components/storefront/StorefrontPWAInstallModal";
 import PushNotificationPrompt from "@/components/common/PushNotificationPrompt";
 import BroadcastNotificationReceiver from "@/components/common/BroadcastNotificationReceiver";
+import NavigationProgressBar from "@/components/common/NavigationProgressBar";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -80,6 +81,7 @@ export default function RootLayout({
             <ToastProvider>
               <AuthProvider>
                 <CartProvider>
+                  <NavigationProgressBar />
                   {children}
                   {/* Client Storefront Mobile Bottom Tab Bar */}
                   <StorefrontMobileTabBar />
