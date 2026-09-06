@@ -8,10 +8,6 @@ import {
   ArrowRight,
   ArrowLeft,
   Sparkles,
-  ShieldCheck,
-  Truck,
-  RotateCcw,
-  Gem,
   ShoppingBag,
   Plus,
   X,
@@ -111,26 +107,6 @@ export default function HeroSection({ products = [] }: HeroSectionProps) {
               >
                 {t.hero.newArrivals}
               </Link>
-            </div>
-
-            {/* Quick Micro-Guarantees Grid */}
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-[#E8E2D8]/80 text-[11px] font-sans text-[#8E8A85]">
-              <div className="flex items-center gap-2">
-                <Truck className="w-3.5 h-3.5 text-[#B67355] shrink-0" />
-                <span>{t.hero.guarantee1}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#B67355] shrink-0" />
-                <span>{t.hero.guarantee2}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <RotateCcw className="w-3.5 h-3.5 text-[#B67355] shrink-0" />
-                <span>{t.hero.guarantee3}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Gem className="w-3.5 h-3.5 text-[#B67355] shrink-0" />
-                <span>{t.hero.guarantee4}</span>
-              </div>
             </div>
           </motion.div>
 
