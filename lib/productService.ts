@@ -109,6 +109,19 @@ export async function getProducts(category?: string): Promise<Product[]> {
       });
     }
 
+    // Merge with INITIAL_PRODUCTS if not already present in items
+    INITIAL_PRODUCTS.forEach((initProd) => {
+      if (!items.some((p) => p.id === initProd.id)) {
+        if (category && category !== 'all' && category !== 'new-in' && category !== 'best-sellers') {
+          if (initProd.category === category) {
+            items.push(initProd);
+          }
+        } else {
+          items.push(initProd);
+        }
+      }
+    });
+
     let finalItems = items;
     if (category === 'new-in') {
       finalItems = items.filter((item) => item.isNewArrival || item.category === 'new-in');
@@ -121,7 +134,7 @@ export async function getProducts(category?: string): Promise<Product[]> {
     return finalItems;
   } catch (error) {
     console.warn('Firestore fetch warning:', error);
-    return [];
+    return INITIAL_PRODUCTS;
   }
 }
 
@@ -142,11 +155,18 @@ export async function getProductById(id: string): Promise<Product | null> {
       SINGLE_PRODUCT_CACHE.set(id, { data: product, timestamp: Date.now() });
       return product;
     }
-    return null;
   } catch (error) {
     console.warn('Firestore getProductById warning:', error);
-    return null;
   }
+
+  // Fallback to INITIAL_PRODUCTS
+  const initial = INITIAL_PRODUCTS.find((p) => p.id === id);
+  if (initial) {
+    SINGLE_PRODUCT_CACHE.set(id, { data: initial, timestamp: Date.now() });
+    return initial;
+  }
+
+  return null;
 }
 
 /**

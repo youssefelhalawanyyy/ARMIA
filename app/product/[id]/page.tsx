@@ -45,7 +45,6 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'specs' | 'wholesale' | 'shipping'>('specs');
-  const [fallbackEndTime] = useState(() => new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString());
 
   const { addToCart, toggleWishlist, isWishlisted, discounts } = useCart();
   const { t, isArabic } = useLanguage();
@@ -121,9 +120,8 @@ export default function ProductDetailPage() {
   // Check if there is an active single-item Flash Deal with countdown
   const flashDeal = getActiveFlashDealForProduct(product.id, discounts);
 
-  // If product has a discountPrice or flashDeal, ensure we have an active countdown
-  const countdownEndTime =
-    flashDeal?.endTime || (product.discountPrice ? fallbackEndTime : null);
+  // Only add the special offer countdown when there is an active flash deal / special offer on this item
+  const countdownEndTime = flashDeal?.endTime || null;
   const countdownTitle =
     (isArabic && flashDeal?.titleArabic ? flashDeal.titleArabic : flashDeal?.title) ||
     (isArabic ? `عرض خاص لفترة محدودة على ${product.name}` : `⚡ Special Offer: Limited Time Price on ${product.name}`);
@@ -131,8 +129,6 @@ export default function ProductDetailPage() {
     ? flashDeal.type === 'percentage'
       ? `${flashDeal.value}% OFF`
       : `EGP ${flashDeal.value} OFF`
-    : product.discountPrice
-    ? `${Math.round(((product.price - product.discountPrice) / product.price) * 100)}% OFF`
     : undefined;
 
   let effectivePrice = product.discountPrice || product.price;
