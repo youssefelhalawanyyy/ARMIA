@@ -19,6 +19,10 @@ import {
   Ruler,
   Play,
   Pause,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/storefront/Navbar';
@@ -170,6 +174,81 @@ export default function ProductDetailPage() {
     touchEndX.current = null;
   };
 
+  // Atelier High-Res Zoom Studio State
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [zoomScale, setZoomScale] = useState<number>(1);
+  const [panPosition, setPanPosition] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+
+  useEffect(() => {
+    if (!isZoomOpen) return;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsZoomOpen(false);
+        setZoomScale(1);
+      } else if (e.key === 'ArrowRight') {
+        handleNextImage();
+      } else if (e.key === 'ArrowLeft') {
+        handlePrevImage();
+      } else if (e.key === '+' || e.key === '=') {
+        setZoomScale((prev) => Math.min(3, prev + 0.5));
+      } else if (e.key === '-') {
+        setZoomScale((prev) => Math.max(1, prev - 0.5));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isZoomOpen]);
+
+  const handleOpenZoom = (initialIdx?: number) => {
+    if (typeof initialIdx === 'number') {
+      setSelectedImageIndex(initialIdx);
+    }
+    setZoomScale(1);
+    setPanPosition({ x: 50, y: 50 });
+    setIsZoomOpen(true);
+  };
+
+  const handleCloseZoom = () => {
+    setIsZoomOpen(false);
+    setZoomScale(1);
+    setPanPosition({ x: 50, y: 50 });
+  };
+
+  const handleToggleZoomScale = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (zoomScale > 1) {
+      setZoomScale(1);
+      setPanPosition({ x: 50, y: 50 });
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const clickY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      setPanPosition({ x: clickX, y: clickY });
+      setZoomScale(2.5);
+    }
+  };
+
+  const handleZoomMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (zoomScale <= 1) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    setPanPosition({ x, y });
+  };
+
+  const handleWheelZoom = (e: React.WheelEvent) => {
+    if (e.deltaY < 0) {
+      setZoomScale((prev) => Math.min(3.5, Number((prev + 0.25).toFixed(2))));
+    } else if (e.deltaY > 0) {
+      setZoomScale((prev) => Math.max(1, Number((prev - 0.25).toFixed(2))));
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-[#F6F3EE]">
@@ -305,9 +384,10 @@ export default function ProductDetailPage() {
             
             {/* Left: Gallery (7 Cols) */}
             <div className="lg:col-span-7 space-y-4">
-              {/* Main Image Display with Smart Auto-Scroll */}
+              {/* Main Image Display with Smart Auto-Scroll & Click-to-Zoom */}
               <div
-                className="relative aspect-[3/4] w-full bg-white border border-[#E8E2D8] overflow-hidden shadow-sm rounded-sm group select-none"
+                onClick={() => handleOpenZoom(selectedImageIndex)}
+                className="relative aspect-[3/4] w-full bg-white border border-[#E8E2D8] overflow-hidden shadow-sm rounded-sm group select-none cursor-zoom-in"
                 onMouseEnter={() => setIsGalleryHovered(true)}
                 onMouseLeave={() => setIsGalleryHovered(false)}
                 onTouchStart={handleTouchStart}
@@ -419,6 +499,22 @@ export default function ProductDetailPage() {
                       isFav ? 'fill-[#B67355] text-[#B67355]' : 'text-[#1F1F1F]'
                     }`}
                   />
+                </button>
+
+                {/* Floating Zoom Action Pill */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenZoom(selectedImageIndex);
+                  }}
+                  className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 bg-[#1F1F1F]/80 hover:bg-[#B67355] backdrop-blur-md text-white text-[11px] font-sans px-3 py-1.5 rounded-full border border-white/20 shadow-lg transition-all cursor-pointer group/zoom"
+                  title={isArabic ? 'تكبير فائق الدقة' : 'Click to Zoom High-Res'}
+                >
+                  <ZoomIn className="w-3.5 h-3.5 group-hover/zoom:scale-110 transition-transform" />
+                  <span className="text-[10px] tracking-wide uppercase font-semibold">
+                    {isArabic ? 'تكبير' : 'Zoom'}
+                  </span>
                 </button>
 
                 {/* Smart Creative Control Pill at Bottom Corner */}
@@ -864,6 +960,214 @@ export default function ProductDetailPage() {
         selectedSize={selectedSize}
         onSelectSize={(s) => setSelectedSize(s)}
       />
+
+      {/* Atelier High-Res Zoom Studio Lightbox Modal */}
+      <AnimatePresence>
+        {isZoomOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-[9999] bg-[#0A0A0A]/95 backdrop-blur-2xl text-white flex flex-col justify-between select-none overflow-hidden"
+          >
+            {/* Top Bar / Header */}
+            <div className="relative z-30 px-4 sm:px-6 py-4 flex items-center justify-between border-b border-white/10 bg-black/40 backdrop-blur-md">
+              {/* Product Info & High-Res Tag */}
+              <div className="flex items-center gap-3">
+                <span className="hidden sm:inline-block px-2.5 py-1 text-[10px] font-mono tracking-widest uppercase bg-[#DCC9A6] text-[#1F1F1F] font-bold rounded-sm">
+                  {isArabic ? 'فحص فائق الدقة' : 'HIGH-RES STUDIO'}
+                </span>
+                <div>
+                  <h3 className="font-serif text-sm sm:text-base font-medium tracking-wide text-white">
+                    {product.name}
+                  </h3>
+                  <p className="text-[11px] font-sans text-white/50 tracking-wider">
+                    {isArabic ? 'استكشاف تفاصيل القماش والخياطة' : 'Inspect fabric texture & stitching'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Center Controls: Zoom Level & Presets */}
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-white/10 backdrop-blur-md px-2.5 sm:px-4 py-1.5 rounded-full border border-white/15 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => setZoomScale((prev) => Math.max(1, Number((prev - 0.5).toFixed(1))))}
+                  disabled={zoomScale <= 1}
+                  className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
+                  title={isArabic ? 'تصغير (-)' : 'Zoom Out (-)'}
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="min-w-[56px] text-center">
+                  <span className="font-mono text-xs font-semibold text-[#DCC9A6]">
+                    {Math.round(zoomScale * 100)}%
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setZoomScale((prev) => Math.min(3.5, Number((prev + 0.5).toFixed(1))))}
+                  disabled={zoomScale >= 3.5}
+                  className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
+                  title={isArabic ? 'تكبير (+)' : 'Zoom In (+)'}
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+
+                <span className="w-px h-4 bg-white/20 mx-1 hidden sm:inline-block" />
+
+                {/* Quick Toggle 1x / 2.5x */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (zoomScale > 1) {
+                      setZoomScale(1);
+                      setPanPosition({ x: 50, y: 50 });
+                    } else {
+                      setZoomScale(2.5);
+                      setPanPosition({ x: 50, y: 50 });
+                    }
+                  }}
+                  className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-sans font-medium rounded-full bg-white/10 hover:bg-[#DCC9A6] hover:text-[#1F1F1F] transition-all cursor-pointer"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                  <span>{zoomScale > 1 ? (isArabic ? 'إعادة ضبط (1x)' : 'Reset (1x)') : (isArabic ? 'ماكرو (2.5x)' : 'Macro (2.5x)')}</span>
+                </button>
+              </div>
+
+              {/* Right: Counter & Close */}
+              <div className="flex items-center gap-3">
+                {product.imageUrls.length > 1 && (
+                  <span className="font-mono text-xs text-white/60 tracking-widest hidden sm:inline-block">
+                    {String(selectedImageIndex + 1).padStart(2, '0')} / {String(product.imageUrls.length).padStart(2, '0')}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={handleCloseZoom}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/25 border border-white/20 transition-colors text-xs font-sans cursor-pointer group"
+                  title={isArabic ? 'إغلاق (Esc)' : 'Close (Esc)'}
+                >
+                  <X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
+                  <span className="hidden sm:inline-block font-mono text-[11px] text-white/70">ESC</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive Canvas Center Stage */}
+            <div
+              className="relative flex-1 w-full overflow-hidden flex items-center justify-center p-2 sm:p-6"
+              onWheel={handleWheelZoom}
+            >
+              {/* Prev Image Arrow */}
+              {product.imageUrls.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePrevImage();
+                  }}
+                  aria-label="Previous image"
+                  className="absolute left-3 sm:left-6 z-30 w-11 h-11 rounded-full bg-black/60 hover:bg-[#DCC9A6] hover:text-[#1F1F1F] border border-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all shadow-xl cursor-pointer"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              )}
+
+              {/* Next Image Arrow */}
+              {product.imageUrls.length > 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleNextImage();
+                  }}
+                  aria-label="Next image"
+                  className="absolute right-3 sm:right-6 z-30 w-11 h-11 rounded-full bg-black/60 hover:bg-[#DCC9A6] hover:text-[#1F1F1F] border border-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all shadow-xl cursor-pointer"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              )}
+
+              {/* Pan & Zoom Image Container */}
+              <div
+                onClick={handleToggleZoomScale}
+                onMouseMove={handleZoomMouseMove}
+                className={`relative w-full h-full max-w-4xl max-h-[75vh] flex items-center justify-center overflow-hidden select-none rounded-md transition-all ${
+                  zoomScale > 1 ? 'cursor-zoom-out' : 'cursor-zoom-in'
+                }`}
+              >
+                <div
+                  className="relative w-full h-full flex items-center justify-center"
+                  style={{
+                    transform: `scale(${zoomScale})`,
+                    transformOrigin: `${panPosition.x}% ${panPosition.y}%`,
+                    transition: zoomScale === 1 ? 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
+                  }}
+                >
+                  <Image
+                    src={product.imageUrls[selectedImageIndex] || mainImage}
+                    alt={`${product.name} zoom view`}
+                    fill
+                    sizes="100vw"
+                    priority
+                    className="object-contain pointer-events-none drop-shadow-2xl"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Bar: Thumbnails & Clever Guidance */}
+            <div className="relative z-30 px-4 sm:px-6 py-3 border-t border-white/10 bg-black/50 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3">
+              {/* Guidance Hint */}
+              <div className="text-[11px] font-sans text-white/60 text-center sm:text-left">
+                {isArabic ? (
+                  <span>
+                    💡 <strong className="text-[#DCC9A6]">تلميح:</strong> انقري للتكبير • حرّكي الماوس لاستكشاف أدق تفاصيل الخامة • عجلة الماوس لتكبير مرن
+                  </span>
+                ) : (
+                  <span>
+                    💡 <strong className="text-[#DCC9A6]">Pro Tip:</strong> Click to zoom • Pan mouse across fabric • Scroll wheel or +/- to adjust • Esc to close
+                  </span>
+                )}
+              </div>
+
+              {/* Modal Thumbnails Carousel */}
+              {product.imageUrls.length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto py-1 max-w-full">
+                  {product.imageUrls.map((url, idx) => {
+                    const isSelected = selectedImageIndex === idx;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setSelectedImageIndex(idx);
+                          setGalleryProgress(0);
+                        }}
+                        className={`relative w-12 h-16 rounded overflow-hidden border-2 transition-all cursor-pointer shrink-0 ${
+                          isSelected
+                            ? 'border-[#DCC9A6] ring-2 ring-[#DCC9A6]/50 scale-105 opacity-100'
+                            : 'border-white/20 opacity-50 hover:opacity-100 hover:border-white/60'
+                        }`}
+                      >
+                        <Image
+                          src={url}
+                          alt={`Thumbnail ${idx + 1}`}
+                          fill
+                          className="object-cover"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
