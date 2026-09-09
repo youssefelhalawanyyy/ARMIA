@@ -82,17 +82,20 @@ export default function ProductCard({ product }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
 
+    const finalPrice = Number(effectivePrice || product.discountPrice || product.price || 0);
+    const origPrice = Number(product.price || finalPrice);
+
     addToCart(
       {
         productId: product.id,
         name: product.name,
-        price: product.price,
-        originalPrice: product.price,
+        price: finalPrice,
+        originalPrice: origPrice,
         quantity: 1,
-        selectedColor: selectedColor,
+        selectedColor: selectedColor || (product.colors?.[0] ?? { name: 'Standard', hex: '#1F1F1F' }),
         selectedSize: product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'Standard',
-        imageUrl: product.imageUrls[0] || '',
-        category: product.category,
+        imageUrl: product.imageUrls?.[0] || '',
+        category: product.category || 'all',
       },
       true // open drawer
     );

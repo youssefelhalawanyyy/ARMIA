@@ -70,9 +70,15 @@ export default function CartDrawer() {
     router.push('/checkout');
   };
 
-  const freeShippingThreshold = shippingSettings?.freeShippingThreshold || 1500;
-  const progressToFreeShipping = Math.min(100, (subtotal / freeShippingThreshold) * 100);
-  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
+  const safeSubtotal = Number(subtotal || 0);
+  const safeDiscount = Number(discountAmount || 0);
+  const safeShipping = Number(shippingFee || 0);
+  const safeTotal = Number(totalAmount || 0);
+
+  const freeShippingThreshold = Number(shippingSettings?.freeShippingThreshold ?? 1500);
+  const threshold = freeShippingThreshold > 0 ? freeShippingThreshold : 1500;
+  const progressToFreeShipping = Math.min(100, Math.max(0, (safeSubtotal / threshold) * 100));
+  const remainingForFreeShipping = Math.max(0, threshold - safeSubtotal);
 
   return (
     <AnimatePresence>
@@ -347,12 +353,13 @@ export default function CartDrawer() {
                                       productId: up.id,
                                       name: up.name,
                                       price: up.discountPrice || up.price,
+                                      originalPrice: up.price || up.discountPrice,
                                       quantity: 1,
                                       selectedColor:
                                         up.colors?.[0] || { name: 'Standard', hex: '#1F1F1F' },
                                       selectedSize: up.sizes?.[0] || 'Standard',
                                       imageUrl: up.imageUrls?.[0] || '',
-                                      category: up.category,
+                                      category: up.category || 'all',
                                     },
                                     false
                                   );
@@ -372,7 +379,7 @@ export default function CartDrawer() {
               {items.length > 0 && (
                 <div className="shrink-0 px-4 py-3.5 sm:px-6 sm:py-4 bg-white border-t border-[#E8E2D8] pb-[max(env(safe-area-inset-bottom,0px),1rem)] space-y-3 z-10 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
                   {/* Applied Discount Notification */}
-                  {appliedDiscount && discountAmount > 0 && (
+                  {appliedDiscount && safeDiscount > 0 && (
                     <div className="bg-[#FAF7F2] border border-[#DCC9A6] p-2 rounded flex items-center justify-between text-xs text-[#B67355]">
                       <div className="flex items-center gap-1.5 font-medium truncate">
                         <Sparkles className="w-3.5 h-3.5 shrink-0" />
@@ -383,7 +390,7 @@ export default function CartDrawer() {
                         </span>
                       </div>
                       <span className="font-bold font-mono shrink-0">
-                        -EGP {discountAmount.toFixed(2)}
+                        -EGP {safeDiscount.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -398,19 +405,19 @@ export default function CartDrawer() {
                           {t.cart.deliveryPrice ||
                             (isArabic ? 'سعر التوصيل' : 'Delivery Price')}
                         </span>
-                        {shippingFee === 0 && (
+                        {safeShipping === 0 && (
                           <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded-sm">
                             {isArabic ? 'شحن مجاني' : 'Free Delivery'}
                           </span>
                         )}
                       </span>
                       <span className="font-mono text-[#1F1F1F] font-semibold">
-                        {shippingFee === 0 ? (
+                        {safeShipping === 0 ? (
                           <span className="text-emerald-600 font-bold uppercase tracking-wider">
                             {isArabic ? 'مجاناً' : 'FREE'}
                           </span>
                         ) : (
-                          `EGP ${shippingFee.toFixed(2)}`
+                          `EGP ${safeShipping.toFixed(2)}`
                         )}
                       </span>
                     </div>
@@ -418,21 +425,21 @@ export default function CartDrawer() {
                     <div className="flex justify-between items-center">
                       <span>{t.cart.subtotal}</span>
                       <span className="font-mono text-[#1F1F1F] font-semibold">
-                        EGP {subtotal.toFixed(2)}
+                        EGP {safeSubtotal.toFixed(2)}
                       </span>
                     </div>
 
-                    {discountAmount > 0 && (
+                    {safeDiscount > 0 && (
                       <div className="flex justify-between text-[#B67355] font-semibold">
                         <span>{t.cart.autoDiscount}</span>
-                        <span className="font-mono">-EGP {discountAmount.toFixed(2)}</span>
+                        <span className="font-mono">-EGP {safeDiscount.toFixed(2)}</span>
                       </div>
                     )}
 
                     <div className="flex justify-between items-center text-sm font-bold text-[#1F1F1F] pt-1.5 border-t border-[#E8E2D8]">
                       <span>{t.cart.estimatedTotal}</span>
                       <span className="font-serif text-base text-[#B67355]">
-                        EGP {totalAmount.toFixed(2)}
+                        EGP {safeTotal.toFixed(2)}
                       </span>
                     </div>
 

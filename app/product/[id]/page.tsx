@@ -332,19 +332,24 @@ export default function ProductDetailPage() {
   const isCombinationSoldOut = currentCombinationStock === 0;
 
   const handleAddToCart = () => {
-    if (!selectedColor || isCombinationSoldOut || product.stockQuantity === 0) return;
+    if (!product || isCombinationSoldOut || (product.stockQuantity ?? 0) === 0) return;
+
+    const chosenColor = selectedColor || (product.colors?.[0] ?? { name: 'Standard', hex: '#1F1F1F' });
+    const chosenSize = selectedSize || (product.sizes?.[0] ?? 'Standard');
+    const finalPrice = Number(effectivePrice || product.discountPrice || product.price || 0);
+    const origPrice = Number(product.price || finalPrice);
 
     addToCart(
       {
         productId: product.id,
         name: product.name,
-        price: product.price,
-        originalPrice: product.price,
-        quantity,
-        selectedColor,
-        selectedSize: selectedSize || (product.sizes[0] || 'Standard'),
-        imageUrl: product.imageUrls[0] || '',
-        category: product.category,
+        price: finalPrice,
+        originalPrice: origPrice,
+        quantity: Math.max(1, Number(quantity || 1)),
+        selectedColor: chosenColor,
+        selectedSize: chosenSize,
+        imageUrl: product.imageUrls?.[0] || '',
+        category: product.category || 'all',
       },
       true // open drawer immediately
     );

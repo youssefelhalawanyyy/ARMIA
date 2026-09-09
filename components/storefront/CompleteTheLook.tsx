@@ -68,11 +68,12 @@ export default function CompleteTheLook({ currentProduct, allProducts }: Complet
         productId: currentProduct.id,
         name: currentProduct.name,
         price: currentProduct.price,
+        originalPrice: currentProduct.price,
         quantity: 1,
         selectedColor: mainColor || { name: 'Standard', hex: '#DCC9A6' },
         selectedSize: mainSize || 'M',
         imageUrl: currentProduct.imageUrls?.[0] || '',
-        category: currentProduct.category,
+        category: currentProduct.category || 'all',
       }, false);
 
       // 2. Add paired product & open cart
@@ -80,11 +81,12 @@ export default function CompleteTheLook({ currentProduct, allProducts }: Complet
         productId: pairedProduct.id,
         name: pairedProduct.name,
         price: pairedProduct.price,
+        originalPrice: pairedProduct.price,
         quantity: 1,
         selectedColor: pairedColor || { name: 'Standard', hex: '#1F1F1F' },
         selectedSize: pairedSize || 'M',
         imageUrl: pairedProduct.imageUrls?.[0] || '',
-        category: pairedProduct.category,
+        category: pairedProduct.category || 'all',
       }, true);
 
       success(
