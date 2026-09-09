@@ -1,11 +1,6 @@
 import React from 'react';
 import Navbar from '@/components/storefront/Navbar';
-import HeroSection from '@/components/storefront/HeroSection';
-import ShopTheLookSection from '@/components/storefront/ShopTheLookSection';
-import ValueProps from '@/components/storefront/ValueProps';
-import CategorySection from '@/components/storefront/CategorySection';
-import FeaturedProductsSection from '@/components/storefront/FeaturedProductsSection';
-import NewArrivalsSection from '@/components/storefront/NewArrivalsSection';
+import HomePageLive from '@/components/storefront/HomePageLive';
 import Footer from '@/components/storefront/Footer';
 import { getProducts } from '@/lib/productService';
 
@@ -19,32 +14,8 @@ export default async function HomePage() {
       {/* Storefront Navigation Bar */}
       <Navbar />
 
-      {/* Main Content */}
-      <main className="flex-grow">
-        {/* 1. Hero Section ("Design for Your Style") */}
-        <HeroSection products={products} />
-
-        {/* 2. Shop The Look / Signature Set Section */}
-        <ShopTheLookSection products={products} />
-
-        {/* 3. Value Propositions Bar (Premium Quality, Wholesale, Fast Shipping, Support) */}
-        <ValueProps />
-
-        {/* 3. Shop by Category (Only shows configured categories) */}
-        <div className="optimize-paint">
-          <CategorySection />
-        </div>
-
-        {/* 4. Featured Pieces (Only shows when admin features products and stock > 0) */}
-        <div className="optimize-paint">
-          <FeaturedProductsSection products={products} />
-        </div>
-
-        {/* 5. New Arrivals Grid (Only shows available products) */}
-        <div className="optimize-paint">
-          <NewArrivalsSection products={products} />
-        </div>
-      </main>
+      {/* Main Content with Instant Real-Time Synchronization */}
+      <HomePageLive initialProducts={products} />
 
       {/* Storefront Footer */}
       <div className="optimize-paint">

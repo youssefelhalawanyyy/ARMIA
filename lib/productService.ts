@@ -9,6 +9,7 @@ import {
   deleteDoc,
   query,
   where,
+  onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -222,6 +223,72 @@ export async function getProducts(category?: string): Promise<Product[]> {
 }
 
 /**
+ * Real-time subscription to products collection.
+ * Automatically notifies callback when an admin adds, edits, or removes a product in Firestore.
+ */
+export function subscribeToProducts(
+  callback: (products: Product[]) => void,
+  category?: string
+): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  try {
+    const productsRef = collection(db, PRODUCTS_COLLECTION);
+    let q = query(productsRef);
+
+    if (category && category !== 'all' && category !== 'new-in' && category !== 'best-sellers') {
+      q = query(productsRef, where('category', '==', category));
+    }
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const items: Product[] = [];
+        if (!snapshot.empty) {
+          snapshot.forEach((docSnap) => {
+            const product = sanitizeFirestoreDoc<Product>(docSnap.id, docSnap.data());
+            items.push(product);
+          });
+        }
+
+        let finalItems = items;
+        // Fallback to INITIAL_PRODUCTS only if Firestore is completely empty
+        if (items.length === 0 && (!category || category === 'all')) {
+          finalItems = [...INITIAL_PRODUCTS];
+        } else {
+          if (category === 'new-in') {
+            finalItems = items.filter((item) => item.isNewArrival || item.category === 'new-in');
+          } else if (category === 'best-sellers') {
+            finalItems = items.filter((item) => item.featured);
+            if (finalItems.length === 0) finalItems = items;
+          }
+        }
+
+        // Update in-memory cache and localStorage immediately
+        const cacheKey = category || 'all';
+        PRODUCT_CACHE.set(cacheKey, { data: finalItems, timestamp: Date.now() });
+        try {
+          localStorage.setItem(`armia_catalog_cache_${cacheKey}`, JSON.stringify(finalItems));
+          finalItems.forEach((p) => {
+            localStorage.setItem(`armia_prod_${p.id}`, JSON.stringify(p));
+          });
+        } catch {}
+
+        callback(finalItems);
+      },
+      (error) => {
+        console.warn('Real-time products snapshot notice:', error);
+      }
+    );
+
+    return unsubscribe;
+  } catch (err) {
+    console.warn('Failed to start real-time product subscription:', err);
+    return () => {};
+  }
+}
+
+/**
  * Fetch single product by ID with caching
  */
 export async function getProductById(id: string): Promise<Product | null> {
@@ -325,6 +392,23 @@ export async function saveProduct(product: Partial<Product> & { id?: string }): 
 
   await setDoc(docRef, payload, { merge: true });
   invalidateProductCache();
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('armia_products_updated', { detail: { productId: prodId } }));
+      if ('BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('armia_catalog_channel');
+        bc.postMessage({ type: 'PRODUCT_SAVED', productId: prodId });
+        bc.close();
+      }
+      fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: ['/', '/collections'] }),
+      }).catch(() => {});
+    } catch {}
+  }
+
   return prodId;
 }
 
@@ -335,6 +419,22 @@ export async function deleteProduct(productId: string): Promise<void> {
   const docRef = doc(db, PRODUCTS_COLLECTION, productId);
   await deleteDoc(docRef);
   invalidateProductCache();
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('armia_products_updated', { detail: { productId } }));
+      if ('BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('armia_catalog_channel');
+        bc.postMessage({ type: 'PRODUCT_DELETED', productId });
+        bc.close();
+      }
+      fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: ['/', '/collections'] }),
+      }).catch(() => {});
+    } catch {}
+  }
 }
 
 /**

@@ -11,6 +11,7 @@ import StorefrontPWAInstallModal from "@/components/storefront/StorefrontPWAInst
 import PushNotificationPrompt from "@/components/common/PushNotificationPrompt";
 import BroadcastNotificationReceiver from "@/components/common/BroadcastNotificationReceiver";
 import NavigationProgressBar from "@/components/common/NavigationProgressBar";
+import CartDrawer from "@/components/storefront/CartDrawer";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -83,6 +84,8 @@ export default function RootLayout({
                 <CartProvider>
                   <NavigationProgressBar />
                   {children}
+                  {/* Global Slide-In Cart Drawer */}
+                  <CartDrawer />
                   {/* Client Storefront Mobile Bottom Tab Bar */}
                   <StorefrontMobileTabBar />
                   {/* Client Storefront PWA Install Modal & Floating Banner */}

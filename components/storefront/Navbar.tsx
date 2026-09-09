@@ -11,7 +11,6 @@ import { useAuth } from '@/context/AuthContext';
 import { usePWA } from '@/context/PWAContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useIsMounted } from '@/hooks/useIsMounted';
-import CartDrawer from './CartDrawer';
 import AuthModal from './AuthModal';
 
 export default function Navbar() {
@@ -361,9 +360,6 @@ export default function Navbar() {
           </div>
         )}
       </header>
-
-      {/* Slide-in Cart Drawer */}
-      <CartDrawer />
 
       {/* Auth Modal */}
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />

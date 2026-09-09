@@ -1,7 +1,7 @@
 import React from 'react';
 import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
-import ProductCard from '@/components/storefront/ProductCard';
+import CategoryProductsLiveGrid from '@/components/storefront/CategoryProductsLiveGrid';
 import { getProducts } from '@/lib/productService';
 import { getCategories } from '@/lib/categoryService';
 import Link from 'next/link';
@@ -90,26 +90,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             </p>
           </div>
 
-          {/* Product Grid - ONLY Available Products */}
-          {availableProducts.length === 0 ? (
-            <div className="text-center py-16 bg-white border border-[#E8E2D8] p-8 rounded">
-              <p className="font-serif text-base text-[#1F1F1F] mb-4">
-                No pieces are currently available in this collection.
-              </p>
-              <Link
-                href="/collections"
-                className="bg-[#1F1F1F] text-[#DCC9A6] px-6 py-2.5 text-xs font-sans uppercase tracking-widest hover:bg-[#B67355] transition-colors inline-block"
-              >
-                Browse All Available Pieces
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {availableProducts.map((prod) => (
-                <ProductCard key={prod.id} product={prod} />
-              ))}
-            </div>
-          )}
+          {/* Product Grid with Live Real-time Synchronization */}
+          <CategoryProductsLiveGrid
+            initialProducts={availableProducts}
+            category={categoryParam}
+          />
         </div>
       </main>
 

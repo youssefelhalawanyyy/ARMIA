@@ -42,17 +42,6 @@ export default function CartDrawer() {
 
   const [featuredUpsell, setFeaturedUpsell] = useState<Product[]>([]);
 
-  // Body scroll lock while drawer is open
-  useEffect(() => {
-    if (isCartOpen) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
-    }
-  }, [isCartOpen]);
-
   useEffect(() => {
     async function loadUpsell() {
       try {
@@ -88,51 +77,51 @@ export default function CartDrawer() {
   return (
     <AnimatePresence>
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
+        <div className="fixed inset-0 z-[100] pointer-events-none">
           {/* Backdrop */}
           <motion.div
+            key="cart-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsCartOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity pointer-events-auto touch-none"
           />
 
-          {/* Drawer Wrapper strictly constrained to 100dvh */}
-          <div
-            className={`fixed inset-0 pointer-events-none flex ${
-              isArabic ? 'justify-start' : 'justify-end'
-            }`}
+          {/* Drawer Panel directly pinned to viewport edge */}
+          <motion.aside
+            key="cart-drawer-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t.cart.title}
+            initial={{ x: isArabic ? '-100%' : '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: isArabic ? '-100%' : '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 240 }}
+            className={`fixed top-0 bottom-0 ${
+              isArabic ? 'left-0 border-r' : 'right-0 border-l'
+            } w-full sm:max-w-md md:max-w-lg h-[100dvh] max-h-[100dvh] bg-[#F6F3EE] shadow-2xl flex flex-col border-[#E8E2D8] overflow-hidden pointer-events-auto z-10`}
           >
-            <motion.div
-              initial={{ x: isArabic ? '-100%' : '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: isArabic ? '-100%' : '100%' }}
-              transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-              className={`pointer-events-auto relative w-full sm:max-w-md md:max-w-lg h-[100dvh] max-h-[100dvh] bg-[#F6F3EE] shadow-2xl flex flex-col ${
-                isArabic ? 'border-r' : 'border-l'
-              } border-[#E8E2D8] overflow-hidden`}
-            >
-              {/* Drawer Header (Fixed at Top) */}
-              <div className="shrink-0 px-4 py-3.5 sm:px-6 sm:py-4 bg-white border-b border-[#E8E2D8] z-10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShoppingBag className="w-5 h-5 text-[#B67355]" />
-                    <h2 className="font-serif text-base sm:text-lg font-bold tracking-wider text-[#1F1F1F]">
-                      {t.cart.title}
-                    </h2>
-                    <span className="text-[11px] sm:text-xs bg-[#EDE3CF] text-[#1F1F1F] px-2 py-0.5 rounded-full font-sans font-medium">
-                      {itemCount} {t.cart.itemsCount}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setIsCartOpen(false)}
-                    className="w-8 h-8 flex items-center justify-center rounded-full text-[#8E8A85] hover:text-[#1F1F1F] hover:bg-[#F6F3EE] transition-colors active:scale-95"
-                    aria-label="Close cart"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+            {/* Drawer Header (Fixed at Top with iOS Safe Area) */}
+            <div className="shrink-0 px-4 py-3.5 sm:px-6 sm:py-4 bg-white border-b border-[#E8E2D8] z-10 pt-[max(env(safe-area-inset-top,0px),0.875rem)]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-[#B67355]" />
+                  <h2 className="font-serif text-base sm:text-lg font-bold tracking-wider text-[#1F1F1F]">
+                    {t.cart.title}
+                  </h2>
+                  <span className="text-[11px] sm:text-xs bg-[#EDE3CF] text-[#1F1F1F] px-2 py-0.5 rounded-full font-sans font-medium">
+                    {itemCount} {t.cart.itemsCount}
+                  </span>
                 </div>
+                <button
+                  onClick={() => setIsCartOpen(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-[#8E8A85] hover:text-[#1F1F1F] hover:bg-[#F6F3EE] transition-colors active:scale-95"
+                  aria-label="Close cart"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
                 {/* Free Shipping Progress Indicator */}
                 <div className="mt-3 pt-2.5 border-t border-[#E8E2D8]/70 space-y-1.5">
@@ -467,8 +456,7 @@ export default function CartDrawer() {
                   </div>
                 </div>
               )}
-            </motion.div>
-          </div>
+            </motion.aside>
         </div>
       )}
     </AnimatePresence>

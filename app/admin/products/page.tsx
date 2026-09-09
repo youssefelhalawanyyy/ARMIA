@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
-import { getProducts, saveProduct, deleteProduct } from '@/lib/productService';
+import { getProducts, saveProduct, deleteProduct, subscribeToProducts } from '@/lib/productService';
 import { compressImage } from '@/lib/imageUtils';
 import { getCategories, saveCategory } from '@/lib/categoryService';
 import { Product, ProductColor, CategoryType, Category, ProductVariant } from '@/types';
@@ -222,8 +222,15 @@ export default function AdminProductsPage() {
         if (isMounted) setLoading(false);
       });
 
+    const unsubscribe = subscribeToProducts((liveProds) => {
+      if (isMounted) {
+        setProducts(liveProds);
+      }
+    });
+
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, []);
 

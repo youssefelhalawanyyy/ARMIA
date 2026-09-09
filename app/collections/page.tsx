@@ -6,7 +6,7 @@ import Navbar from '@/components/storefront/Navbar';
 import Footer from '@/components/storefront/Footer';
 import ProductCard from '@/components/storefront/ProductCard';
 import { Product } from '@/types';
-import { getProducts } from '@/lib/productService';
+import { getProducts, subscribeToProducts } from '@/lib/productService';
 import { SlidersHorizontal } from 'lucide-react';
 import { getCategories } from '@/lib/categoryService';
 import { Category } from '@/types';
@@ -58,18 +58,28 @@ function CollectionsContent() {
 
     load();
 
+    // Subscribe to live real-time product updates from Firestore
+    const unsubscribeProducts = subscribeToProducts((liveData) => {
+      if (!isMounted) return;
+      setProducts(liveData);
+      setLoading(false);
+    });
+
     const handleUpdate = () => {
       load();
     };
 
     if (typeof window !== 'undefined') {
       window.addEventListener('armia_categories_updated', handleUpdate);
+      window.addEventListener('armia_products_updated', handleUpdate);
     }
 
     return () => {
       isMounted = false;
+      unsubscribeProducts();
       if (typeof window !== 'undefined') {
         window.removeEventListener('armia_categories_updated', handleUpdate);
+        window.removeEventListener('armia_products_updated', handleUpdate);
       }
     };
   }, []);
