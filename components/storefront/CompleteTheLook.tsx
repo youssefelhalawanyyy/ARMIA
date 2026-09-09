@@ -60,43 +60,46 @@ export default function CompleteTheLook({ currentProduct, allProducts }: Complet
   const bundleTotal = originalTotal - bundleSavings;
 
   const handleAddBundleToCart = () => {
-    setAddingBundle(true);
+    try {
+      setAddingBundle(true);
 
-    // 1. Add main product
-    addToCart({
-      productId: currentProduct.id,
-      name: currentProduct.name,
-      price: currentProduct.price,
-      quantity: 1,
-      selectedColor: mainColor,
-      selectedSize: mainSize,
-      imageUrl: currentProduct.imageUrls?.[0] || '',
-      category: currentProduct.category,
-    }, false);
+      // 1. Add main product
+      addToCart({
+        productId: currentProduct.id,
+        name: currentProduct.name,
+        price: currentProduct.price,
+        quantity: 1,
+        selectedColor: mainColor || { name: 'Standard', hex: '#DCC9A6' },
+        selectedSize: mainSize || 'M',
+        imageUrl: currentProduct.imageUrls?.[0] || '',
+        category: currentProduct.category,
+      }, false);
 
-    // 2. Add paired product & open cart
-    addToCart({
-      productId: pairedProduct.id,
-      name: pairedProduct.name,
-      price: pairedProduct.price,
-      quantity: 1,
-      selectedColor: pairedColor,
-      selectedSize: pairedSize,
-      imageUrl: pairedProduct.imageUrls?.[0] || '',
-      category: pairedProduct.category,
-    }, true);
+      // 2. Add paired product & open cart
+      addToCart({
+        productId: pairedProduct.id,
+        name: pairedProduct.name,
+        price: pairedProduct.price,
+        quantity: 1,
+        selectedColor: pairedColor || { name: 'Standard', hex: '#1F1F1F' },
+        selectedSize: pairedSize || 'M',
+        imageUrl: pairedProduct.imageUrls?.[0] || '',
+        category: pairedProduct.category,
+      }, true);
 
-    success(
-      isArabic
-        ? 'تمت إضافة الإطلالة بالكامل (قطعتين) إلى حقيبة التسوق!'
-        : 'Complete outfit look (2 items) added to your cart!',
-      isArabic ? 'إطلالة متكاملة' : 'Outfit Added'
-    );
-
-    setTimeout(() => {
-      setAddingBundle(false);
-      setIsCartOpen(true);
-    }, 300);
+      success(
+        isArabic
+          ? 'تمت إضافة الإطلالة بالكامل (قطعتين) إلى حقيبة التسوق!'
+          : 'Complete outfit look (2 items) added to your cart!',
+        isArabic ? 'إطلالة متكاملة' : 'Outfit Added'
+      );
+    } catch (err) {
+      console.error('Failed to add bundle to cart:', err);
+    } finally {
+      setTimeout(() => {
+        setAddingBundle(false);
+      }, 300);
+    }
   };
 
   return (

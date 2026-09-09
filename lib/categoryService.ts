@@ -123,15 +123,34 @@ export async function getCategories(forceFresh = false): Promise<Category[]> {
  * Save / Update a Category
  */
 export async function saveCategory(category: Category): Promise<Category[]> {
+  // 1. Safeguard: compress banner image if it is a data URL
+  let sanitizedCategory = { ...category };
+  if (typeof window !== 'undefined' && sanitizedCategory.imageUrl?.startsWith('data:image/')) {
+    try {
+      const { compressDataUrlIfNeeded } = await import('./imageUtils');
+      sanitizedCategory.imageUrl = await compressDataUrlIfNeeded(
+        sanitizedCategory.imageUrl,
+        700,
+        450,
+        0.65,
+        40000
+      );
+    } catch {
+      // ignore
+    }
+  }
+
   const current = await getCategories(true);
-  const existingIdx = current.findIndex((c) => c.id === category.id || c.slug === category.slug);
+  const existingIdx = current.findIndex(
+    (c) => c.id === sanitizedCategory.id || c.slug === sanitizedCategory.slug
+  );
 
   let updated: Category[];
   if (existingIdx > -1) {
     updated = [...current];
-    updated[existingIdx] = category;
+    updated[existingIdx] = sanitizedCategory;
   } else {
-    updated = [...current, { ...category, orderIndex: current.length + 1 }];
+    updated = [...current, { ...sanitizedCategory, orderIndex: current.length + 1 }];
   }
 
   inMemoryCategories = updated;
@@ -142,11 +161,21 @@ export async function saveCategory(category: Category): Promise<Category[]> {
     window.dispatchEvent(new CustomEvent('armia_categories_updated', { detail: updated }));
   }
 
+  // 2. Save individual category document (each category gets its own isolated 1MB Firestore limit)
+  try {
+    const catId = sanitizedCategory.id || sanitizedCategory.slug;
+    const catDocRef = doc(db, 'categories', catId);
+    await setDoc(catDocRef, sanitizedCategory, { merge: true });
+  } catch (err) {
+    console.warn('Firestore individual category save notice:', err);
+  }
+
+  // 3. Save aggregated configuration
   try {
     const docRef = doc(db, 'settings', 'categories_config');
     await setDoc(docRef, { categories: updated, updatedAt: new Date() }, { merge: true });
   } catch (err) {
-    console.warn('Firestore category save notice:', err);
+    console.warn('Firestore category config save notice:', err);
   }
 
   return updated;
@@ -165,6 +194,13 @@ export async function deleteCategory(categoryId: string): Promise<Category[]> {
   if (typeof window !== 'undefined') {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('armia_categories_updated', { detail: updated }));
+  }
+
+  try {
+    const { deleteDoc } = await import('firebase/firestore');
+    await deleteDoc(doc(db, 'categories', categoryId));
+  } catch {
+    // ignore
   }
 
   try {

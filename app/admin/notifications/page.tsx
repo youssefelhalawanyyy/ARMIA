@@ -183,7 +183,7 @@ export default function AdminNotificationsPage() {
 
     setUploadingImage(true);
     try {
-      const { blob, dataUrl } = await compressImage(file, 1200, 800, 0.85);
+      const { blob, dataUrl } = await compressImage(file, 800, 500, 0.68, 45000);
 
       const uploadWithTimeout = async (): Promise<string> => {
         const storageRef = ref(
@@ -195,7 +195,7 @@ export default function AdminNotificationsPage() {
       };
 
       const timeoutPromise = new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('Storage timeout')), 2500)
+        setTimeout(() => reject(new Error('Storage timeout')), 4000)
       );
 
       try {

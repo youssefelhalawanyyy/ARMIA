@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { CartItem, ShippingSettings, Discount } from '@/types';
+import { CartItem, ShippingSettings, Discount, ProductColor } from '@/types';
 import { useToast } from './ToastContext';
 import {
   getShippingSettings,
@@ -59,11 +59,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (saved) {
           const parsed = JSON.parse(saved) as CartItem[];
           return parsed.map((it) => {
-            const base = it.originalPrice || it.price;
+            const base = it.originalPrice || it.price || 0;
+            const colorObj =
+              typeof it.selectedColor === 'object' && it.selectedColor !== null && 'name' in it.selectedColor
+                ? it.selectedColor
+                : {
+                    name: typeof it.selectedColor === 'string' ? it.selectedColor : 'Standard',
+                    hex: '#1F1F1F',
+                  };
             return {
               ...it,
               price: base,
               originalPrice: base,
+              selectedColor: colorObj,
+              selectedSize: it.selectedSize || 'Standard',
             };
           });
         }
@@ -237,24 +246,34 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [wishlist]);
 
   const addToCart = (newItem: CartItem, openDrawer: boolean = true) => {
-    const basePrice = newItem.originalPrice || newItem.price;
+    const basePrice = newItem.originalPrice || newItem.price || 0;
+    const colorObj: ProductColor =
+      typeof newItem.selectedColor === 'object' && newItem.selectedColor !== null && 'name' in newItem.selectedColor
+        ? newItem.selectedColor
+        : {
+            name: typeof newItem.selectedColor === 'string' ? newItem.selectedColor : 'Standard',
+            hex: '#1F1F1F',
+          };
+
     const normalizedItem: CartItem = {
       ...newItem,
       price: basePrice,
       originalPrice: basePrice,
+      selectedColor: colorObj,
+      selectedSize: newItem.selectedSize || 'Standard',
     };
 
     setItems((prev) => {
       const existingIndex = prev.findIndex(
         (item) =>
           item.productId === normalizedItem.productId &&
-          item.selectedColor.name === normalizedItem.selectedColor.name &&
+          (item.selectedColor?.name || 'Standard') === (normalizedItem.selectedColor?.name || 'Standard') &&
           item.selectedSize === normalizedItem.selectedSize
       );
 
       if (existingIndex > -1) {
         const updated = [...prev];
-        updated[existingIndex].quantity += normalizedItem.quantity;
+        updated[existingIndex].quantity += (normalizedItem.quantity || 1);
         return updated;
       } else {
         return [...prev, normalizedItem];
@@ -273,7 +292,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         (item) =>
           !(
             item.productId === productId &&
-            item.selectedColor.name === colorName &&
+            (item.selectedColor?.name || 'Standard') === colorName &&
             item.selectedSize === size
           )
       )
@@ -296,7 +315,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       prev.map((item) => {
         if (
           item.productId === productId &&
-          item.selectedColor.name === colorName &&
+          (item.selectedColor?.name || 'Standard') === colorName &&
           item.selectedSize === size
         ) {
           return { ...item, quantity };

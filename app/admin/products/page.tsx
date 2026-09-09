@@ -338,7 +338,8 @@ export default function AdminProductsPage() {
 
     setUploadingImage(true);
     try {
-      const { blob, dataUrl } = await compressImage(file, 1200, 1600, 0.82);
+      // High-DPI web compression strictly under 65KB
+      const { blob, dataUrl } = await compressImage(file, 800, 1060, 0.70, 65000);
 
       const uploadWithTimeout = async (): Promise<string> => {
         const storageRef = ref(storage, `products/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
@@ -347,7 +348,7 @@ export default function AdminProductsPage() {
       };
 
       const timeoutPromise = new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('Storage timeout')), 2500)
+        setTimeout(() => reject(new Error('Storage timeout')), 4000)
       );
 
       try {
@@ -355,6 +356,7 @@ export default function AdminProductsPage() {
         setFormImageUrls((prev) => [...prev, storageUrl]);
         success('Image optimized & uploaded to Storage', 'Instant Upload');
       } catch {
+        // Fallback: use guaranteed lightweight retina dataUrl (< 65KB)
         setFormImageUrls((prev) => [...prev, dataUrl]);
         success('Image optimized & attached instantly', 'Instant Upload');
       }
@@ -369,11 +371,21 @@ export default function AdminProductsPage() {
     }
   };
 
-  const handleAddImageUrl = () => {
-    if (imageUrlInput.trim()) {
-      setFormImageUrls((prev) => [...prev, imageUrlInput.trim()]);
-      setImageUrlInput('');
+  const handleAddImageUrl = async () => {
+    const trimmed = imageUrlInput.trim();
+    if (!trimmed) return;
+    if (trimmed.startsWith('data:image/')) {
+      try {
+        const { compressDataUrlIfNeeded } = await import('@/lib/imageUtils');
+        const compressed = await compressDataUrlIfNeeded(trimmed, 800, 1060, 0.70, 65000);
+        setFormImageUrls((prev) => [...prev, compressed]);
+      } catch {
+        setFormImageUrls((prev) => [...prev, trimmed]);
+      }
+    } else {
+      setFormImageUrls((prev) => [...prev, trimmed]);
     }
+    setImageUrlInput('');
   };
 
   const handleRemoveImage = (index: number) => {

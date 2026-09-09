@@ -55,51 +55,54 @@ export default function ShopTheLookSection({ products = [] }: ShopTheLookSection
   const pantsImage = pantsProduct.imageUrls?.[0] || '/images/pants-editorial.jpg';
 
   const handleAddBothToCart = () => {
-    setIsAdding(true);
+    try {
+      setIsAdding(true);
 
-    // 1. Add Top
-    addToCart(
-      {
-        productId: topProduct.id,
-        name: topProduct.name,
-        price: topPrice,
-        originalPrice: topProduct.price || 500,
-        quantity: 1,
-        selectedColor: topProduct.colors?.[0] || { name: 'Oatmeal Beige', hex: '#DCC9A6' },
-        selectedSize: selectedTopSize,
-        imageUrl: topImage,
-        category: topProduct.category || 'tops',
-      },
-      false
-    );
+      // 1. Add Top
+      addToCart(
+        {
+          productId: topProduct.id,
+          name: topProduct.name,
+          price: topPrice,
+          originalPrice: topProduct.price || 500,
+          quantity: 1,
+          selectedColor: topProduct.colors?.[0] || { name: 'Oatmeal Beige', hex: '#DCC9A6' },
+          selectedSize: selectedTopSize || 'M',
+          imageUrl: topImage,
+          category: topProduct.category || 'tops',
+        },
+        false
+      );
 
-    // 2. Add Pants & open cart
-    addToCart(
-      {
-        productId: pantsProduct.id,
-        name: pantsProduct.name,
-        price: pantsPrice,
-        originalPrice: pantsProduct.price || 450,
-        quantity: 1,
-        selectedColor: pantsProduct.colors?.[0] || { name: 'Light Wash Denim', hex: '#87CEEB' },
-        selectedSize: selectedPantsSize,
-        imageUrl: pantsImage,
-        category: pantsProduct.category || 'bottoms',
-      },
-      true
-    );
+      // 2. Add Pants & open cart
+      addToCart(
+        {
+          productId: pantsProduct.id,
+          name: pantsProduct.name,
+          price: pantsPrice,
+          originalPrice: pantsProduct.price || 450,
+          quantity: 1,
+          selectedColor: pantsProduct.colors?.[0] || { name: 'Light Wash Denim', hex: '#87CEEB' },
+          selectedSize: selectedPantsSize || 'M',
+          imageUrl: pantsImage,
+          category: pantsProduct.category || 'bottoms',
+        },
+        true
+      );
 
-    success(
-      isArabic
-        ? `تمت إضافة الطقم بنجاح! التوب (مقاس ${selectedTopSize}) والبنطال (مقاس ${selectedPantsSize})`
-        : `Complete 2-piece set added! Top (${selectedTopSize}) & Pants (${selectedPantsSize})`,
-      isArabic ? 'طقم الأتليه' : 'Set Added'
-    );
-
-    setTimeout(() => {
-      setIsAdding(false);
-      setIsCartOpen(true);
-    }, 300);
+      success(
+        isArabic
+          ? `تمت إضافة الطقم بنجاح! التوب (مقاس ${selectedTopSize}) والبنطال (مقاس ${selectedPantsSize})`
+          : `Complete 2-piece set added! Top (${selectedTopSize}) & Pants (${selectedPantsSize})`,
+        isArabic ? 'طقم الأتليه' : 'Set Added'
+      );
+    } catch (err) {
+      console.error('Failed to add look set to cart:', err);
+    } finally {
+      setTimeout(() => {
+        setIsAdding(false);
+      }, 300);
+    }
   };
 
   return (

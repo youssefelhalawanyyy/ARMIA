@@ -107,10 +107,10 @@ export default function AdminCategoriesPage() {
 
     setUploadingImage(true);
     try {
-      // 1. Instant client-side compression (reduces 10MB down to ~80KB in 25ms)
-      const { blob, dataUrl } = await compressImage(file, 1200, 1600, 0.82);
+      // 1. Instant client-side compression (guaranteed ultra-lightweight < 40KB)
+      const { blob, dataUrl } = await compressImage(file, 700, 450, 0.65, 40000);
 
-      // 2. Upload to Firebase Storage with instant timeout race
+      // 2. Upload to Firebase Storage with timeout race
       const uploadWithTimeout = async (): Promise<string> => {
         const storageRef = ref(storage, `categories/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
         const snap = await uploadBytes(storageRef, blob);
@@ -118,7 +118,7 @@ export default function AdminCategoriesPage() {
       };
 
       const timeoutPromise = new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error('Storage timeout')), 2500)
+        setTimeout(() => reject(new Error('Storage timeout')), 4000)
       );
 
       try {
@@ -126,7 +126,7 @@ export default function AdminCategoriesPage() {
         setImageUrl(storageUrl);
         success('Category image optimized & uploaded!', 'Instant Upload');
       } catch {
-        // Fallback: use high-definition compressed dataUrl
+        // Fallback: use lightweight retina compressed dataUrl (< 40KB)
         setImageUrl(dataUrl);
         success('Category image optimized & attached!', 'Instant Upload');
       }
@@ -148,6 +148,16 @@ export default function AdminCategoriesPage() {
       return;
     }
 
+    let finalImageUrl = imageUrl.trim();
+    if (finalImageUrl.startsWith('data:image/')) {
+      try {
+        const { compressDataUrlIfNeeded } = await import('@/lib/imageUtils');
+        finalImageUrl = await compressDataUrlIfNeeded(finalImageUrl, 700, 450, 0.65, 40000);
+      } catch {
+        // ignore
+      }
+    }
+
     const finalSlug = slug.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const categoryData: Category = {
       id: editingCategory ? editingCategory.id : finalSlug,
@@ -155,7 +165,7 @@ export default function AdminCategoriesPage() {
       name: name.trim(),
       nameArabic: nameArabic.trim() || name.trim(),
       description: description.trim(),
-      imageUrl: imageUrl.trim() || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=80',
+      imageUrl: finalImageUrl || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=80',
       featured,
       orderIndex: editingCategory?.orderIndex || categories.length + 1,
     };

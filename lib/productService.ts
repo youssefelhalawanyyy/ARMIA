@@ -296,8 +296,27 @@ export async function saveProduct(product: Partial<Product> & { id?: string }): 
   const prodId = product.id || `prod-${Date.now()}`;
   const docRef = doc(db, PRODUCTS_COLLECTION, prodId);
 
+  // Safeguard: re-compress any large base64 data URLs to guarantee document stays well within 1MB limit
+  let sanitizedImages = product.imageUrls;
+  if (Array.isArray(sanitizedImages) && typeof window !== 'undefined') {
+    try {
+      const { compressDataUrlIfNeeded } = await import('./imageUtils');
+      sanitizedImages = await Promise.all(
+        sanitizedImages.map(async (url) => {
+          if (typeof url === 'string' && url.startsWith('data:image/')) {
+            return await compressDataUrlIfNeeded(url, 800, 1060, 0.68, 65000);
+          }
+          return url;
+        })
+      );
+    } catch {
+      // Fallback silently if image compression is unavailable
+    }
+  }
+
   const rawPayload = {
     ...product,
+    ...(sanitizedImages ? { imageUrls: sanitizedImages } : {}),
     id: prodId,
     updatedAt: serverTimestamp(),
   };

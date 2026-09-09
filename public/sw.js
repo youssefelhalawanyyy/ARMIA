@@ -1,7 +1,7 @@
 // ARMIA Boutique Service Worker
 // Cache Version: v5-live (Bypasses /_next/ & HMR chunks)
 
-const CACHE_NAME = 'armia-boutique-v5';
+const CACHE_NAME = 'armia-boutique-v6-live';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -44,13 +44,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Strategy: Network-First for HTML/Navigation
+// Fetch Strategy: Network-First for HTML/Navigation, bypass all Next.js internal router requests
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
-  // NEVER intercept /_next/ chunks, Turbopack HMR, localhost, API, or Admin calls
+  // NEVER intercept Next.js RSC requests, router transitions, chunks, APIs, or external services
   if (
     url.origin !== self.location.origin ||
     url.pathname.startsWith('/_next') ||
@@ -59,12 +59,16 @@ self.addEventListener('fetch', (event) => {
     url.hostname === 'localhost' ||
     url.hostname === '127.0.0.1' ||
     url.hostname.includes('firestore') ||
-    url.hostname.includes('googleapis')
+    url.hostname.includes('googleapis') ||
+    event.request.headers.get('RSC') ||
+    event.request.headers.get('Next-Router-State-Tree') ||
+    event.request.headers.get('Next-Router-Prefetch') ||
+    event.request.headers.get('Next-Url')
   ) {
     return;
   }
 
-  // Network-First for page navigation
+  // Network-First for full page navigation
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -77,15 +81,38 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => caches.match(event.request).then((res) => res || caches.match('/')))
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          const rootCached = await caches.match('/');
+          if (rootCached) return rootCached;
+          return new Response(
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>ARMIA Boutique</title><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="background:#141414;color:#F6F3EE;font-family:sans-serif;text-align:center;padding:50px 20px;"><h2 style="color:#DCC9A6;">ARMIA BOUTIQUE</h2><p>Please check your connection and tap reload.</p><button onclick="window.location.reload()" style="background:#B67355;color:white;border:none;padding:10px 24px;margin-top:16px;cursor:pointer;">Reload</button></body></html>',
+            { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          );
+        })
     );
     return;
   }
 
-  // Stale-While-Revalidate for static assets
+  // Only intercept known static assets (icons, images, fonts)
+  const isStaticAsset =
+    STATIC_ASSETS.includes(url.pathname) ||
+    url.pathname.startsWith('/icons/') ||
+    url.pathname.startsWith('/images/') ||
+    /\.(png|jpg|jpeg|svg|webp|ico|woff2?|css)$/i.test(url.pathname);
+
+  if (!isStaticAsset) {
+    return; // Pass through dynamic requests to the browser
+  }
+
+  // Cache-First with Network fallback for static assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
@@ -95,9 +122,9 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
+        .catch(() => {
+          return new Response('', { status: 408, statusText: 'Request timed out' });
+        });
     })
   );
 });

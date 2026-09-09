@@ -46,50 +46,51 @@ export default function ShopSetModal({
   const handleAddSetToCart = () => {
     setIsAdding(true);
 
-    // 1. Add Top
-    addToCart(
-      {
-        productId: topProduct.id,
-        name: topProduct.name,
-        price: topPrice,
-        originalPrice: topProduct.price || 500,
-        quantity: 1,
-        selectedColor: topProduct.colors?.[0] || { name: 'Oatmeal Beige', hex: '#DCC9A6' },
-        selectedSize: selectedTopSize,
-        imageUrl: topImage,
-        category: topProduct.category || 'tops',
-      },
-      false
-    );
+    try {
+      // 1. Add Top
+      addToCart(
+        {
+          productId: topProduct.id,
+          name: topProduct.name,
+          price: topPrice,
+          originalPrice: topProduct.price || 500,
+          quantity: 1,
+          selectedColor: topProduct.colors?.[0] || { name: 'Oatmeal Beige', hex: '#DCC9A6' },
+          selectedSize: selectedTopSize || 'M',
+          imageUrl: topImage,
+          category: topProduct.category || 'tops',
+        },
+        false
+      );
 
-    // 2. Add Pants & open cart
-    addToCart(
-      {
-        productId: pantsProduct.id,
-        name: pantsProduct.name,
-        price: pantsPrice,
-        originalPrice: pantsProduct.price || 450,
-        quantity: 1,
-        selectedColor: pantsProduct.colors?.[0] || { name: 'Light Wash Denim', hex: '#87CEEB' },
-        selectedSize: selectedPantsSize,
-        imageUrl: pantsImage,
-        category: pantsProduct.category || 'bottoms',
-      },
-      true
-    );
+      // 2. Add Pants & open cart
+      addToCart(
+        {
+          productId: pantsProduct.id,
+          name: pantsProduct.name,
+          price: pantsPrice,
+          originalPrice: pantsProduct.price || 450,
+          quantity: 1,
+          selectedColor: pantsProduct.colors?.[0] || { name: 'Light Wash Denim', hex: '#87CEEB' },
+          selectedSize: selectedPantsSize || 'M',
+          imageUrl: pantsImage,
+          category: pantsProduct.category || 'bottoms',
+        },
+        true
+      );
 
-    success(
-      isArabic
-        ? `تمت إضافة الطقم بنجاح! التوب (مقاس ${selectedTopSize}) والبنطال (مقاس ${selectedPantsSize})`
-        : `Complete 2-piece set added! Top (${selectedTopSize}) & Pants (${selectedPantsSize})`,
-      isArabic ? 'طقم الأتليه' : 'Set Added'
-    );
-
-    setTimeout(() => {
+      success(
+        isArabic
+          ? `تمت إضافة الطقم بنجاح! التوب (مقاس ${selectedTopSize}) والبنطال (مقاس ${selectedPantsSize})`
+          : `Complete 2-piece set added! Top (${selectedTopSize}) & Pants (${selectedPantsSize})`,
+        isArabic ? 'طقم الأتليه' : 'Set Added'
+      );
+    } catch (err) {
+      console.error('Error adding set to cart:', err);
+    } finally {
       setIsAdding(false);
       onClose();
-      setIsCartOpen(true);
-    }, 300);
+    }
   };
 
   return (
