@@ -121,33 +121,41 @@ export function calculateDeliveryFee(
   subtotal: number,
   settings: ShippingSettings = DEFAULT_SHIPPING_SETTINGS
 ): number {
-  if (subtotal >= settings.freeShippingThreshold && settings.freeShippingThreshold > 0) {
-    return 0; // Free delivery above threshold
+  try {
+    const safeSettings = settings && typeof settings === 'object' ? settings : DEFAULT_SHIPPING_SETTINGS;
+    const threshold = Number(safeSettings.freeShippingThreshold ?? 1500);
+    const defaultRate = Number(safeSettings.defaultRate ?? 50);
+    const zones = Array.isArray(safeSettings.zones) ? safeSettings.zones : DEFAULT_SHIPPING_ZONES;
+
+    if (threshold > 0 && subtotal >= threshold) {
+      return 0; // Free delivery above threshold
+    }
+
+    if (!governorateName) return defaultRate;
+
+    const cleanName = String(governorateName).toLowerCase().trim();
+
+    // Direct or bidirectional match across English, Arabic, and ID
+    const matchedZone = zones.find((z) => {
+      if (!z || !z.isActive) return false;
+      const govEng = String(z.governorate || '').toLowerCase().trim();
+      const govAr = String(z.governorateArabic || '').toLowerCase().trim();
+      const zoneId = String(z.id || '').toLowerCase().trim();
+
+      return (
+        (govEng && (cleanName.includes(govEng) || govEng.includes(cleanName))) ||
+        (govAr && (cleanName.includes(govAr) || govAr.includes(cleanName))) ||
+        (zoneId && cleanName.includes(zoneId))
+      );
+    });
+
+    if (matchedZone && typeof matchedZone.rate === 'number') {
+      return matchedZone.rate;
+    }
+
+    return defaultRate;
+  } catch (err) {
+    console.warn('Delivery fee calculation fallback notice:', err);
+    return 50;
   }
-
-  if (!governorateName) return settings.defaultRate;
-
-  const cleanName = governorateName.toLowerCase().trim();
-
-  // 1. Direct or bidirectional match across English, Arabic, and ID
-  const matchedZone = settings.zones.find((z) => {
-    if (!z.isActive) return false;
-    const govEng = z.governorate.toLowerCase().trim();
-    const govAr = z.governorateArabic.toLowerCase().trim();
-    const zoneId = z.id.toLowerCase().trim();
-
-    return (
-      cleanName.includes(govEng) ||
-      govEng.includes(cleanName) ||
-      cleanName.includes(govAr) ||
-      govAr.includes(cleanName) ||
-      cleanName.includes(zoneId)
-    );
-  });
-
-  if (matchedZone) {
-    return matchedZone.rate;
-  }
-
-  return settings.defaultRate;
 }

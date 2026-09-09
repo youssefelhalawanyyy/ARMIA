@@ -308,24 +308,25 @@ export function evaluateDiscounts({
 
     // Check Single Product Target Deal
     if (disc.targetType === 'product' && disc.applicableProductId) {
-      const matchingItem = items.find((it) => it.productId === disc.applicableProductId);
+      const matchingItem = items.find((it) => it && it.productId === disc.applicableProductId);
       if (!matchingItem) continue;
 
-      const itemBasePrice = matchingItem.originalPrice || matchingItem.price;
+      const itemBasePrice = Number(matchingItem.originalPrice || matchingItem.price || 0);
+      const qty = Number(matchingItem.quantity || 1);
       let itemSavings = 0;
       if (disc.type === 'percentage') {
-        itemSavings = (itemBasePrice * disc.value * matchingItem.quantity) / 100;
+        itemSavings = (itemBasePrice * Number(disc.value || 0) * qty) / 100;
         if (disc.maxDiscountAmount && itemSavings > disc.maxDiscountAmount) {
-          itemSavings = disc.maxDiscountAmount;
+          itemSavings = Number(disc.maxDiscountAmount);
         }
       } else if (disc.type === 'fixed_amount') {
-        itemSavings = Math.min(disc.value * matchingItem.quantity, itemBasePrice * matchingItem.quantity);
+        itemSavings = Math.min(Number(disc.value || 0) * qty, itemBasePrice * qty);
       }
 
       if (itemSavings > maxSavings) {
         maxSavings = itemSavings;
         bestDiscount = disc;
-        message = `⚡ Flash Deal Applied: ${disc.title} (-EGP ${itemSavings.toFixed(2)})`;
+        message = `⚡ Flash Deal Applied: ${disc.title || ''} (-EGP ${itemSavings.toFixed(2)})`;
       }
       continue;
     }
@@ -333,12 +334,13 @@ export function evaluateDiscounts({
     // Check category target
     let eligibleSubtotal = subtotal;
     if (disc.applicableCategory && disc.applicableCategory !== 'all') {
+      const targetCat = String(disc.applicableCategory || '').toLowerCase();
       const matchingItems = items.filter(
-        (it) => it.category.toLowerCase() === disc.applicableCategory?.toLowerCase()
+        (it) => it && String(it.category || '').toLowerCase() === targetCat
       );
       if (matchingItems.length === 0) continue;
       eligibleSubtotal = matchingItems.reduce(
-        (sum, it) => sum + (it.originalPrice || it.price) * it.quantity,
+        (sum, it) => sum + Number(it.originalPrice || it.price || 0) * Number(it.quantity || 1),
         0
       );
     }

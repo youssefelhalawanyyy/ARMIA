@@ -1,7 +1,7 @@
 // ARMIA Boutique Service Worker
-// Cache Version: v5-live (Bypasses /_next/ & HMR chunks)
+// Cache Version: v7-live (Bypasses /_next/ & HMR chunks)
 
-const CACHE_NAME = 'armia-boutique-v6-live';
+const CACHE_NAME = 'armia-boutique-v7-live';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',

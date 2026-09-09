@@ -11,6 +11,7 @@ import {
 import {
   getDiscounts,
   evaluateDiscounts,
+  DiscountEvaluationResult,
   DEFAULT_DISCOUNTS,
   DISCOUNTS_STORAGE_KEY,
 } from '@/lib/discountService';
@@ -235,18 +236,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Save to localStorage when state changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+      try {
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+      } catch (err) {
+        console.warn('localStorage cart save notice:', err);
+      }
     }
   }, [items]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(wishlist));
+      try {
+        localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(wishlist));
+      } catch (err) {
+        console.warn('localStorage wishlist save notice:', err);
+      }
     }
   }, [wishlist]);
 
   const addToCart = (newItem: CartItem, openDrawer: boolean = true) => {
-    const basePrice = newItem.originalPrice || newItem.price || 0;
+    if (!newItem || !newItem.productId) return;
+
+    const basePrice = Number(newItem.originalPrice || newItem.price || 0);
     const colorObj: ProductColor =
       typeof newItem.selectedColor === 'object' && newItem.selectedColor !== null && 'name' in newItem.selectedColor
         ? newItem.selectedColor
@@ -259,8 +270,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       ...newItem,
       price: basePrice,
       originalPrice: basePrice,
+      quantity: Math.max(1, Number(newItem.quantity || 1)),
       selectedColor: colorObj,
-      selectedSize: newItem.selectedSize || 'Standard',
+      selectedSize: String(newItem.selectedSize || 'Standard'),
+      imageUrl: newItem.imageUrl || '',
+      category: String(newItem.category || 'all'),
     };
 
     setItems((prev) => {
@@ -346,29 +360,47 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const isWishlisted = (productId: string) => wishlist.includes(productId);
 
-  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = items.reduce((sum, item) => {
-    const basePrice = item.originalPrice || item.price;
-    return sum + basePrice * item.quantity;
+  const itemCount = (items || []).reduce((sum, item) => sum + Number(item?.quantity || 1), 0);
+  const subtotal = (items || []).reduce((sum, item) => {
+    const basePrice = Number(item?.originalPrice || item?.price || 0);
+    return sum + basePrice * Number(item?.quantity || 1);
   }, 0);
 
-  // AUTOMATIC & COUPON DISCOUNT EVALUATION
-  const discountEval = evaluateDiscounts({
-    subtotal,
-    items,
-    couponCode,
-    discounts,
-  });
+  // AUTOMATIC & COUPON DISCOUNT EVALUATION (Protected from throwing)
+  let discountEval: DiscountEvaluationResult = {
+    discountAmount: 0,
+    freeShipping: false,
+    appliedDiscount: null,
+    message: '',
+  };
 
-  const discountAmount = discountEval.discountAmount;
-  const appliedDiscount = discountEval.appliedDiscount;
-  const discountMessage = discountEval.message;
+  try {
+    discountEval = evaluateDiscounts({
+      subtotal,
+      items: items || [],
+      couponCode,
+      discounts: discounts || [],
+    });
+  } catch (err) {
+    console.warn('Discount evaluation safe fallback:', err);
+  }
 
-  // Dynamic shipping calculation based on live admin settings, free shipping coupon, and threshold
-  const isFreeShipping = discountEval.freeShipping || (subtotal >= shippingSettings.freeShippingThreshold && shippingSettings.freeShippingThreshold > 0);
-  const shippingFee = items.length === 0 ? 0 : isFreeShipping ? 0 : calculateDeliveryFee(selectedGovernorate, subtotal, shippingSettings);
+  const discountAmount = Number(discountEval.discountAmount || 0);
+  const appliedDiscount = discountEval.appliedDiscount || null;
+  const discountMessage = discountEval.message || '';
+
+  // Dynamic shipping calculation with complete null-safety
+  let shippingFee = 0;
+  try {
+    const threshold = Number(shippingSettings?.freeShippingThreshold ?? 1500);
+    const isFreeShipping = discountEval.freeShipping || (threshold > 0 && subtotal >= threshold);
+    shippingFee = (items || []).length === 0 ? 0 : isFreeShipping ? 0 : calculateDeliveryFee(selectedGovernorate, subtotal, shippingSettings);
+  } catch (err) {
+    console.warn('Shipping fee calculation safe fallback:', err);
+    shippingFee = 50;
+  }
   
-  const totalAmount = Math.max(0, subtotal - discountAmount) + shippingFee;
+  const totalAmount = Math.max(0, subtotal - discountAmount) + Number(shippingFee || 0);
 
   return (
     <CartContext.Provider
