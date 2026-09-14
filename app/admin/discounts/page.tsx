@@ -17,6 +17,9 @@ import {
   Zap,
   Clock,
   Package,
+  Dices,
+  AlertCircle,
+  Check,
 } from 'lucide-react';
 import {
   getDiscounts,
@@ -54,6 +57,7 @@ export default function AdminDiscountsPage() {
   const [value, setValue] = useState<number>(20);
   const [minSubtotal, setMinSubtotal] = useState<number>(0);
   const [maxDiscountAmount, setMaxDiscountAmount] = useState<number | undefined>(undefined);
+  const [usageLimit, setUsageLimit] = useState<number | undefined>(undefined);
   const [applicableCategory, setApplicableCategory] = useState<string>('all');
   const [startTime, setStartTime] = useState<string>('');
   const [endTime, setEndTime] = useState<string>('');
@@ -97,14 +101,39 @@ export default function AdminDiscountsPage() {
     setEndTime(toDateTimeLocal(end));
   };
 
-  const openAddModal = (initialTarget: DiscountTargetType = 'all') => {
+  // Helper to generate a clean, unique promo code
+  const generatePromoCode = (customPrefix?: string) => {
+    const prefixes = ['ARMIA', 'VIP', 'OFFER', 'FLASH', 'LUXE', 'WELCOME'];
+    const prefix = customPrefix || prefixes[Math.floor(Math.random() * prefixes.length)];
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let randomSuffix = '';
+    for (let i = 0; i < 4; i++) {
+      randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const valSuffix = type === 'percentage' && value > 0 ? value : '';
+    const generated = `${prefix}${valSuffix ? `${valSuffix}-` : '-'}${randomSuffix}`.toUpperCase();
+    setCode(generated);
+
+    if (!title.trim() || title.startsWith('Promo Voucher:')) {
+      const discountLabel = type === 'percentage' ? `${value}% OFF` : type === 'fixed_amount' ? `EGP ${value} OFF` : 'Free Shipping';
+      setTitle(`Promo Voucher: ${generated} (${discountLabel})`);
+      setTitleArabic(`قسيمة ترويجية: ${generated} (${discountLabel})`);
+    }
+    return generated;
+  };
+
+  const openAddModal = (
+    initialTarget: DiscountTargetType = 'all',
+    initialTrigger: DiscountTrigger = 'auto'
+  ) => {
     setEditingDiscount(null);
     setTargetType(initialTarget);
-    setTrigger('auto');
+    setTrigger(initialTrigger);
     setType('percentage');
     setValue(initialTarget === 'product' ? 25 : 15);
     setMinSubtotal(0);
     setMaxDiscountAmount(undefined);
+    setUsageLimit(undefined);
     setApplicableCategory('all');
     setIsActive(true);
 
@@ -118,6 +147,17 @@ export default function AdminDiscountsPage() {
       setSelectedProductId(defaultProd ? defaultProd.id : '');
       setTitle(defaultProd ? `⚡ Flash Deal: 25% OFF ${defaultProd.name}` : '⚡ Single Item Flash Deal');
       setTitleArabic(defaultProd ? `عرض محدود: خصم 25% على ${defaultProd.name}` : 'عرض محدود على القطعة');
+      setCode('');
+    } else if (initialTrigger === 'coupon') {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let randomSuffix = '';
+      for (let i = 0; i < 4; i++) {
+        randomSuffix += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const initialCode = `ARMIA15-${randomSuffix}`;
+      setCode(initialCode);
+      setTitle(`Promo Voucher: 15% OFF (${initialCode})`);
+      setTitleArabic(`قسيمة ترويجية: خصم 15% (${initialCode})`);
     } else {
       setTitle('');
       setTitleArabic('');
@@ -131,7 +171,7 @@ export default function AdminDiscountsPage() {
     setEditingDiscount(d);
     setTitle(d.title);
     setTitleArabic(d.titleArabic || '');
-    setTrigger(d.trigger);
+    setTrigger(d.trigger || (d.code ? 'coupon' : 'auto'));
     setTargetType(d.targetType || (d.applicableProductId ? 'product' : 'all'));
     setSelectedProductId(d.applicableProductId || (products[0]?.id || ''));
     setCode(d.code || '');
@@ -139,6 +179,7 @@ export default function AdminDiscountsPage() {
     setValue(d.value);
     setMinSubtotal(d.minSubtotal || 0);
     setMaxDiscountAmount(d.maxDiscountAmount);
+    setUsageLimit(d.usageLimit);
     setApplicableCategory(d.applicableCategory || 'all');
     setStartTime(d.startTime ? toDateTimeLocal(new Date(d.startTime)) : '');
     setEndTime(d.endTime ? toDateTimeLocal(new Date(d.endTime)) : '');
@@ -187,6 +228,17 @@ export default function AdminDiscountsPage() {
     }
   };
 
+  // Real-time duplicate check for coupon code
+  const codeTrimmed = code.trim().toUpperCase().replace(/\s+/g, '');
+  const duplicateDiscount = codeTrimmed
+    ? discounts.find(
+        (d) =>
+          d.id !== editingDiscount?.id &&
+          d.code &&
+          d.code.trim().toUpperCase() === codeTrimmed
+      )
+    : null;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -194,9 +246,23 @@ export default function AdminDiscountsPage() {
       return;
     }
 
-    if (trigger === 'coupon' && !code.trim()) {
-      error('Promo Code is required for coupon discounts');
-      return;
+    if (trigger === 'coupon') {
+      const cleanCode = code.trim().toUpperCase().replace(/\s+/g, '');
+      if (!cleanCode) {
+        error('Promo Code is required for coupon voucher discounts');
+        return;
+      }
+      if (cleanCode.length < 3) {
+        error('Promo Code must be at least 3 characters long');
+        return;
+      }
+      const duplicate = discounts.find(
+        (d) => d.id !== editingDiscount?.id && d.code && d.code.trim().toUpperCase() === cleanCode
+      );
+      if (duplicate) {
+        error(`Promo Code "${cleanCode}" is already used by "${duplicate.title}". Please choose a unique code.`);
+        return;
+      }
     }
 
     const selectedProd = products.find((p) => p.id === selectedProductId);
@@ -210,11 +276,12 @@ export default function AdminDiscountsPage() {
       applicableProductId: targetType === 'product' ? selectedProductId : undefined,
       applicableProductName: targetType === 'product' && selectedProd ? selectedProd.name : undefined,
       applicableProductImage: targetType === 'product' && selectedProd ? selectedProd.imageUrls[0] : undefined,
-      code: trigger === 'coupon' ? code.trim().toUpperCase() : undefined,
+      code: trigger === 'coupon' ? code.trim().toUpperCase().replace(/\s+/g, '') : undefined,
       type,
       value: Number(value),
       minSubtotal: Number(minSubtotal) || 0,
       maxDiscountAmount: maxDiscountAmount ? Number(maxDiscountAmount) : undefined,
+      usageLimit: usageLimit && Number(usageLimit) > 0 ? Number(usageLimit) : undefined,
       applicableCategory: targetType === 'category' ? applicableCategory : 'all',
       startTime: startTime ? new Date(startTime).toISOString() : undefined,
       endTime: endTime ? new Date(endTime).toISOString() : undefined,
@@ -228,7 +295,11 @@ export default function AdminDiscountsPage() {
       setDiscounts(updated);
       setModalOpen(false);
       success(
-        editingDiscount ? `Discount "${payload.title}" updated!` : `Discount "${payload.title}" created successfully!`
+        editingDiscount
+          ? `Discount "${payload.title}" updated!`
+          : trigger === 'coupon'
+          ? `Promo code "${payload.code}" created successfully!`
+          : `Discount "${payload.title}" created successfully!`
       );
     } catch (err: unknown) {
       console.error(err);
@@ -291,8 +362,8 @@ export default function AdminDiscountsPage() {
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
-            onClick={() => openAddModal('product')}
-            className="inline-flex items-center gap-1.5 bg-[#B67355] text-white px-4 py-2 text-xs uppercase font-extrabold tracking-wider hover:bg-white hover:text-[#1F1F1F] transition-all shadow-lg active:scale-95 border border-[#B67355]"
+            onClick={() => openAddModal('product', 'auto')}
+            className="inline-flex items-center gap-1.5 bg-[#B67355] text-white px-3.5 py-2 text-xs uppercase font-extrabold tracking-wider hover:bg-white hover:text-[#1F1F1F] transition-all shadow-lg active:scale-95 border border-[#B67355]"
           >
             <Zap className="w-4 h-4 fill-current animate-pulse" />
             <span>+ Single Item Flash Deal</span>
@@ -300,8 +371,17 @@ export default function AdminDiscountsPage() {
 
           <button
             type="button"
-            onClick={() => openAddModal('all')}
-            className="inline-flex items-center gap-2 bg-[#DCC9A6] text-[#1F1F1F] px-4 py-2 text-xs uppercase font-extrabold tracking-wider hover:bg-white transition-all shadow-lg active:scale-95"
+            onClick={() => openAddModal('all', 'coupon')}
+            className="inline-flex items-center gap-2 bg-[#1B1917] border border-[#DCC9A6] text-[#DCC9A6] px-3.5 py-2 text-xs uppercase font-extrabold tracking-wider hover:bg-[#DCC9A6] hover:text-[#1F1F1F] transition-all shadow-lg active:scale-95"
+          >
+            <Ticket className="w-4 h-4 text-[#DCC9A6]" />
+            <span>+ New Promo Code</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openAddModal('all', 'auto')}
+            className="inline-flex items-center gap-2 bg-[#DCC9A6] text-[#1F1F1F] px-3.5 py-2 text-xs uppercase font-extrabold tracking-wider hover:bg-white transition-all shadow-lg active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>Create Discount Rule</span>
@@ -528,13 +608,23 @@ export default function AdminDiscountsPage() {
 
                       {/* Value */}
                       <td className="py-3.5 px-4 text-center">
-                        <span className="font-serif font-bold text-sm text-[#DCC9A6]">
+                        <span className="font-serif font-bold text-sm text-[#DCC9A6] block">
                           {disc.type === 'percentage'
                             ? `${disc.value}% OFF`
                             : disc.type === 'fixed_amount'
                             ? `EGP ${disc.value.toFixed(2)} OFF`
                             : 'Free Delivery'}
                         </span>
+                        {disc.minSubtotal && disc.minSubtotal > 0 ? (
+                          <span className="text-[10px] text-[#8E8A85] block font-mono">
+                            Min: EGP {disc.minSubtotal}
+                          </span>
+                        ) : null}
+                        {disc.maxDiscountAmount ? (
+                          <span className="text-[10px] text-[#8E8A85] block font-mono">
+                            Cap: EGP {disc.maxDiscountAmount}
+                          </span>
+                        ) : null}
                       </td>
 
                       {/* Countdown & Timings */}
@@ -555,7 +645,16 @@ export default function AdminDiscountsPage() {
 
                       {/* Usage */}
                       <td className="py-3.5 px-4 text-center font-mono text-xs">
-                        {disc.usageCount || 0} uses
+                        <span className="font-bold text-white">{disc.usageCount || 0}</span>
+                        {disc.usageLimit ? (
+                          <span className="text-[#8E8A85] text-[10px] block">
+                            / {disc.usageLimit} max
+                          </span>
+                        ) : (
+                          <span className="text-[#8E8A85] text-[10px] block">
+                            unlimited
+                          </span>
+                        )}
                       </td>
 
                       {/* Actions */}
@@ -592,49 +691,234 @@ export default function AdminDiscountsPage() {
       {/* ADD / EDIT DISCOUNT MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md">
-          <div className="relative w-full max-w-xl bg-[#181818] border-2 border-[#DCC9A6] p-6 sm:p-8 shadow-2xl text-white rounded-xl">
+          <div className="relative w-full max-w-2xl bg-[#181818] border-2 border-[#DCC9A6] p-6 sm:p-8 shadow-2xl text-white rounded-xl max-h-[92vh] overflow-y-auto">
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-white"
+              className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-white rounded-full hover:bg-[#252525] transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="font-serif text-xl font-bold text-white mb-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-sans font-bold uppercase tracking-[0.2em] text-[#DCC9A6]">
+                {trigger === 'coupon' ? 'Promo Voucher Engine' : 'Discount Engine'}
+              </span>
+              {trigger === 'coupon' && (
+                <span className="text-[9px] bg-[#B67355] text-white px-2 py-0.5 rounded font-mono font-bold uppercase">
+                  Checkout Voucher
+                </span>
+              )}
+            </div>
+
+            <h3 className="font-serif text-xl sm:text-2xl font-bold text-white mb-1">
               {editingDiscount
                 ? `Edit Promotion: ${editingDiscount.title}`
+                : trigger === 'coupon'
+                ? '🎟️ Create New Promo Code Voucher'
                 : targetType === 'product'
                 ? '⚡ Create Single Item Flash Deal (With Countdown)'
                 : 'Create New Discount Rule'}
             </h3>
-            <p className="text-xs text-[#8E8A85] mb-6 font-sans">
-              Choose the item, set the discount amount, time duration, and client countdown timer.
+            <p className="text-xs text-[#8E8A85] mb-5 font-sans">
+              {trigger === 'coupon'
+                ? 'Define a unique promo code for customers to enter at checkout with spend thresholds and redemptions limits.'
+                : 'Configure automatic cart discounts or single-item flash deals with live client countdown timers.'}
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4 text-xs font-sans">
-              {/* Scope Target Selector (Storewide vs Category vs Single Item) */}
+              {/* APPLICATION METHOD (TRIGGER) SELECTOR */}
               <div>
-                <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1.5 font-semibold">
-                  1. Promotion Target (Scope) *
+                <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1.5 font-bold tracking-wider">
+                  1. How is this Discount Applied? *
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setTrigger('auto')}
+                    className={`p-3 border text-left rounded-lg transition-all flex items-start gap-3 ${
+                      trigger === 'auto'
+                        ? 'border-[#DCC9A6] bg-[#DCC9A6]/15 shadow-md text-white'
+                        : 'border-[#333333] bg-[#141414] text-neutral-400 hover:border-neutral-500'
+                    }`}
+                  >
+                    <div className={`p-2 rounded shrink-0 ${trigger === 'auto' ? 'bg-[#DCC9A6] text-[#141414]' : 'bg-[#1F1F1F] text-[#8E8A85]'}`}>
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-bold text-white">⚡ Auto-Applied in Cart</span>
+                      <span className="block text-[10px] text-[#8E8A85] mt-0.5">
+                        Applies automatically when customer bag meets criteria
+                      </span>
+                    </div>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
-                      setTargetType('product');
-                      setTrigger('auto');
+                      setTrigger('coupon');
+                      if (!code) generatePromoCode();
                     }}
-                    className={`p-2.5 border text-center rounded transition-all ${
-                      targetType === 'product'
-                        ? 'border-[#B67355] bg-[#B67355]/20 text-white font-bold'
-                        : 'border-[#333333] bg-[#141414] text-neutral-400 hover:border-neutral-600'
+                    className={`p-3 border text-left rounded-lg transition-all flex items-start gap-3 ${
+                      trigger === 'coupon'
+                        ? 'border-[#B67355] bg-[#B67355]/20 shadow-md text-white ring-1 ring-[#B67355]'
+                        : 'border-[#333333] bg-[#141414] text-neutral-400 hover:border-neutral-500'
                     }`}
                   >
-                    <Zap className="w-4 h-4 mx-auto mb-1 text-[#E5A84B]" />
-                    <span className="block text-[11px]">⚡ Single Item (Flash)</span>
+                    <div className={`p-2 rounded shrink-0 ${trigger === 'coupon' ? 'bg-[#B67355] text-white' : 'bg-[#1F1F1F] text-[#8E8A85]'}`}>
+                      <Ticket className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-bold text-white">🎟️ Promo Code (Voucher)</span>
+                      <span className="block text-[10px] text-[#8E8A85] mt-0.5">
+                        Customer enters custom coupon code at checkout
+                      </span>
+                    </div>
                   </button>
+                </div>
+              </div>
 
+              {/* PROMO CODE CONFIGURATION SECTION */}
+              {trigger === 'coupon' && (
+                <div className="bg-[#121212] border-2 border-[#DCC9A6]/60 p-4 rounded-xl space-y-3.5 shadow-lg relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] uppercase text-[#DCC9A6] font-bold tracking-wider flex items-center gap-1.5">
+                      <Ticket className="w-4 h-4 text-[#DCC9A6]" />
+                      <span>Promo Code & Redemption Settings *</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => generatePromoCode()}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#1F1F1F] hover:bg-[#DCC9A6] text-neutral-300 hover:text-[#141414] text-[11px] font-mono font-bold rounded border border-[#333333] transition-colors shadow"
+                      title="Generate unique random promo code"
+                    >
+                      <Dices className="w-3.5 h-3.5" />
+                      <span>Generate Random Code</span>
+                    </button>
+                  </div>
+
+                  {/* Code Input & Presets */}
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={code}
+                        onChange={(e) =>
+                          setCode(e.target.value.toUpperCase().replace(/\s+/g, ''))
+                        }
+                        placeholder="e.g. SUMMER25, ARMIA10, VIP20"
+                        className="w-full bg-[#1A1A1A] border-2 border-[#333333] focus:border-[#DCC9A6] text-white px-3.5 py-2.5 pl-10 text-sm font-mono font-bold tracking-wider uppercase focus:outline-none rounded transition-colors"
+                      />
+                      <Ticket className="w-4 h-4 text-[#8E8A85] absolute left-3.5 top-3" />
+                      {code && !duplicateDiscount && (
+                        <span className="absolute right-3 top-2.5 text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded font-mono font-semibold">
+                          Valid Code
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Quick Preset Ideas */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span className="text-[10px] text-[#8E8A85] uppercase tracking-wider font-semibold mr-1">
+                        Quick Ideas:
+                      </span>
+                      {['ARMIA10', 'VIP15', 'WELCOME10', 'FLASH25', 'LUXE50'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            setCode(preset);
+                            if (!title || title.startsWith('Promo Voucher:')) {
+                              setTitle(`Promo Voucher: ${preset} (${value}${type === 'percentage' ? '%' : ' EGP'} OFF)`);
+                            }
+                          }}
+                          className="px-2 py-0.5 bg-[#1F1F1F] hover:bg-[#B67355] text-neutral-300 hover:text-white text-[10px] font-mono rounded border border-[#333333] transition-colors"
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Duplicate Warning */}
+                    {duplicateDiscount && (
+                      <div className="flex items-center gap-2 bg-red-950/80 border border-red-800 text-red-200 px-3 py-2 rounded text-[11px] animate-pulse">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                        <span>
+                          Warning: Code <strong>{codeTrimmed}</strong> is already assigned to active rule &quot;{duplicateDiscount.title}&quot;.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Usage Limit (Redemptions Cap) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[10px] uppercase text-[#DCC9A6] mb-1 font-semibold">
+                        Maximum Redemptions Limit (Optional)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={usageLimit !== undefined ? usageLimit : ''}
+                        onChange={(e) =>
+                          setUsageLimit(e.target.value ? Number(e.target.value) : undefined)
+                        }
+                        placeholder="Unlimited uses if blank"
+                        className="w-full bg-[#1A1A1A] border border-[#333333] text-white p-2 text-xs font-mono focus:outline-none focus:border-[#DCC9A6] rounded"
+                      />
+                      <span className="text-[9px] text-[#8E8A85] block mt-0.5">
+                        e.g. 50 orders max (first come first served).
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase text-[#DCC9A6] mb-1 font-semibold">
+                        Current Recorded Uses
+                      </label>
+                      <div className="p-2 bg-[#1A1A1A] border border-[#333333] text-neutral-300 text-xs font-mono rounded flex items-center justify-between">
+                        <span>{editingDiscount?.usageCount || 0} customer redemptions</span>
+                        <span className="text-[10px] text-[#DCC9A6]">
+                          {usageLimit ? `${Math.max(0, usageLimit - (editingDiscount?.usageCount || 0))} left` : 'No Cap'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Interactive Luxury Voucher Live Preview */}
+                  <div className="mt-2 bg-gradient-to-r from-[#171513] via-[#201C19] to-[#171513] border border-[#DCC9A6]/50 p-3.5 rounded-lg flex items-center justify-between gap-3 shadow-inner">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-1.5 text-[10px] text-[#DCC9A6] font-semibold uppercase tracking-wider">
+                        <Ticket className="w-3.5 h-3.5 text-[#DCC9A6]" />
+                        <span>Client Checkout Preview</span>
+                      </div>
+                      <div className="font-mono font-extrabold text-base text-white tracking-widest truncate">
+                        {code.trim().toUpperCase() || 'ENTER_PROMO_CODE'}
+                      </div>
+                      <p className="text-[10px] text-[#8E8A85]">
+                        {type === 'percentage'
+                          ? `${value}% OFF entire bag`
+                          : type === 'fixed_amount'
+                          ? `EGP ${value} OFF order`
+                          : 'Free Shipping Voucher'}
+                        {minSubtotal > 0 ? ` • Min Order: EGP ${minSubtotal}` : ''}
+                        {usageLimit ? ` • Cap: ${usageLimit} orders` : ' • Unlimited uses'}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className="inline-block bg-[#DCC9A6] text-[#141414] text-[11px] font-mono font-extrabold px-3 py-1 rounded tracking-wider shadow">
+                        {type === 'percentage' ? `-${value}%` : type === 'fixed_amount' ? `-EGP ${value}` : 'FREE SHIP'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Promotion Target (Scope) */}
+              <div>
+                <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1.5 font-semibold">
+                  2. Promotion Scope (Target Products) *
+                </label>
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setTargetType('all')}
@@ -645,7 +929,7 @@ export default function AdminDiscountsPage() {
                     }`}
                   >
                     <Sparkles className="w-4 h-4 mx-auto mb-1 text-[#DCC9A6]" />
-                    <span className="block text-[11px]">Storewide / Cart</span>
+                    <span className="block text-[11px]">Storewide / All</span>
                   </button>
 
                   <button
@@ -660,6 +944,19 @@ export default function AdminDiscountsPage() {
                     <Package className="w-4 h-4 mx-auto mb-1 text-[#DCC9A6]" />
                     <span className="block text-[11px]">Specific Category</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('product')}
+                    className={`p-2.5 border text-center rounded transition-all ${
+                      targetType === 'product'
+                        ? 'border-[#B67355] bg-[#B67355]/20 text-white font-bold'
+                        : 'border-[#333333] bg-[#141414] text-neutral-400 hover:border-neutral-600'
+                    }`}
+                  >
+                    <Zap className="w-4 h-4 mx-auto mb-1 text-[#E5A84B]" />
+                    <span className="block text-[11px]">⚡ Single Item (Flash)</span>
+                  </button>
                 </div>
               </div>
 
@@ -667,12 +964,12 @@ export default function AdminDiscountsPage() {
               {targetType === 'product' && (
                 <div className="bg-[#141414] border border-[#B67355] p-3.5 rounded-lg space-y-3">
                   <label className="block text-[11px] uppercase text-[#E5A84B] font-bold">
-                    Select Target Product for Flash Deal *
+                    Select Target Product for Deal *
                   </label>
                   <select
                     value={selectedProductId}
                     onChange={(e) => handleProductSelectChange(e.target.value)}
-                    className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2.5 text-xs font-sans focus:outline-none focus:border-[#E5A84B]"
+                    className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2.5 text-xs font-sans focus:outline-none focus:border-[#E5A84B] rounded"
                   >
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -718,7 +1015,7 @@ export default function AdminDiscountsPage() {
                   <select
                     value={applicableCategory}
                     onChange={(e) => setApplicableCategory(e.target.value)}
-                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6]"
+                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6] rounded"
                   >
                     {categories.map((c) => (
                       <option key={c.id} value={c.slug}>
@@ -740,8 +1037,8 @@ export default function AdminDiscountsPage() {
                     required
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Flash Deal: 25% OFF Linen Set"
-                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6]"
+                    placeholder="e.g. Summer Flash Deal: 20% OFF"
+                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6] rounded"
                   />
                 </div>
 
@@ -753,42 +1050,86 @@ export default function AdminDiscountsPage() {
                     type="text"
                     value={titleArabic}
                     onChange={(e) => setTitleArabic(e.target.value)}
-                    placeholder="e.g. عرض محدود: خصم 25%"
+                    placeholder="e.g. خصم الصيف: 20%"
                     dir="rtl"
-                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6]"
+                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6] rounded"
                   />
                 </div>
               </div>
 
-              {/* Discount Type & Value */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1 font-semibold">
-                    Discount Type *
-                  </label>
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value as DiscountType)}
-                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 focus:outline-none focus:border-[#DCC9A6]"
-                  >
-                    <option value="percentage">Percentage (%)</option>
-                    <option value="fixed_amount">Fixed Amount (EGP)</option>
-                    {targetType !== 'product' && <option value="free_shipping">Free Shipping</option>}
-                  </select>
+              {/* Discount Value & Constraints */}
+              <div className="bg-[#141414] border border-[#333333] p-3.5 rounded-lg space-y-3">
+                <label className="block text-[11px] uppercase text-[#DCC9A6] font-bold">
+                  3. Discount Value & Spend Thresholds
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase text-neutral-400 mb-1">
+                      Discount Type *
+                    </label>
+                    <select
+                      value={type}
+                      onChange={(e) => setType(e.target.value as DiscountType)}
+                      className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2 text-xs focus:outline-none focus:border-[#DCC9A6] rounded"
+                    >
+                      <option value="percentage">Percentage (%)</option>
+                      <option value="fixed_amount">Fixed Amount (EGP)</option>
+                      {targetType !== 'product' && <option value="free_shipping">Free Shipping</option>}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase text-neutral-400 mb-1">
+                      Discount Value ({type === 'percentage' ? '%' : 'EGP'}) *
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      required
+                      value={value}
+                      onChange={(e) => setValue(Number(e.target.value))}
+                      className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2 text-xs font-bold focus:outline-none focus:border-[#DCC9A6] rounded"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] uppercase text-[#DCC9A6] mb-1 font-semibold">
-                    Discount Value ({type === 'percentage' ? '%' : 'EGP'}) *
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    required
-                    value={value}
-                    onChange={(e) => setValue(Number(e.target.value))}
-                    className="w-full bg-[#141414] border border-[#333333] text-white p-2.5 font-bold focus:outline-none focus:border-[#DCC9A6]"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[10px] uppercase text-neutral-400 mb-1">
+                      Minimum Cart Subtotal (EGP)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={minSubtotal || ''}
+                      onChange={(e) => setMinSubtotal(Number(e.target.value) || 0)}
+                      placeholder="0 (Applies to any cart)"
+                      className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2 text-xs font-mono focus:outline-none focus:border-[#DCC9A6] rounded"
+                    />
+                    <span className="text-[9px] text-[#8E8A85] block mt-0.5">
+                      Minimum spend needed before this discount can be applied.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase text-neutral-400 mb-1">
+                      Maximum Discount Cap (EGP)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={maxDiscountAmount !== undefined ? maxDiscountAmount : ''}
+                      onChange={(e) =>
+                        setMaxDiscountAmount(e.target.value ? Number(e.target.value) : undefined)
+                      }
+                      placeholder="No cap (unlimited savings)"
+                      className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2 text-xs font-mono focus:outline-none focus:border-[#DCC9A6] rounded"
+                    />
+                    <span className="text-[9px] text-[#8E8A85] block mt-0.5">
+                      Maximum savings cap (useful for percentage discounts).
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -797,7 +1138,7 @@ export default function AdminDiscountsPage() {
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] uppercase text-[#DCC9A6] font-bold flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5" />
-                    <span>Duration & Live Countdown Schedule</span>
+                    <span>4. Duration & Live Countdown Schedule</span>
                   </label>
                   <span className="text-[10px] text-neutral-400">
                     Quick Presets:
@@ -834,7 +1175,7 @@ export default function AdminDiscountsPage() {
                       type="datetime-local"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2 text-xs focus:outline-none focus:border-[#DCC9A6]"
+                      className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2 text-xs focus:outline-none focus:border-[#DCC9A6] rounded"
                     />
                   </div>
 
@@ -846,7 +1187,7 @@ export default function AdminDiscountsPage() {
                       type="datetime-local"
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2 text-xs focus:outline-none focus:border-[#DCC9A6]"
+                      className="w-full bg-[#1F1F1F] border border-[#333333] text-white p-2 text-xs focus:outline-none focus:border-[#DCC9A6] rounded"
                     />
                   </div>
                 </div>
@@ -862,7 +1203,9 @@ export default function AdminDiscountsPage() {
                   className="w-4 h-4 accent-[#DCC9A6]"
                 />
                 <label htmlFor="active-disc-modal" className="text-xs text-neutral-300 font-medium">
-                  Flash Deal is Active & Customer Countdown is Live
+                  {trigger === 'coupon'
+                    ? 'Promo Code Voucher is Active & Redeemable by Customers'
+                    : 'Discount is Active & Customer Countdown is Live'}
                 </label>
               </div>
 
@@ -871,7 +1214,7 @@ export default function AdminDiscountsPage() {
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 bg-[#2A2A2A] text-neutral-300 hover:text-white rounded"
+                  className="px-4 py-2 bg-[#2A2A2A] text-neutral-300 hover:text-white rounded transition-colors"
                 >
                   Cancel
                 </button>
@@ -879,9 +1222,17 @@ export default function AdminDiscountsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-6 py-2 bg-[#DCC9A6] text-[#1F1F1F] font-bold uppercase tracking-wider hover:bg-white transition-colors"
+                  className="px-6 py-2 bg-[#DCC9A6] text-[#1F1F1F] font-bold uppercase tracking-wider hover:bg-white transition-colors rounded shadow"
                 >
-                  {saving ? 'Saving...' : editingDiscount ? 'Save Changes' : 'Launch Flash Deal'}
+                  {saving
+                    ? 'Saving...'
+                    : editingDiscount
+                    ? 'Save Changes'
+                    : trigger === 'coupon'
+                    ? 'Create Promo Code'
+                    : targetType === 'product'
+                    ? 'Launch Flash Deal'
+                    : 'Save Discount Rule'}
                 </button>
               </div>
             </form>

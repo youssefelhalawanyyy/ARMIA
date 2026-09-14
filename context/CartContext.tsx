@@ -216,6 +216,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: 'Invalid or expired coupon code' };
     }
 
+    const now = Date.now();
+    if (matched.startTime && new Date(matched.startTime).getTime() > now) {
+      error(`Promo code '${clean}' is not active yet.`, 'Code Not Active');
+      return { success: false, message: 'Promo code is not active yet' };
+    }
+    if (matched.endTime && new Date(matched.endTime).getTime() <= now) {
+      error(`Promo code '${clean}' has expired.`, 'Code Expired');
+      return { success: false, message: 'Promo code has expired' };
+    }
+    if (typeof matched.usageLimit === 'number' && matched.usageLimit > 0 && (matched.usageCount || 0) >= matched.usageLimit) {
+      error(`Promo code '${clean}' has reached its maximum redemptions limit.`, 'Redemption Limit Reached');
+      return { success: false, message: 'Promo code redemption limit reached' };
+    }
+
+    const currentSub = (items || []).reduce(
+      (sum, item) => sum + Number(item?.price || 0) * (item?.quantity || 1),
+      0
+    );
+    if (matched.minSubtotal && currentSub > 0 && currentSub < matched.minSubtotal) {
+      error(`Minimum spend of EGP ${matched.minSubtotal.toFixed(2)} required for code '${clean}'.`, 'Minimum Spend Required');
+      return { success: false, message: `Minimum spend of EGP ${matched.minSubtotal.toFixed(2)} required` };
+    }
+
     setCouponCodeState(clean);
     if (typeof window !== 'undefined') {
       localStorage.setItem(COUPON_STORAGE_KEY, clean);

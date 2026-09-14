@@ -56,6 +56,7 @@ import {
   saveAbandonedCheckout,
   markAbandonedCheckoutRecovered,
 } from '@/lib/abandonedService';
+import { recordDiscountUsage } from '@/lib/discountService';
 import { CustomerDetails, Order, ShippingSettings, ShippingZone, PaymentMethodType, Product, ProductColor, CartItem } from '@/types';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
@@ -716,6 +717,9 @@ export default function CheckoutPage() {
       });
 
       clearCart();
+      if (appliedDiscount?.id || couponCode) {
+        recordDiscountUsage(appliedDiscount?.id || couponCode).catch(console.warn);
+      }
       if (checkoutSessionId) {
         await markAbandonedCheckoutRecovered(checkoutSessionId);
       }

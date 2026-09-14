@@ -297,6 +297,9 @@ export function evaluateDiscounts({
     if (!d.isActive) return false;
     if (d.startTime && new Date(d.startTime).getTime() > now) return false;
     if (d.endTime && new Date(d.endTime).getTime() <= now) return false;
+    if (typeof d.usageLimit === 'number' && d.usageLimit > 0 && (d.usageCount || 0) >= d.usageLimit) {
+      return false;
+    }
     return true;
   });
 
@@ -382,3 +385,36 @@ export function evaluateDiscounts({
     message,
   };
 }
+
+/**
+ * Increment discount usageCount by 1 when an order is completed
+ */
+export async function recordDiscountUsage(discountIdOrCode: string): Promise<void> {
+  if (!discountIdOrCode) return;
+  try {
+    const current = await getDiscounts();
+    const cleanSearch = discountIdOrCode.trim().toUpperCase();
+    const idx = current.findIndex(
+      (d) => d.id === discountIdOrCode || (d.code && d.code.toUpperCase() === cleanSearch)
+    );
+    if (idx === -1) return;
+
+    const updated = [...current];
+    updated[idx] = {
+      ...updated[idx],
+      usageCount: (updated[idx].usageCount || 0) + 1,
+    };
+
+    const cleaned = cleanUndefinedFields(updated) as Discount[];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(DISCOUNTS_STORAGE_KEY, JSON.stringify(cleaned));
+      window.dispatchEvent(new Event('armia_discounts_updated'));
+    }
+
+    const docRef = doc(db, 'settings', 'discounts_config');
+    await setDoc(docRef, { discounts: cleaned, updatedAt: new Date() }, { merge: true });
+  } catch (err) {
+    console.warn('Could not record discount usage:', err);
+  }
+}
+
