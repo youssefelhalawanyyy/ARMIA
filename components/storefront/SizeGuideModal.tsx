@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Ruler,
@@ -33,12 +34,17 @@ export default function SizeGuideModal({
   onSelectSize,
 }: SizeGuideModalProps) {
   const { isArabic } = useLanguage();
+  const [mounted, setMounted] = useState(false);
   const [unit, setUnit] = useState<'cm' | 'in'>('cm');
   const [activeTab, setActiveTab] = useState<'chart' | 'measure' | 'fit'>('chart');
   const [guide, setGuide] = useState<SizeChartGuide | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   const effectiveCategory = categorySlug || product?.category || 'dresses';
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -52,7 +58,7 @@ export default function SizeGuideModal({
     loadGuide();
   }, [isOpen, effectiveCategory]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   // Convert centimeter string range (e.g. "86-90" or "140") to inches
   const convertValue = (valStr?: string) => {
@@ -87,8 +93,8 @@ export default function SizeGuideModal({
       ? guide.measuringTipsArabic
       : guide?.measuringTips || [];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-fadeIn font-sans">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-md animate-fadeIn font-sans">
       <div
         className="bg-[#141414] border border-[#DCC9A6]/40 text-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative animate-scaleUp"
         dir={isArabic ? 'rtl' : 'ltr'}
@@ -395,6 +401,7 @@ export default function SizeGuideModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
