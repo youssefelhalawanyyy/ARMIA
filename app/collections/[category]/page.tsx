@@ -13,6 +13,18 @@ interface CategoryPageProps {
   }>;
 }
 
+export function generateStaticParams() {
+  return [
+    { category: 'dresses' },
+    { category: 'sets' },
+    { category: 'tops' },
+    { category: 'bottoms' },
+    { category: 'outerwear' },
+    { category: 'new-in' },
+    { category: 'best-sellers' },
+  ];
+}
+
 export default async function CategoryPage({ params }: CategoryPageProps) {
   const resolvedParams = await params;
   const categoryParam = resolvedParams.category.toLowerCase();

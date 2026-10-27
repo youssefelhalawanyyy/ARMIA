@@ -401,11 +401,6 @@ export async function saveProduct(product: Partial<Product> & { id?: string }): 
         bc.postMessage({ type: 'PRODUCT_SAVED', productId: prodId });
         bc.close();
       }
-      fetch('/api/revalidate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paths: ['/', '/collections'] }),
-      }).catch(() => {});
     } catch {}
   }
 
@@ -428,11 +423,6 @@ export async function deleteProduct(productId: string): Promise<void> {
         bc.postMessage({ type: 'PRODUCT_DELETED', productId });
         bc.close();
       }
-      fetch('/api/revalidate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paths: ['/', '/collections'] }),
-      }).catch(() => {});
     } catch {}
   }
 }

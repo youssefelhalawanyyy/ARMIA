@@ -4,7 +4,8 @@ import HomePageLive from '@/components/storefront/HomePageLive';
 import Footer from '@/components/storefront/Footer';
 import { getProducts } from '@/lib/productService';
 
-export const revalidate = 60; // ISR revalidation
+// Render statically at build time with 0 ISR writes. Real-time updates are handled seamlessly via client-side Firestore synchronization.
+export const dynamic = 'force-static';
 
 export default async function HomePage() {
   const products = await getProducts('all');

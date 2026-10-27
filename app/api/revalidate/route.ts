@@ -4,7 +4,21 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const paths: string[] = body.paths || ['/', '/collections'];
+    const secret = body.secret || request.headers.get('x-revalidate-secret');
+    const expectedSecret = process.env.REVALIDATION_SECRET;
+
+    // Protection against excessive ISR writes to guarantee remaining under Vercel Free tier forever
+    if (!expectedSecret || secret !== expectedSecret) {
+      return NextResponse.json(
+        {
+          revalidated: false,
+          message: 'On-demand ISR revalidation is disabled or protected with REVALIDATION_SECRET to prevent free quota exhaustion.',
+        },
+        { status: 401 }
+      );
+    }
+
+    const paths: string[] = body.paths || ['/'];
 
     for (const p of paths) {
       try {
