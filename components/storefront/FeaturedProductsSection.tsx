@@ -29,7 +29,7 @@ export default function FeaturedProductsSection({ products }: FeaturedProductsSe
   const ArrowIcon = isArabic ? ArrowLeft : ArrowRight;
 
   return (
-    <section className="py-20 bg-white border-b border-[#E8E2D8]">
+    <section className="py-20 bg-[#F2F3F6] border-b border-[#E4E5E9]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-14">

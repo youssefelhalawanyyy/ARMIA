@@ -1,0 +1,829 @@
+/* Spin Product — ARMIA Luxury 360° Editorial Showcase (GPU-Accelerated) */
+
+.spin-root {
+  --bg: #F6F3EE;
+  --card: #FFFFFF;
+  --ink: #1F1F1F;
+  --mute: #8E8A85;
+  --chip: #EFEAE1;
+  --line: #CFC4B4;
+  --accent: #B67355;
+  --gold: #DCC9A6;
+  --ease-editorial: cubic-bezier(0.65, 0, 0.25, 1);
+  --ease-pop: cubic-bezier(0.3, 1.6, 0.5, 1);
+
+  position: relative;
+  width: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.spin-root button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Desktop Sticky Scroll-to-Rotate Runway Track */
+.spin-scroll-track {
+  position: relative;
+  width: 100%;
+  background: var(--bg);
+}
+
+/* Desktop 1500x880 Scaled Artboard pinned right below ARMIA sticky header */
+.spin-viewport {
+  position: sticky;
+  top: 80px;
+  width: 100%;
+  height: calc(100vh - 80px);
+  min-height: 560px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.spin-art {
+  position: absolute;
+  width: 1500px;
+  height: 880px;
+  transform-origin: 0 0;
+}
+
+/* Minimal Editorial Breadcrumb */
+.spin-crumb {
+  position: absolute;
+  left: 32px;
+  top: 22px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mute);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 30;
+}
+
+.spin-crumb a {
+  color: var(--mute);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.spin-crumb a:hover,
+.spin-crumb .spin-crumb-cur {
+  color: var(--ink);
+}
+
+/* Floating Stage Badge (top-right inside artboard) */
+.spin-stage-badge {
+  position: absolute;
+  right: 32px;
+  top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 30;
+}
+
+.spin-pill {
+  height: 32px;
+  padding: 0 14px;
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 3px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  text-decoration: none;
+  box-shadow: 0 1px 4px rgba(31, 31, 31, 0.05);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 6px) 0,
+    100% 6px,
+    100% 100%,
+    6px 100%,
+    0 calc(100% - 6px)
+  );
+  transition: background-color 0.2s ease;
+}
+
+.spin-pill:hover {
+  background: #FAF8F4;
+}
+
+/* Turntable Stage */
+.spin-stage {
+  position: absolute;
+  left: 480px;
+  top: 16px;
+  width: 540px;
+  height: 810px;
+  cursor: grab;
+  touch-action: none;
+  z-index: 10;
+}
+
+.spin-stage.dragging {
+  cursor: grabbing;
+}
+
+.spin-media-mask {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+}
+
+.spin-video,
+.spin-canvas,
+.spin-photo-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  pointer-events: none;
+}
+
+.spin-photo-layer {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* Degree Readout */
+.spin-deg {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mute);
+  z-index: 25;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.spin-deg-bar {
+  position: relative;
+  width: 120px;
+  height: 1px;
+  background: var(--line);
+}
+
+.spin-deg-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink);
+  transform: translate3d(-50%, -50%, 0);
+  will-change: left;
+}
+
+.spin-deg-val {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: right;
+}
+
+/* Connector SVG */
+.spin-connectors {
+  position: absolute;
+  inset: 0;
+  width: 1500px;
+  height: 880px;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.spin-conn-path {
+  fill: none;
+  stroke: #C8BBA8;
+  stroke-width: 1.75;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 0.35s ease;
+}
+
+.spin-conn-path.show {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.65s var(--ease-editorial);
+}
+
+/* Hotspots & Callouts */
+.spin-hs-wrap {
+  position: absolute;
+  z-index: 22;
+  transform: translate3d(-50%, -50%, 0);
+  pointer-events: none;
+}
+
+.spin-hs-wrap.show {
+  pointer-events: auto;
+}
+
+.spin-hs {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  border: 1px solid rgba(31, 31, 31, 0.16);
+  box-shadow: 0 2px 10px rgba(31, 31, 31, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  transform: scale(0);
+  transition: transform 0.25s ease;
+}
+
+.spin-hs-wrap.show .spin-hs {
+  transform: scale(1);
+  transition: transform 0.35s var(--ease-pop) var(--hs-delay, 0s);
+}
+
+.spin-hs::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  animation: spinPing 2.4s cubic-bezier(0.2, 0.7, 0.4, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes spinPing {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.spin-tip {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 215px;
+  background: var(--card);
+  color: var(--ink);
+  padding: 12px 14px;
+  font-size: 11px;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgba(31, 31, 31, 0.1);
+  border: 1px solid #E8E2D8;
+  pointer-events: none;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.4s var(--ease-editorial);
+}
+
+.spin-tip.tip-right {
+  left: 30px;
+}
+
+.spin-tip.tip-left {
+  right: 30px;
+  clip-path: inset(0 0 0 100%);
+}
+
+.spin-hs-wrap.show:hover .spin-tip,
+.spin-hs-wrap.show:focus-within .spin-tip,
+.spin-hs-wrap.show.active .spin-tip {
+  clip-path: inset(0 0 0 0);
+}
+
+.spin-tip-title {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  color: var(--ink);
+}
+
+.spin-tip-text {
+  color: var(--mute);
+}
+
+/* Notched White Cards */
+.spin-card-info {
+  position: absolute;
+  left: 24px;
+  top: 170px;
+  width: 420px;
+  padding: 32px 28px 24px 36px;
+  background: var(--card);
+  z-index: 20;
+  contain: layout style;
+  filter: drop-shadow(0 6px 20px rgba(31, 31, 31, 0.04));
+  clip-path: polygon(
+    0 0,
+    130px 0,
+    140px 8px,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 290px) calc(100% - 8px),
+    calc(100% - 300px) 100%,
+    10px 100%,
+    10px 120px,
+    0 112px
+  );
+}
+
+.spin-card-buy {
+  position: absolute;
+  left: 1095px;
+  top: 235px;
+  width: 375px;
+  padding: 28px 26px 24px;
+  background: var(--card);
+  z-index: 20;
+  contain: layout style;
+  filter: drop-shadow(0 6px 20px rgba(31, 31, 31, 0.04));
+  clip-path: polygon(
+    0 8px,
+    265px 8px,
+    275px 0,
+    100% 0,
+    100% calc(100% - 8px),
+    300px calc(100% - 8px),
+    290px 100%,
+    10px 100%,
+    10px calc(100% - 40px),
+    0 calc(100% - 48px)
+  );
+}
+
+.spin-prod-name {
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.spin-price-row {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.spin-tag {
+  font-size: 10.5px;
+  background: var(--chip);
+  color: var(--ink);
+  padding: 2px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Accordion */
+.spin-acc {
+  margin-top: 18px;
+  border-top: 1px solid #E8E2D8;
+}
+
+.spin-acc-item {
+  border-bottom: 1px solid #E8E2D8;
+}
+
+.spin-acc-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  text-align: left;
+}
+
+.spin-acc-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.4s var(--ease-editorial);
+}
+
+.spin-acc-body.open {
+  grid-template-rows: 1fr;
+}
+
+.spin-acc-inner {
+  overflow: hidden;
+}
+
+.spin-acc-text {
+  font-family: var(--font-tinos), "Tinos", Georgia, serif;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #3A3835;
+  padding: 4px 0 11px;
+}
+
+/* Size Selector & Sliding Black Highlight */
+.spin-sizes-wrap {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.spin-hl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 36px;
+  background: var(--ink);
+  pointer-events: none;
+  z-index: 1;
+  transition:
+    transform 0.4s var(--ease-editorial),
+    width 0.4s var(--ease-editorial);
+}
+
+.spin-size-btn {
+  position: relative;
+  z-index: 2;
+  height: 36px;
+  background: var(--chip);
+  color: var(--ink);
+  border: none;
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.3s var(--ease-editorial), background-color 0.2s ease;
+}
+
+.spin-size-btn.active {
+  background: transparent;
+  color: var(--gold);
+}
+
+.spin-size-btn.sold-out {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.spin-note {
+  margin-top: 12px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--mute);
+}
+
+.spin-note button,
+.spin-note a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: none;
+  font-size: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  padding: 0;
+}
+
+.spin-note button:hover {
+  color: var(--accent);
+}
+
+/* Action Row */
+.spin-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 6px;
+}
+
+.spin-save-btn {
+  width: 72px;
+  height: 38px;
+  background: var(--ink);
+  color: #ffffff;
+  border: none;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+}
+
+.spin-save-btn.saved {
+  background: var(--accent);
+}
+
+.spin-buy-btn {
+  flex: 1;
+  height: 38px;
+  background: var(--ink);
+  color: var(--gold);
+  border: none;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
+  overflow: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.spin-buy-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.spin-buy-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.spin-buy-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.42s var(--ease-editorial);
+}
+
+.spin-buy-label.primary {
+  transform: translateY(0%);
+}
+
+.spin-buy-label.secondary {
+  transform: translateY(100%);
+}
+
+.spin-buy-btn.added .spin-buy-label.primary {
+  transform: translateY(-100%);
+}
+
+.spin-buy-btn.added .spin-buy-label.secondary {
+  transform: translateY(0%);
+}
+
+/* Look Thumbnails */
+.spin-looks {
+  position: absolute;
+  left: 36px;
+  bottom: 34px;
+  display: flex;
+  gap: 10px;
+  z-index: 25;
+}
+
+.spin-look-btn {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: none;
+  background: var(--card);
+  overflow: visible;
+}
+
+.spin-look-media {
+  width: 56px;
+  height: 56px;
+  display: block;
+  object-fit: cover;
+  filter: grayscale(1);
+  opacity: 0.7;
+  transition: filter 0.25s ease, opacity 0.25s ease;
+}
+
+.spin-look-btn.active .spin-look-media {
+  filter: grayscale(0);
+  opacity: 1;
+}
+
+/* Four 7px Corner Brackets */
+.spin-bracket {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-color: var(--ink);
+  border-style: solid;
+  border-width: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.spin-look-btn.active .spin-bracket {
+  opacity: 1;
+}
+
+.spin-bracket.tl {
+  top: -3px;
+  left: -3px;
+  border-top-width: 1.5px;
+  border-left-width: 1.5px;
+}
+
+.spin-bracket.tr {
+  top: -3px;
+  right: -3px;
+  border-top-width: 1.5px;
+  border-right-width: 1.5px;
+}
+
+.spin-bracket.bl {
+  bottom: -3px;
+  left: -3px;
+  border-bottom-width: 1.5px;
+  border-left-width: 1.5px;
+}
+
+.spin-bracket.br {
+  bottom: -3px;
+  right: -3px;
+  border-bottom-width: 1.5px;
+  border-right-width: 1.5px;
+}
+
+/* Flying Card (Add to bag) */
+.spin-fly-card {
+  position: fixed;
+  width: 60px;
+  height: 80px;
+  background: #ffffff;
+  padding: 3px;
+  box-shadow: 0 12px 28px rgba(31, 31, 31, 0.2);
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+  will-change: transform, opacity;
+}
+
+.spin-fly-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Color Swatches inside #buy */
+.spin-colors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.spin-color-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  background: var(--chip);
+  border: 1px solid transparent;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.spin-color-chip.active {
+  border-color: var(--ink);
+  background: #ffffff;
+}
+
+.spin-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+/* Scroll Cue */
+.spin-scroll-cue {
+  position: absolute;
+  right: 32px;
+  bottom: 24px;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mute);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 25;
+  background: none;
+  border: none;
+  transition: color 0.2s ease;
+}
+
+.spin-scroll-cue:hover {
+  color: var(--ink);
+}
+
+/* Mobile Responsive Layout (< 1024px) */
+.spin-mobile {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding: 12px 14px calc(32px + env(safe-area-inset-bottom, 0px));
+  gap: 14px;
+}
+
+.spin-mobile-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 58vh;
+  margin: 0 auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.spin-mobile-card {
+  background: var(--card);
+  padding: 24px 20px;
+  contain: layout style;
+  clip-path: polygon(
+    0 0,
+    100px 0,
+    110px 6px,
+    100% 6px,
+    100% calc(100% - 6px),
+    calc(100% - 140px) calc(100% - 6px),
+    calc(100% - 150px) 100%,
+    8px 100%,
+    8px 90px,
+    0 82px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin-hs::after {
+    animation: none !important;
+  }
+  .spin-acc-body,
+  .spin-hl,
+  .spin-tip,
+  .spin-conn-path,
+  .spin-buy-label {
+    transition: none !important;
+  }
+}

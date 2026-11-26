@@ -61,6 +61,15 @@ export interface ProductVariant {
   isTempOutOfStock?: boolean;
 }
 
+export interface ProductHotspot {
+  x: number;
+  y: number;
+  title: string;
+  titleArabic?: string;
+  text: string;
+  textArabic?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -76,6 +85,8 @@ export interface Product {
   description: string;
   descriptionArabic?: string;
   imageUrls: string[];
+  video360Url?: string;
+  hotspots?: ProductHotspot[];
   variants?: ProductVariant[];
   featured?: boolean;
   isNewArrival?: boolean;

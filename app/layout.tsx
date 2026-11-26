@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display, Montserrat } from "next/font/google";
+import { Playfair_Display, Montserrat, IBM_Plex_Mono, Inter_Tight, Tinos } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/context/ToastContext";
 import { AuthProvider } from "@/context/AuthContext";
@@ -22,6 +22,27 @@ const playfair = Playfair_Display({
 const montserrat = Montserrat({
   subsets: ["latin"],
   variable: "--font-montserrat",
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-ibm-plex-mono",
+  display: "swap",
+});
+
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  weight: ["500"],
+  variable: "--font-inter-tight",
+  display: "swap",
+});
+
+const tinos = Tinos({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-tinos",
   display: "swap",
 });
 
@@ -74,7 +95,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${montserrat.variable} h-full antialiased scroll-smooth`}
+      className={`${playfair.variable} ${montserrat.variable} ${ibmPlexMono.variable} ${interTight.variable} ${tinos.variable} h-full antialiased scroll-smooth`}
     >
       <body className="min-h-full flex flex-col bg-[#F6F3EE] text-[#1F1F1F] font-sans selection:bg-[#DCC9A6] selection:text-[#1F1F1F]">
         <LanguageProvider>

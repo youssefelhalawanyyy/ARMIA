@@ -1,435 +1,464 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  ArrowRight,
-  ArrowLeft,
-  Sparkles,
-  ShoppingBag,
-  Plus,
-  X,
-  Check,
-} from 'lucide-react';
-import { useLanguage } from '@/context/LanguageContext';
+import { useRouter } from 'next/navigation';
+import { Sparkles, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Product } from '@/types';
 import { INITIAL_PRODUCTS } from '@/lib/seedData';
-import ShopSetModal from './ShopSetModal';
+import { useLanguage } from '@/context/LanguageContext';
+import './runway-hero.css';
 
 interface HeroSectionProps {
   products?: Product[];
 }
 
-type HotspotId = 'top' | 'pants';
+interface RunwaySlide {
+  id: string;
+  product: Product;
+  image: string;
+  label: string;
+  labelArabic: string;
+}
+
+function clamp(v: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, v));
+}
 
 export default function HeroSection({ products = [] }: HeroSectionProps) {
+  const router = useRouter();
   const { t, isArabic } = useLanguage();
   const ArrowIcon = isArabic ? ArrowLeft : ArrowRight;
 
-  const [activeHotspot, setActiveHotspot] = useState<HotspotId | null>(null);
-  const [isSetModalOpen, setIsSetModalOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Build up to 6 distinct ARMIA runway looks from live products
+  const slides: RunwaySlide[] = useMemo(() => {
+    const pool = products.length > 0 ? products : INITIAL_PRODUCTS;
+    const available = pool.filter((p) => (p.stockQuantity ?? 1) > 0);
+    const catalog = available.length > 0 ? available : INITIAL_PRODUCTS;
 
-  // Close popover when clicking outside
+    const count = Math.min(6, Math.max(4, catalog.length));
+    return Array.from({ length: count }).map((_, idx) => {
+      const prod = catalog[idx % catalog.length];
+      const imgs = prod.imageUrls?.length ? prod.imageUrls : ['/images/hero-editorial.jpg'];
+      const img =
+        imgs[Math.floor(idx / Math.max(1, catalog.length)) % imgs.length] || imgs[0];
+      return {
+        id: `${prod.id}-${idx}`,
+        product: prod,
+        image: img,
+        label: prod.name,
+        labelArabic: prod.nameArabic || prod.name,
+      };
+    });
+  }, [products]);
+
+  const N = slides.length;
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isDraggingUI, setIsDraggingUI] = useState(false);
+  const [stageBg, setStageBg] = useState('#F2F3F6');
+
+  // Refs for zero-lag scroll + drag GPU transforms
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const bodyRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const curRef = useRef<number>(0);
+  const targetRef = useRef<number>(0);
+  const indexRef = useRef<number>(0);
+  const draggingRef = useRef<boolean>(false);
+  const rafRef = useRef<number>(0);
+  const metricsRef = useRef<{ W: number; H: number; isMobile: boolean }>({
+    W: 1200,
+    H: 520,
+    isMobile: false,
+  });
+
+  const dragStartRef = useRef<{ x: number; y: number; startTarget: number; active: boolean }>({
+    x: 0,
+    y: 0,
+    startTarget: 0,
+    active: false,
+  });
+
+  // Sample corner pixel of the first product photo so hero stage matches the exact studio backdrop!
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setActiveHotspot(null);
+    const src = slides[0]?.image;
+    if (!src || typeof window === 'undefined') return;
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const cv = document.createElement('canvas');
+        cv.width = 12;
+        cv.height = 12;
+        const ctx = cv.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, 12, 12);
+        const px = ctx.getImageData(2, 2, 1, 1).data;
+        // Only apply if it's a clean light studio background (avoids dark/saturated backgrounds)
+        if (px[3] > 200 && px[0] > 180 && px[1] > 180 && px[2] > 180) {
+          setStageBg(`rgb(${px[0]}, ${px[1]}, ${px[2]})`);
+        }
+      } catch {
+        // CORS fallback keeps clean #f5f5f7 studio white-grey
+      }
+    };
+    img.src = src;
+  }, [slides]);
+
+  // Pure GPU transform placement (NO filter:blur! Ultra-fast 120fps)
+  const renderRing = useCallback(
+    (cur: number) => {
+      const { W, H, isMobile } = metricsRef.current;
+      if (!W || !H || N === 0) return;
+
+      const cx = W * 0.5;
+      const spacing = isMobile ? W * 0.62 : Math.min(340, W * 0.25);
+      const baseBottom = isMobile ? 16 : 20;
+
+      for (let i = 0; i < N; i++) {
+        const el = bodyRefs.current[i];
+        if (!el) continue;
+
+        const d = i - cur;
+        const absD = Math.abs(d);
+
+        // Smooth depth perspective curve
+        const x = cx + d * spacing * (1 - Math.min(0.28, absD * 0.08));
+        const bottom = baseBottom + absD * (isMobile ? 16 : 24);
+        const scale = Math.max(0.62, 1.06 - absD * 0.16);
+        const opacity = clamp(1.12 - absD * 0.34, 0, 1);
+        const zIndex = Math.round(100 - absD * 15);
+
+        el.style.transform = `translate3d(${x.toFixed(1)}px, ${(-bottom).toFixed(
+          1
+        )}px, 0) translateX(-50%) scale(${scale.toFixed(4)})`;
+        el.style.opacity = opacity.toFixed(3);
+        el.style.zIndex = String(zIndex);
+        el.style.visibility = opacity < 0.02 ? 'hidden' : 'visible';
+        el.style.pointerEvents = opacity < 0.35 ? 'none' : 'auto';
+      }
+    },
+    [N]
+  );
+
+  // On-demand smooth rAF loop (halts immediately when settled — zero idle CPU usage!)
+  const kick = useCallback(() => {
+    if (rafRef.current) return;
+    let prev = performance.now();
+
+    const step = (now: number) => {
+      const dt = Math.min(0.05, (now - prev) / 1000) || 0.016;
+      prev = now;
+
+      const diff = targetRef.current - curRef.current;
+      if (!draggingRef.current && Math.abs(diff) < 0.001) {
+        curRef.current = targetRef.current;
+        renderRing(curRef.current);
+        rafRef.current = 0;
+        return;
+      }
+
+      // Fast, responsive critically damped lerp
+      const ease = draggingRef.current ? 1 : Math.min(1, dt * 14);
+      curRef.current += diff * ease;
+      renderRing(curRef.current);
+
+      const nearest = clamp(Math.round(curRef.current), 0, N - 1);
+      if (nearest !== indexRef.current) {
+        indexRef.current = nearest;
+        setActiveIndex(nearest);
+      }
+
+      rafRef.current = requestAnimationFrame(step);
+    };
+
+    rafRef.current = requestAnimationFrame(step);
+  }, [N, renderRing]);
+
+  // Measure stage dimensions
+  const measure = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    const isMobile = window.innerWidth <= 767;
+    const modelH = Math.max(240, Math.round(rect.height - (isMobile ? 28 : 42)));
+    stage.style.setProperty('--rw-model-h', `${modelH}px`);
+    metricsRef.current = { W: rect.width, H: rect.height, isMobile };
+    renderRing(curRef.current);
+  }, [renderRing]);
+
+  useEffect(() => {
+    measure();
+    const onResize = () => measure();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+    };
+  }, [measure, slides]);
+
+  // Native Passive Scroll-Driven Runway (scrolls through all looks 0 -> N-1, then moves to next section!)
+  useEffect(() => {
+    const onScroll = () => {
+      if (window.innerWidth <= 767 || draggingRef.current) return;
+      const track = trackRef.current;
+      if (!track) return;
+
+      const rect = track.getBoundingClientRect();
+      const stickyTop = 80;
+      const span = Math.max(1, track.offsetHeight - (window.innerHeight - stickyTop));
+      const scrolled = stickyTop - rect.top;
+      const progress = clamp(scrolled / span, 0, 1);
+
+      targetRef.current = progress * Math.max(0, N - 1);
+      kick();
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [N, kick]);
+
+  // Jump to specific look (smoothly scrolls the runway on desktop, or glides directly on mobile)
+  const goToIndex = useCallback(
+    (idx: number) => {
+      const clampedIdx = clamp(idx, 0, N - 1);
+      if (window.innerWidth > 767 && trackRef.current) {
+        const trackTopDoc =
+          trackRef.current.getBoundingClientRect().top + window.scrollY - 80;
+        const span = Math.max(1, trackRef.current.offsetHeight - (window.innerHeight - 80));
+        const ratio = N > 1 ? clampedIdx / (N - 1) : 0;
+        window.scrollTo({
+          top: Math.max(0, trackTopDoc + ratio * span),
+          behavior: 'smooth',
+        });
+      } else {
+        targetRef.current = clampedIdx;
+        indexRef.current = clampedIdx;
+        setActiveIndex(clampedIdx);
+        kick();
+      }
+    },
+    [N, kick]
+  );
+
+  // Pointer Drag / Swipe on stage
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      startTarget: curRef.current,
+      active: false,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const ds = dragStartRef.current;
+    if (e.pointerType === 'mouse' && (e.buttons & 1) === 0) return;
+
+    const dx = e.clientX - ds.x;
+    const dy = e.clientY - ds.y;
+
+    if (!ds.active) {
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+        ds.active = true;
+        draggingRef.current = true;
+        setIsDraggingUI(true);
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } else {
+        return;
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
-  // Find Chevron Top from products or seed
-  const chevronProduct: Product =
-    products.find(
-      (p) => p.id === 'prod-1788716511841' || p.name.toUpperCase().includes('CHEVRON')
-    ) ||
-    INITIAL_PRODUCTS.find((p) => p.id === 'prod-1788716511841') ||
-    INITIAL_PRODUCTS[0];
+    const unit = Math.max(160, metricsRef.current.W * 0.25);
+    targetRef.current = clamp(ds.startTarget - dx / unit, 0, N - 1);
+    kick();
+  };
 
-  // Find Pants from products or seed
-  const pantsProduct: Product =
-    products.find(
-      (p) =>
-        p.id === 'prod-relaxed-denim-pants' ||
-        p.category === 'bottoms' ||
-        p.name.toUpperCase().includes('PANTS') ||
-        p.name.toUpperCase().includes('DENIM')
-    ) ||
-    INITIAL_PRODUCTS.find((p) => p.id === 'prod-relaxed-denim-pants') ||
-    INITIAL_PRODUCTS[1];
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const ds = dragStartRef.current;
+    if (!ds.active) return;
+    ds.active = false;
+    draggingRef.current = false;
+    setIsDraggingUI(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+    goToIndex(Math.round(targetRef.current));
+  };
 
-  const topHref = `/product/${chevronProduct.id}`;
-  const pantsHref = `/product/${pantsProduct.id}`;
+  const activeSlide = slides[activeIndex] || slides[0];
+  const activeProd = activeSlide.product;
+  const activePrice = Number(activeProd.discountPrice || activeProd.price || 0);
+  const scrollTrackExtraPx = Math.max(900, (N - 1) * 340);
 
   return (
-    <section className="relative bg-[#F6F3EE] overflow-hidden border-b border-[#E8E2D8]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[580px] lg:min-h-[660px] items-center gap-8 py-8 lg:py-10">
-          
-          {/* Left Column: Typography & CTA */}
-          <motion.div
-            initial={{ opacity: 0, x: isArabic ? 30 : -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="lg:col-span-5 flex flex-col justify-center space-y-6 z-10"
-          >
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#EDE3CF] border border-[#DCC9A6] text-[#B67355] text-[11px] font-sans font-semibold tracking-[0.2em] uppercase w-fit">
-              <Sparkles className="w-3.5 h-3.5" />
+    <div
+      ref={trackRef}
+      className="rw-track"
+      style={
+        {
+          height: `calc(100vh - 80px + ${scrollTrackExtraPx}px)`,
+          '--rw-stage': stageBg,
+        } as React.CSSProperties
+      }
+    >
+      <section
+        className="rw"
+        style={{ '--rw-stage': stageBg } as React.CSSProperties}
+        aria-label="ARMIA Runway Hero"
+      >
+        {/* Top Row: Exact ARMIA Hero Heading + Active Piece CTA */}
+        <div className="rw__head">
+          <div className="rw__intro">
+            <div className="rw__eyebrow">
+              <Sparkles className="w-3 h-3" />
               <span>{t.hero.tagline}</span>
             </div>
-
-            <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[#1F1F1F] leading-[1.15]">
-              {t.hero.headlinePart1} <br />
-              <span className="italic font-normal text-gold-gradient">{t.hero.headlinePart2}</span>
+            <h1 className="rw__title">
+              {t.hero.headlinePart1}{' '}
+              <span className="italic font-normal text-gold-gradient">
+                {t.hero.headlinePart2}
+              </span>
             </h1>
+            <p className="rw__sub">{t.hero.description}</p>
+          </div>
 
-            <p className="font-sans text-sm sm:text-base text-[#8E8A85] font-normal leading-relaxed max-w-md">
-              {t.hero.description}
-            </p>
-
-            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-              <Link
-                href="/collections"
-                className="bg-[#1F1F1F] text-[#DCC9A6] px-8 py-4 text-xs font-sans uppercase tracking-[0.2em] font-bold text-center hover:bg-[#B67355] hover:text-white transition-all shadow-lg flex items-center justify-center gap-3 group active:scale-[0.99]"
-              >
-                <span>{t.hero.shopCollection}</span>
-                <ArrowIcon className="w-4 h-4 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />
-              </Link>
-
-              <Link
-                href="/collections/new-in"
-                className="border border-[#1F1F1F] text-[#1F1F1F] px-8 py-4 text-xs font-sans uppercase tracking-[0.2em] font-medium text-center hover:bg-[#1F1F1F] hover:text-[#DCC9A6] transition-all"
-              >
-                {t.hero.newArrivals}
-              </Link>
+          <div className="rw__active-meta">
+            <div className="rw__active-info">
+              <span className="rw__active-cat">
+                0{activeIndex + 1} / 0{N} •{' '}
+                {isArabic && activeProd.categoryArabic
+                  ? activeProd.categoryArabic
+                  : activeProd.category}
+              </span>
+              <span className="rw__active-name">
+                {isArabic ? activeSlide.labelArabic : activeSlide.label}
+              </span>
+              <span className="rw__active-price">
+                EGP {activePrice.toLocaleString('en-EG')}
+              </span>
             </div>
-          </motion.div>
 
-          {/* Right Column: Visual Boutique Editorial Showcase with Interactive Look Hotspots */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.9, delay: 0.15 }}
-            className="lg:col-span-7 relative h-[520px] sm:h-[600px] lg:h-[680px] w-full flex items-center justify-center select-none"
-            ref={containerRef}
-          >
-            {/* Soft decorative background frame */}
-            <div className="absolute inset-4 sm:inset-6 bg-[#EBE5DA] rounded-sm -rotate-1 border border-[#DCC9A6]/40" />
-
-            {/* High-res Editorial Image Container */}
-            <div className="relative w-full h-full rounded-sm overflow-hidden shadow-2xl border border-[#E8E2D8] bg-white group">
-              <Image
-                src="/images/hero-editorial.jpg"
-                alt="ARMIA Boutique Signature Look"
-                fill
-                priority
-                sizes="(max-width: 1024px) 100vw, 55vw"
-                className="object-cover object-top sm:object-center transform transition-transform duration-1000 group-hover:scale-[1.02]"
-              />
-
-              {/* Gentle luxury vignette overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none" />
-
-              {/* Editorial "Shop The Look" Top Badge */}
-              <div className="absolute top-4 sm:top-6 left-4 sm:left-6 z-20 pointer-events-none">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#1F1F1F]/80 backdrop-blur-md border border-[#DCC9A6]/50 rounded text-white shadow-lg">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#DCC9A6] opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#DCC9A6]"></span>
-                  </span>
-                  <span className="text-[10px] font-sans font-semibold tracking-[0.2em] uppercase text-[#DCC9A6]">
-                    {isArabic ? 'تسوقي الإطلالة التفاعلية' : 'Shop The Look • Tap Pieces'}
-                  </span>
-                </div>
-              </div>
-
-              {/* ========================================================= */}
-              {/* HOTSPOT 1: CHEVRON TOP (Chest / Torso area: Y 33%, X 50%) */}
-              {/* ========================================================= */}
-              <div
-                className="absolute z-30 transform -translate-x-1/2 -translate-y-1/2"
-                style={{ top: '33%', left: '50%' }}
-              >
-                {/* Hotspot Trigger Button */}
-                <button
-                  type="button"
-                  onClick={() => setActiveHotspot(activeHotspot === 'top' ? null : 'top')}
-                  aria-label="Shop Chevron Top"
-                  className="relative group/pin p-2 focus:outline-none focus:ring-2 focus:ring-[#DCC9A6] rounded-full"
-                >
-                  {/* Glowing radiating pulse */}
-                  <span className="absolute inset-0 rounded-full bg-[#DCC9A6]/40 animate-ping" />
-                  
-                  {/* Outer circle */}
-                  <span
-                    className={`relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 transition-all duration-300 shadow-xl backdrop-blur-md ${
-                      activeHotspot === 'top'
-                        ? 'bg-[#B67355] border-white text-white scale-110 ring-4 ring-[#DCC9A6]/50'
-                        : 'bg-[#1F1F1F]/90 border-[#DCC9A6] text-[#DCC9A6] hover:bg-[#B67355] hover:text-white hover:scale-105'
-                    }`}
-                  >
-                    {activeHotspot === 'top' ? (
-                      <X className="w-4 h-4" />
-                    ) : (
-                      <Plus className="w-4 h-4 transition-transform duration-300 group-hover/pin:rotate-90" />
-                    )}
-                  </span>
-
-                  {/* Desktop Label Preview (when not expanded) */}
-                  {activeHotspot !== 'top' && (
-                    <span className="hidden sm:inline-flex absolute left-full ml-2.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-[#1F1F1F]/90 backdrop-blur-md border border-[#DCC9A6]/40 rounded text-[11px] font-sans font-medium text-[#F6F3EE] tracking-wide whitespace-nowrap shadow-md opacity-90 group-hover/pin:opacity-100 transition-opacity">
-                      {isArabic ? 'توب شيفرون' : 'Chevron Top'} • {chevronProduct.price} EGP
-                    </span>
-                  )}
-                </button>
-
-                {/* Popover Product Card: Chevron Top */}
-                <AnimatePresence>
-                  {activeHotspot === 'top' && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.22, ease: 'easeOut' }}
-                      className="absolute top-11 sm:top-12 -left-28 sm:-left-36 w-64 sm:w-72 bg-[#1F1F1F]/95 backdrop-blur-xl border border-[#DCC9A6]/60 rounded p-4 shadow-2xl text-white z-40"
-                    >
-                      {/* Close button */}
-                      <button
-                        type="button"
-                        onClick={() => setActiveHotspot(null)}
-                        className="absolute top-3 right-3 text-[#8E8A85] hover:text-[#DCC9A6] transition-colors p-1"
-                        aria-label="Close"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-
-                      {/* Category */}
-                      <span className="text-[10px] text-[#DCC9A6] uppercase tracking-[0.2em] font-sans font-semibold block mb-1">
-                        {isArabic ? chevronProduct.categoryArabic || 'بلوزات وتوبات' : 'Tops & Blouses'}
-                      </span>
-
-                      {/* Product Name */}
-                      <h4 className="font-serif text-base font-semibold text-white leading-snug">
-                        {isArabic && chevronProduct.nameArabic ? chevronProduct.nameArabic : chevronProduct.name}
-                      </h4>
-
-                      {/* Price & Stock */}
-                      <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-base font-serif font-bold text-gold-gradient">
-                          {chevronProduct.discountPrice || chevronProduct.price} EGP
-                        </span>
-                        {chevronProduct.discountPrice && (
-                          <span className="text-xs text-[#8E8A85] line-through">
-                            {chevronProduct.price} EGP
-                          </span>
-                        )}
-                        <span className="text-[10px] font-sans text-emerald-400 font-medium ml-auto">
-                          {isArabic ? 'متوفر للتسليم' : 'In Stock'}
-                        </span>
-                      </div>
-
-                      {/* Specs micro-tag */}
-                      <p className="text-[11px] font-sans text-[#A8A49E] mt-1 line-clamp-1">
-                        {isArabic
-                          ? 'كتان قطني فاخر • قصة عصرية بدون أكمام'
-                          : '100% Textured Linen • Sleeveless Cut'}
-                      </p>
-
-                      {/* CTA: Shop Now */}
-                      <div className="mt-4 pt-3 border-t border-[#DCC9A6]/20">
-                        <Link
-                          href={topHref}
-                          className="w-full bg-[#B67355] text-white hover:bg-[#DCC9A6] hover:text-[#1F1F1F] py-2.5 px-4 text-xs font-sans uppercase tracking-[0.2em] font-bold rounded flex items-center justify-center gap-2 transition-all shadow-md group/btn"
-                        >
-                          <ShoppingBag className="w-3.5 h-3.5" />
-                          <span>{isArabic ? 'تسوقي التوب الآن' : 'Shop Top Now'}</span>
-                          <ArrowIcon className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1 rtl:group-hover/btn:-translate-x-1" />
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* ========================================================= */}
-              {/* HOTSPOT 2: RELAXED PANTS (Legs / Thigh area: Y 62%, X 46%) */}
-              {/* ========================================================= */}
-              <div
-                className="absolute z-30 transform -translate-x-1/2 -translate-y-1/2"
-                style={{ top: '62%', left: '46%' }}
-              >
-                {/* Hotspot Trigger Button */}
-                <button
-                  type="button"
-                  onClick={() => setActiveHotspot(activeHotspot === 'pants' ? null : 'pants')}
-                  aria-label="Shop Relaxed Denim Pants"
-                  className="relative group/pin p-2 focus:outline-none focus:ring-2 focus:ring-[#DCC9A6] rounded-full"
-                >
-                  {/* Glowing radiating pulse */}
-                  <span className="absolute inset-0 rounded-full bg-[#DCC9A6]/40 animate-ping" />
-                  
-                  {/* Outer circle */}
-                  <span
-                    className={`relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 transition-all duration-300 shadow-xl backdrop-blur-md ${
-                      activeHotspot === 'pants'
-                        ? 'bg-[#B67355] border-white text-white scale-110 ring-4 ring-[#DCC9A6]/50'
-                        : 'bg-[#1F1F1F]/90 border-[#DCC9A6] text-[#DCC9A6] hover:bg-[#B67355] hover:text-white hover:scale-105'
-                    }`}
-                  >
-                    {activeHotspot === 'pants' ? (
-                      <X className="w-4 h-4" />
-                    ) : (
-                      <Plus className="w-4 h-4 transition-transform duration-300 group-hover/pin:rotate-90" />
-                    )}
-                  </span>
-
-                  {/* Desktop Label Preview (when not expanded) */}
-                  {activeHotspot !== 'pants' && (
-                    <span className="hidden sm:inline-flex absolute left-full ml-2.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-[#1F1F1F]/90 backdrop-blur-md border border-[#DCC9A6]/40 rounded text-[11px] font-sans font-medium text-[#F6F3EE] tracking-wide whitespace-nowrap shadow-md opacity-90 group-hover/pin:opacity-100 transition-opacity">
-                      {isArabic ? 'بنطال جينز' : 'Relaxed Denim Pants'} • {pantsProduct.price} EGP
-                    </span>
-                  )}
-                </button>
-
-                {/* Popover Product Card: Relaxed Denim Pants */}
-                <AnimatePresence>
-                  {activeHotspot === 'pants' && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.22, ease: 'easeOut' }}
-                      className="absolute bottom-11 sm:bottom-12 -left-28 sm:-left-36 w-64 sm:w-72 bg-[#1F1F1F]/95 backdrop-blur-xl border border-[#DCC9A6]/60 rounded p-4 shadow-2xl text-white z-40"
-                    >
-                      {/* Close button */}
-                      <button
-                        type="button"
-                        onClick={() => setActiveHotspot(null)}
-                        className="absolute top-3 right-3 text-[#8E8A85] hover:text-[#DCC9A6] transition-colors p-1"
-                        aria-label="Close"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-
-                      {/* Category */}
-                      <span className="text-[10px] text-[#DCC9A6] uppercase tracking-[0.2em] font-sans font-semibold block mb-1">
-                        {isArabic ? pantsProduct.categoryArabic || 'بناطيل وتنانير' : 'Bottoms & Trousers'}
-                      </span>
-
-                      {/* Product Name */}
-                      <h4 className="font-serif text-base font-semibold text-white leading-snug">
-                        {isArabic && pantsProduct.nameArabic ? pantsProduct.nameArabic : pantsProduct.name}
-                      </h4>
-
-                      {/* Price & Stock */}
-                      <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-base font-serif font-bold text-gold-gradient">
-                          {pantsProduct.discountPrice || pantsProduct.price} EGP
-                        </span>
-                        {pantsProduct.discountPrice && (
-                          <span className="text-xs text-[#8E8A85] line-through">
-                            {pantsProduct.price} EGP
-                          </span>
-                        )}
-                        <span className="text-[10px] font-sans text-emerald-400 font-medium ml-auto">
-                          {isArabic ? 'متوفر للتسليم' : 'In Stock'}
-                        </span>
-                      </div>
-
-                      {/* Specs micro-tag */}
-                      <p className="text-[11px] font-sans text-[#A8A49E] mt-1 line-clamp-1">
-                        {isArabic
-                          ? 'دنيم قطني فاخر مغسول • خصر عالي مريح'
-                          : '100% Premium Washed Denim • High-Rise Cut'}
-                      </p>
-
-                      {/* CTA: Shop Now */}
-                      <div className="mt-4 pt-3 border-t border-[#DCC9A6]/20">
-                        <Link
-                          href={pantsHref}
-                          className="w-full bg-[#B67355] text-white hover:bg-[#DCC9A6] hover:text-[#1F1F1F] py-2.5 px-4 text-xs font-sans uppercase tracking-[0.2em] font-bold rounded flex items-center justify-center gap-2 transition-all shadow-md group/btn"
-                        >
-                          <ShoppingBag className="w-3.5 h-3.5" />
-                          <span>{isArabic ? 'تسوقي البنطال الآن' : 'Shop Pants Now'}</span>
-                          <ArrowIcon className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1 rtl:group-hover/btn:-translate-x-1" />
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Floating Bottom Luxury Showcase Bar */}
-              <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 right-4 sm:right-6 bg-[#1F1F1F]/90 backdrop-blur-md p-3.5 sm:p-4 border border-[#DCC9A6]/40 rounded text-white shadow-2xl z-20">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  {/* Look Info */}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-[#DCC9A6] uppercase tracking-[0.25em] font-sans font-semibold">
-                        {isArabic ? 'إطلالة الأتليه الحصرية' : 'Signature Atelier Look'}
-                      </span>
-                    </div>
-                    <p className="font-serif text-sm font-semibold truncate text-white">
-                      {isArabic ? 'طقم التوب والبنطال المتكامل' : 'Chevron Top & Relaxed Denim Pants'}
-                    </p>
-                  </div>
-
-                  {/* Interactive Quick Pieces Pills */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setActiveHotspot(activeHotspot === 'top' ? null : 'top')}
-                      className={`text-[11px] font-sans px-2.5 py-1.5 rounded border transition-all ${
-                        activeHotspot === 'top'
-                          ? 'bg-[#DCC9A6] text-[#1F1F1F] border-[#DCC9A6] font-semibold'
-                          : 'bg-white/10 text-[#F6F3EE] border-[#DCC9A6]/40 hover:bg-[#DCC9A6]/20'
-                      }`}
-                    >
-                      {isArabic ? 'التوب' : 'Top'} ({chevronProduct.price} EGP)
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setActiveHotspot(activeHotspot === 'pants' ? null : 'pants')}
-                      className={`text-[11px] font-sans px-2.5 py-1.5 rounded border transition-all ${
-                        activeHotspot === 'pants'
-                          ? 'bg-[#DCC9A6] text-[#1F1F1F] border-[#DCC9A6] font-semibold'
-                          : 'bg-white/10 text-[#F6F3EE] border-[#DCC9A6]/40 hover:bg-[#DCC9A6]/20'
-                      }`}
-                    >
-                      {isArabic ? 'البنطال' : 'Pants'} ({pantsProduct.price} EGP)
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsSetModalOpen(true)}
-                      className="bg-[#DCC9A6] text-[#1F1F1F] hover:bg-[#B67355] hover:text-white px-3.5 py-1.5 text-[11px] font-sans uppercase tracking-wider font-bold rounded flex items-center gap-1.5 transition-all shadow"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      <span>{isArabic ? 'تسوق الطقم' : 'Shop Set'}</span>
-                      <ArrowIcon className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
+            <Link href={`/product/${activeProd.id}`} className="rw__shop-btn">
+              <span>{isArabic ? 'عرض القطعة' : 'View Piece'}</span>
+              <ArrowIcon className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
-      </div>
 
-      {/* Interactive Size Selection Modal for the 2-Piece Set */}
-      <ShopSetModal
-        isOpen={isSetModalOpen}
-        onClose={() => setIsSetModalOpen(false)}
-        topProduct={chevronProduct}
-        pantsProduct={pantsProduct}
-      />
-    </section>
+        {/* Full-Width 3D Runway Stage */}
+        <div
+          ref={stageRef}
+          tabIndex={0}
+          role="region"
+          aria-roledescription="carousel"
+          aria-label="ARMIA Runway — scroll or drag to explore"
+          className={`rw__stage ${isDraggingUI ? 'is-dragging' : ''}`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowRight') goToIndex(activeIndex + 1);
+            else if (e.key === 'ArrowLeft') goToIndex(activeIndex - 1);
+          }}
+        >
+          <div className="rw__actors">
+            {slides.map((slide, i) => (
+              <div
+                key={slide.id}
+                ref={(el) => {
+                  bodyRefs.current[i] = el;
+                }}
+                className="rw__model"
+              >
+                <span className="rw__shadow" />
+                <div className="rw__figure">
+                  <div className="rw__art">
+                    <img
+                      src={slide.image}
+                      alt={slide.label}
+                      draggable={false}
+                      loading={i < 3 ? 'eager' : 'lazy'}
+                      fetchPriority={i === 0 ? 'high' : 'auto'}
+                      decoding="async"
+                    />
+                    <button
+                      type="button"
+                      className="rw__hit"
+                      aria-label={`View ${slide.label}`}
+                      onClick={() => {
+                        if (i === activeIndex) {
+                          router.push(`/product/${slide.product.id}`);
+                        } else {
+                          goToIndex(i);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom Progress Bar & Controls */}
+        <div className="rw__controls">
+          <button
+            type="button"
+            className="rw__icon"
+            onClick={() => goToIndex(activeIndex - 1)}
+            disabled={activeIndex === 0}
+            aria-label="Previous look"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+
+          <div className="rw__ticks">
+            {slides.map((slide, i) => {
+              const isCurrent = i === activeIndex;
+              const isPast = i < activeIndex;
+              return (
+                <button
+                  key={slide.id}
+                  type="button"
+                  className={`rw__tick ${isPast ? 'is-past' : ''}`}
+                  aria-current={isCurrent ? 'true' : 'false'}
+                  onClick={() => goToIndex(i)}
+                >
+                  <span className="rw__tick-bar" />
+                  <span className="rw__tick-label">
+                    {`0${i + 1}`}
+                    <span className="rw__tick-name">
+                      &nbsp;&nbsp;{isArabic ? slide.labelArabic : slide.label}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            className="rw__icon"
+            onClick={() => goToIndex(activeIndex + 1)}
+            disabled={activeIndex === N - 1}
+            aria-label="Next look"
+          >
+            <ArrowRight className="w-4 h-4" />
+          </button>
+
+          <span className="rw__scroll-hint">
+            {isArabic ? 'مرّري للاستكشاف ↓' : 'Scroll to explore ↓'}
+          </span>
+        </div>
+      </section>
+    </div>
   );
 }
-
