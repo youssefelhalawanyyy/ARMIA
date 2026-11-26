@@ -281,7 +281,7 @@ export default function ProductDetailPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F6F3EE]">
+    <div className="min-h-screen flex flex-col bg-[#F2F3F6]">
       <Navbar />
 
       {/* Primary Full-Viewport 360° Editorial Product Showcase */}

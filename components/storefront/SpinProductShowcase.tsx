@@ -104,7 +104,7 @@ export default function SpinProductShowcase({
   const [isDraggingUI, setIsDraggingUI] = useState<boolean>(false);
   const [activeLook, setActiveLook] = useState<number>(0);
   const [addedAnim, setAddedAnim] = useState<boolean>(false);
-  const [bgColor, setBgColor] = useState<string>('#F6F3EE');
+  const [bgColor, setBgColor] = useState<string>('#F2F3F6');
   const [activeHotspotMobile, setActiveHotspotMobile] = useState<number | null>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [videoThumbDataUrl, setVideoThumbDataUrl] = useState<string>('');
@@ -467,10 +467,37 @@ export default function SpinProductShowcase({
     rafRef.current = requestAnimationFrame(step);
   }, [applyAngleToDOM, hasVideo360]);
 
-  // Initial photo paint
+  // Initial photo paint + sample corner studio background color so model melts seamlessly into stage
   useEffect(() => {
     if (!hasVideo360) {
       applyAngleToDOM(angRef.current);
+
+      const src = productImages[0];
+      if (src && typeof window !== 'undefined') {
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const cv = document.createElement('canvas');
+            cv.width = 16;
+            cv.height = 16;
+            const ctx = cv.getContext('2d');
+            if (!ctx) return;
+            ctx.drawImage(img, 0, 0, 16, 16);
+            const p1 = ctx.getImageData(1, 1, 1, 1).data;
+            const p2 = ctx.getImageData(14, 1, 1, 1).data;
+            const r = Math.round((p1[0] + p2[0]) / 2);
+            const g = Math.round((p1[1] + p2[1]) / 2);
+            const b = Math.round((p1[2] + p2[2]) / 2);
+            if (p1[3] > 200 && r > 175 && g > 175 && b > 175) {
+              setBgColor(`rgb(${r}, ${g}, ${b})`);
+            }
+          } catch {
+            // CORS fallback keeps #F2F3F6
+          }
+        };
+        img.src = src;
+      }
     }
     return () => {
       if (rafRef.current) {
