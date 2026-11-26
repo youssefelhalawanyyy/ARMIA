@@ -113,7 +113,7 @@ export default function HeroSection({ products = [] }: HeroSectionProps) {
       if (!W || !H || N === 0) return;
 
       const cx = W * 0.5;
-      const spacing = isMobile ? W * 0.62 : Math.min(340, W * 0.25);
+      const spacing = isMobile ? W * 0.72 : Math.min(340, W * 0.25);
       const baseBottom = isMobile ? 16 : 20;
 
       for (let i = 0; i < N; i++) {
@@ -385,7 +385,7 @@ export default function HeroSection({ products = [] }: HeroSectionProps) {
                       src={slide.image}
                       alt={slide.label}
                       draggable={false}
-                      loading={i < 3 ? 'eager' : 'lazy'}
+                      loading={i < 2 ? 'eager' : 'lazy'}
                       fetchPriority={i === 0 ? 'high' : 'auto'}
                       decoding="async"
                     />

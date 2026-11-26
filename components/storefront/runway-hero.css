@@ -371,6 +371,24 @@
   .rw__stage {
     height: 54vh;
     min-height: 360px;
+    background: var(--rw-stage);
+  }
+
+  .rw__model {
+    will-change: auto;
+    backface-visibility: visible;
+    mix-blend-mode: normal;
+  }
+
+  .rw__art {
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .rw__art img {
+    mix-blend-mode: multiply;
+    filter: brightness(1.07) contrast(1.07);
   }
 
   .rw__controls {
