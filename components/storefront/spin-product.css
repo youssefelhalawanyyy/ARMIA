@@ -14,6 +14,8 @@
 
   position: relative;
   width: 100%;
+  max-width: 100vw;
+  overflow-x: clip;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
@@ -147,16 +149,6 @@
   height: 100%;
   overflow: hidden;
   mix-blend-mode: multiply;
-  -webkit-mask-image: radial-gradient(
-    ellipse 68% 86% at 50% 48%,
-    #000 64%,
-    transparent 99%
-  );
-  mask-image: radial-gradient(
-    ellipse 68% 86% at 50% 48%,
-    #000 64%,
-    transparent 99%
-  );
 }
 
 .spin-video,
@@ -166,16 +158,14 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   display: block;
   pointer-events: none;
 }
 
 .spin-photo-layer {
-  will-change: transform, opacity;
   backface-visibility: hidden;
-  filter: brightness(1.07) contrast(1.07);
 }
 
 /* Degree Readout */
@@ -782,36 +772,53 @@
 .spin-mobile {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: clip;
   background: var(--bg);
-  padding: 12px 14px calc(32px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 16px calc(92px + env(safe-area-inset-bottom, 0px));
   gap: 14px;
 }
 
 .spin-mobile-stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 4;
-  max-height: 58vh;
+  height: 50vh;
+  min-height: 320px;
+  max-height: 460px;
   margin: 0 auto;
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-y;
+}
+
+.spin-mobile .spin-look-btn,
+.spin-mobile .spin-look-media {
+  width: 48px;
+  height: 48px;
+}
+
+.spin-mobile .spin-tip {
+  width: min(175px, 44vw);
+  padding: 10px 12px;
+  font-size: 10px;
 }
 
 .spin-mobile-card {
   background: var(--card);
-  padding: 24px 20px;
+  padding: 20px 18px;
   contain: layout style;
+  border-radius: 2px;
   clip-path: polygon(
     0 0,
-    100px 0,
-    110px 6px,
+    92px 0,
+    100px 6px,
     100% 6px,
     100% calc(100% - 6px),
-    calc(100% - 140px) calc(100% - 6px),
-    calc(100% - 150px) 100%,
-    8px 100%,
-    8px 90px,
-    0 82px
+    calc(100% - 120px) calc(100% - 6px),
+    calc(100% - 128px) 100%,
+    6px 100%,
+    6px 76px,
+    0 68px
   );
 }
 

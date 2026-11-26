@@ -1097,6 +1097,7 @@ export default function SpinProductShowcase({
               src={src}
               alt={`${product.name} angle ${idx + 1}`}
               draggable={false}
+              loading={idx === 0 ? 'eager' : 'lazy'}
               decoding="async"
               fetchPriority={idx === 0 ? 'high' : 'auto'}
               className="spin-photo-layer"

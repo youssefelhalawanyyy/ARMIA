@@ -72,20 +72,14 @@ export default function ProductDetailPage() {
         setSelectedSize((prev) => prev || (data.sizes?.[0] ?? ''));
         setLoading(false);
 
-        getProducts(data.category).then((related) => {
-          if (!active) return;
-          const availableRelated = related.filter(
-            (p) => p.id !== data.id && (p.stockQuantity ?? 0) > 0
-          );
-          setRelatedProducts(availableRelated.slice(0, 4));
-        });
-
         getProducts('all').then((all) => {
           if (!active) return;
           const availableAll = all.filter(
             (p) => p.id !== data.id && (p.stockQuantity ?? 0) > 0
           );
           setAllAvailableProducts(availableAll);
+          const availableRelated = availableAll.filter((p) => p.category === data.category);
+          setRelatedProducts(availableRelated.slice(0, 4));
         });
       } else {
         setLoading(false);
