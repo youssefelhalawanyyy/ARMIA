@@ -184,6 +184,9 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* Horizontal-only edge feather: keeps head & shoes 100% uncut */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
 
 .rw__art img {
@@ -195,6 +198,7 @@
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
+  filter: brightness(1.04) contrast(1.04);
 }
 
 .rw__hit {

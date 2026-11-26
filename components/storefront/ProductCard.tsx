@@ -123,7 +123,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     >
       {/* Thumbnail Container */}
       <div 
-        className="relative aspect-[3/4] w-full overflow-hidden bg-[#F6F3EE] select-none"
+        className="relative aspect-[3/4] w-full overflow-hidden bg-[#F2F3F6] select-none"
         onTouchStart={handleCardTouchStart}
         onTouchMove={handleCardTouchMove}
         onTouchEnd={handleCardTouchEnd}
@@ -144,7 +144,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             alt={product.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover object-center transition-all duration-700 group-hover:scale-105"
+            className="object-contain object-center mix-blend-multiply brightness-[1.04] contrast-[1.04] transition-all duration-700 group-hover:scale-105"
           />
         </Link>
 

@@ -126,7 +126,7 @@
   background: #FAF8F4;
 }
 
-/* Turntable Stage */
+/* Turntable Stage — NO z-index so .spin-media-mask multiplies directly into .spin-art background */
 .spin-stage {
   position: absolute;
   left: 480px;
@@ -135,7 +135,6 @@
   height: 810px;
   cursor: grab;
   touch-action: none;
-  z-index: 10;
 }
 
 .spin-stage.dragging {
@@ -149,6 +148,9 @@
   height: 100%;
   overflow: hidden;
   mix-blend-mode: multiply;
+  /* Horizontal-only edge feather: never crops head or shoes */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
 
 .spin-video,
@@ -166,6 +168,7 @@
 
 .spin-photo-layer {
   backface-visibility: hidden;
+  filter: brightness(1.04) contrast(1.04);
 }
 
 /* Degree Readout */
