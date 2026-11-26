@@ -407,57 +407,6 @@ export default function HeroSection({ products = [] }: HeroSectionProps) {
             ))}
           </div>
         </div>
-
-        {/* Bottom Progress Bar & Controls */}
-        <div className="rw__controls">
-          <button
-            type="button"
-            className="rw__icon"
-            onClick={() => goToIndex(activeIndex - 1)}
-            disabled={activeIndex === 0}
-            aria-label="Previous look"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-
-          <div className="rw__ticks">
-            {slides.map((slide, i) => {
-              const isCurrent = i === activeIndex;
-              const isPast = i < activeIndex;
-              return (
-                <button
-                  key={slide.id}
-                  type="button"
-                  className={`rw__tick ${isPast ? 'is-past' : ''}`}
-                  aria-current={isCurrent ? 'true' : 'false'}
-                  onClick={() => goToIndex(i)}
-                >
-                  <span className="rw__tick-bar" />
-                  <span className="rw__tick-label">
-                    {`0${i + 1}`}
-                    <span className="rw__tick-name">
-                      &nbsp;&nbsp;{isArabic ? slide.labelArabic : slide.label}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            type="button"
-            className="rw__icon"
-            onClick={() => goToIndex(activeIndex + 1)}
-            disabled={activeIndex === N - 1}
-            aria-label="Next look"
-          >
-            <ArrowRight className="w-4 h-4" />
-          </button>
-
-          <span className="rw__scroll-hint">
-            {isArabic ? 'مرّري للاستكشاف ↓' : 'Scroll to explore ↓'}
-          </span>
-        </div>
       </section>
     </div>
   );
